@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distribution de dossiers par gestionnaire</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 30px; }
+        h1 { color: #2c3e50; margin-bottom: 25px; font-size: 22px; }
+
+        .card { background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+        label { display: block; font-weight: bold; color: #555; margin-bottom: 6px; margin-top: 14px; }
+        input[type="file"], input[type="number"] { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+
+        .mode-tabs { display: flex; gap: 10px; margin: 15px 0; }
+        .mode-tab { flex: 1; padding: 10px; text-align: center; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; color: #777; transition: all 0.2s; }
+        .mode-tab.active { border-color: #4CAF50; background: #f0fff0; color: #4CAF50; }
+        .mode-panel { display: none; }
+        .mode-panel.active { display: block; }
+
+        .btn        { display: inline-block; padding: 11px 22px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: bold; }
+        .btn:hover  { background: #43a047; }
+        .btn-danger { background: #e53935; }
+        .btn-danger:hover { background: #b71c1c; }
+        .btn-pdf    { background: #1565C0; }
+        .btn-pdf:hover { background: #0d47a1; }
+        .btns-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+        /* Gestionnaires */
+        .managers-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .manager-item { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; border: 2px solid #ddd; cursor: pointer; transition: all 0.2s; user-select: none; background: white; min-width: 130px; }
+        .manager-item:hover { border-color: #4CAF50; background: #f9fff9; }
+        .manager-item.selected { border-color: #4CAF50; background: #e8f5e9; color: #2e7d32; font-weight: bold; }
+        .manager-item.grise { opacity: 0.35; pointer-events: none; }
+        .manager-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #4CAF50; }
+
+        .managers-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+        .btn-valider-gest  { padding: 9px 22px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn-valider-gest:hover { background: #43a047; }
+        .btn-modifier-gest { padding: 9px 22px; background: #607d8b; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; display: none; }
+        .btn-modifier-gest:hover { background: #455a64; }
+        .selection-info    { font-size: 13px; color: #777; margin-top: 6px; }
+        .selection-validee { font-size: 13px; color: #2e7d32; font-weight: bold; margin-top: 6px; background: #e8f5e9; padding: 6px 12px; border-radius: 6px; display: none; }
+
+        .cible-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+        .cible-row label { margin: 0; font-weight: normal; color: #555; font-size: 14px; }
+        #cible-gest-select { width: auto; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+
+        /* Stats */
+        .stats-bandeau { display: none; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: stretch; }
+        .stat-card { min-width: 70px; background: white; border-radius: 8px; padding: 8px 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.07); }
+        .stat-card .num { font-size: 20px; font-weight: bold; }
+        .stat-card .lbl { font-size: 11px; color: #999; margin-top: 2px; }
+        .stat-total { min-width: 80px; }
+        .stat-sep { width: 1px; background: #e0e0e0; align-self: stretch; margin: 0 4px; flex-shrink: 0; }
+        .stat-group { display: flex; flex-direction: column; gap: 4px; }
+        .stat-group-label { font-size: 10px; font-weight: bold; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; padding-left: 4px; }
+        .stat-group-cards { display: flex; gap: 6px; }
+
+        /* Filtres */
+        .filtres-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 14px; flex-wrap: wrap; }
+        .filtres { display: flex; gap: 8px; flex-wrap: wrap; }
+        .filtre-btn { padding: 6px 14px; border-radius: 20px; border: 2px solid #ddd; cursor: pointer; font-size: 13px; background: white; font-weight: bold; color: #777; transition: all 0.2s; }
+        .filtre-btn.active { color: white; border-color: transparent; }
+        .filtre-btn[data-filtre="TOUS"].active  { background: #607d8b; }
+        .filtre-btn[data-filtre="AUTO"].active  { background: #2196F3; }
+        .filtre-btn[data-filtre="MRH"].active   { background: #9C27B0; }
+        .filtre-btn[data-filtre="MAT"].active   { background: #42a5f5; }
+        .filtre-btn[data-filtre="BDG"].active   { background: #FF9800; }
+        .filtre-btn[data-filtre="VOL"].active   { background: #f44336; }
+        .filtre-btn[data-filtre="DDE"].active   { background: #00BCD4; }
+        .filtre-btn[data-filtre="AUTRE"].active   { background: #607d8b; }
+        .filtre-btn[data-filtre="MIA"].active     { background: #0288D1; }
+        .filtre-btn[data-filtre="OPTINEO"].active { background: #FF6F00; }
+        .filtre-sep { width: 1px; background: #ddd; height: 28px; display: inline-block; margin: 0 6px; vertical-align: middle; flex-shrink: 0; }
+
+        #onglets-gestionnaires { display: none; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
+        .gest-separator { width: 1px; background: #ccc; height: 26px; display: inline-block; margin: 0 4px; }
+        .onglet-gest { padding: 6px 12px; border-radius: 20px; border: 2px solid #ddd; cursor: pointer; font-size: 13px; font-weight: bold; color: #777; background: white; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+        .onglet-gest:hover { border-color: #aaa; }
+        .onglet-gest.active { background: #2c3e50; color: white; border-color: #2c3e50; }
+        .onglet-gest .nb-badge { background: #eee; color: #999; border-radius: 10px; padding: 1px 6px; font-size: 11px; }
+        .onglet-gest.active .nb-badge { background: rgba(255,255,255,0.25); color: white; }
+        .btn-desattr { font-size: 10px; background: #ef5350; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .btn-desattr:hover { background: #b71c1c; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #4CAF50; color: white; padding: 11px 12px; text-align: left; font-size: 14px; }
+        td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        tr:hover td { background: #fafafa; }
+        tr.hidden-row { display: none; }
+        tr.locked-row td { background: #f5f5f5; color: #888; }
+
+        .checkbox-col { width: 40px; text-align: center; }
+
+        .badge { padding: 3px 9px; border-radius: 10px; font-size: 12px; font-weight: bold; color: white; }
+        .badge-AUTO  { background: #2196F3; } .badge-MRH   { background: #9C27B0; }
+        .badge-MAT   { background: #42a5f5; } .badge-BDG   { background: #FF9800; }
+        .badge-VOL   { background: #f44336; } .badge-DDE   { background: #00BCD4; }
+        .badge-AUTRE   { background: #607d8b; }
+        .badge-OPTINEO { background: #FF6F00; }
+        .badge-MIA     { background: #0288D1; }
+
+        .tag-attribue { padding: 3px 9px; border-radius: 10px; font-size: 12px; background: #4CAF50; color: white; }
+        .tag-libre    { padding: 3px 9px; border-radius: 10px; font-size: 12px; background: #ff9800; color: white; }
+        .btn-unlock   { padding: 3px 10px; font-size: 12px; background: #607d8b; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 6px; }
+        .btn-unlock:hover { background: #37474f; }
+
+        .info-box { background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 10px 15px; border-radius: 4px; margin-bottom: 15px; font-size: 14px; color: #2e7d32; }
+
+        /* Barre export PDF */
+        #export-bar { display: none; background: #1565C0; border-radius: 10px; padding: 14px 20px; margin-bottom: 16px; align-items: center; gap: 15px; flex-wrap: wrap; }
+        #export-bar span { color: white; font-weight: bold; font-size: 14px; }
+
+        .export-gest-list { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-export-all { padding: 7px 16px; background: white; color: #1565C0; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .btn-export-all:hover { background: #e3f2fd; }
+        .btn-export-one { padding: 7px 14px; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .btn-export-one:hover { background: rgba(255,255,255,0.3); }
+
+        #barre-action { display: none; position: sticky; bottom: 20px; background: #2c3e50; color: white; padding: 14px 20px; border-radius: 10px; margin-top: 15px; align-items: center; gap: 15px; flex-wrap: wrap; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        #barre-action select { width: auto; padding: 8px 12px; border-radius: 6px; border: none; font-size: 14px; }
+        .btn-attribuer { padding: 9px 22px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn-attribuer:hover { background: #43a047; }
+        .btn-action { padding: 9px 16px; background: #607d8b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .btn-desel  { padding: 9px 16px; background: #c0392b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        #nb-selectionnes { font-weight: bold; color: #a5d6a7; font-size: 14px; white-space: nowrap; }
+
+        /* Modales */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: white; border-radius: 12px; padding: 28px 32px; max-width: 430px; width: 90%; box-shadow: 0 8px 30px rgba(0,0,0,0.2); text-align: center; }
+        .modal-box h3 { margin-bottom: 12px; font-size: 18px; }
+        .modal-box p  { color: #555; margin-bottom: 22px; font-size: 14px; line-height: 1.6; }
+        .modal-btns   { display: flex; gap: 12px; justify-content: center; }
+        .modal-btn-oui { padding: 10px 28px; background: #ef5350; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .modal-btn-oui:hover { background: #c62828; }
+        .modal-btn-non { padding: 10px 28px; background: #607d8b; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .modal-btn-non:hover { background: #455a64; }
+    </style>
+</head>
+<body>
+
+<h1>📂 Distribution de dossiers par gestionnaire</h1>
+
+<!-- Modales -->
+<div class="modal-overlay" id="modal-unlock">
+    <div class="modal-box">
+        <h3 style="color:#c62828;">🔓 Déverrouiller ce dossier ?</h3>
+        <p id="modal-unlock-msg"></p>
+        <div class="modal-btns">
+            <button class="modal-btn-oui" onclick="confirmerDeverrouillage()">✔ Oui</button>
+            <button class="modal-btn-non" onclick="fermerModal('modal-unlock')">✖ Annuler</button>
+        </div>
+    </div>
+</div>
+<div class="modal-overlay" id="modal-reset">
+    <div class="modal-box">
+        <h3 style="color:#e53935;">⚠️ Remise à zéro</h3>
+        <p>Êtes-vous sûr de vouloir <strong>annuler toutes les attributions</strong> ?<br>
+        <span style="color:#e53935;font-size:13px;">Cette action est irréversible.</span></p>
+        <div class="modal-btns">
+            <button class="modal-btn-oui" onclick="confirmerReset()">✔ Oui</button>
+            <button class="modal-btn-non" onclick="fermerModal('modal-reset')">✖ Annuler</button>
+        </div>
+    </div>
+</div>
+<div class="modal-overlay" id="modal-desattr">
+    <div class="modal-box">
+        <h3 style="color:#e65100;">Désattribuer un gestionnaire</h3>
+        <p id="modal-desattr-msg"></p>
+        <div class="modal-btns">
+            <button class="modal-btn-oui" onclick="confirmerDesattr()" style="background:#FF9800;">✔ Oui</button>
+            <button class="modal-btn-non" onclick="fermerModal('modal-desattr')">✖ Annuler</button>
+        </div>
+    </div>
+</div>
+
+<!-- ÉTAPE 1 -->
+<div class="card">
+    <label>📁 Étape 1 — Sélectionnez le fichier Excel</label>
+    <input type="file" id="excel-file" accept=".xlsx,.xls">
+    <small style="color:#999;font-size:12px;">Colonne A : Réf. sinistre &nbsp;|&nbsp; Colonne B : Réf. contrat &nbsp;|&nbsp; Colonne C : Nature</small>
+    <br><br>
+    <button class="btn" onclick="loadExcel()">📥 Charger le fichier</button>
+</div>
+
+<!-- ÉTAPE 2 -->
+<div class="card" id="step2" style="display:none;">
+    <label>👥 Étape 2 — Sélectionnez les gestionnaires</label>
+    <div class="managers-grid" id="managers-grid">
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Marie Lou"><span class="manager-name">Marie Lou</span></div>
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Julien"><span class="manager-name">Julien</span></div>
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Laura"><span class="manager-name">Laura</span></div>
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Edwige"><span class="manager-name">Edwige</span></div>
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Andy"><span class="manager-name">Andy</span></div>
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Thomas"><span class="manager-name">Thomas</span></div>
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Loris"><span class="manager-name">Loris</span></div>
+        <div class="manager-item" onclick="toggleManager(this)"><input type="checkbox" class="mgr-check" value="Julie"><span class="manager-name">Julie</span></div>
+    </div>
+    <div class="managers-actions">
+        <button class="btn-valider-gest" onclick="validerSelection()">✔ Valider la sélection</button>
+        <button class="btn-modifier-gest" id="btn-modifier-gest" onclick="modifierSelection()">✏️ Modifier la sélection</button>
+    </div>
+    <div class="selection-info"    id="selection-info">Aucun gestionnaire sélectionné.</div>
+    <div class="selection-validee" id="selection-validee"></div>
+
+    <label style="margin-top:22px;">⚙️ Étape 3 — Mode de distribution</label>
+    <div class="mode-tabs">
+        <div class="mode-tab active" onclick="switchMode('manual')" id="tab-manual">✋ Manuel</div>
+        <div class="mode-tab"        onclick="switchMode('auto')"   id="tab-auto">🤖 Automatique</div>
+    </div>
+
+    <div class="mode-panel active" id="panel-manual">
+        <p style="color:#777;font-size:13px;margin-top:10px;">Attribuez chaque dossier manuellement via la barre d'action en bas.</p>
+        <div class="btns-row">
+            <button class="btn" onclick="afficherManuel()">📋 Afficher les dossiers</button>
+            <button class="btn btn-danger" onclick="demanderReset()">Remise à zéro</button>
+        </div>
+    </div>
+
+    <div class="mode-panel" id="panel-auto">
+        <label>Nombre de dossiers par gestionnaire :</label>
+        <input type="number" id="nb-par-gestionnaire" value="10" min="1" style="width:130px;">
+        <div class="cible-row">
+            <label style="font-weight:bold;color:#555;margin:0;">Attribuer à :</label>
+            <label style="font-weight:normal;"><input type="radio" name="cible" value="tous" checked onchange="majCibleSelect()"> Tous les gestionnaires</label>
+            <label style="font-weight:normal;"><input type="radio" name="cible" value="un" onchange="majCibleSelect()"> Un seul :</label>
+            <select id="cible-gest-select" disabled><option value="">-- Choisir --</option></select>
+        </div>
+        <div class="btns-row">
+            <button class="btn" onclick="distribuerAuto()">⚡ Distribuer automatiquement</button>
+            <button class="btn btn-danger" onclick="demanderReset()">Remise à zéro</button>
+        </div>
+    </div>
+</div>
+
+<!-- RÉSULTATS -->
+<div class="card" id="result-section" style="display:none;">
+    <div class="info-box" id="result-info"></div>
+
+    <!-- Barre export PDF -->
+    <div id="export-bar">
+        <span>📄 Exporter vers gestionnaire :</span>
+        <button class="btn-export-all" onclick="exporterTousPDFUnique()">📑 Tous en un seul PDF</button>
+        <div class="export-gest-list" id="export-gest-list"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bandeau" id="stats-bandeau">
+        <!-- Total -->
+        <div class="stat-card stat-total"><div class="num" id="s-total" style="color:#4CAF50">0</div><div class="lbl">Total</div></div>
+        <div class="stat-sep"></div>
+        <!-- Groupe Portefeuille -->
+        <div class="stat-group">
+            <div class="stat-group-label">Portefeuille</div>
+            <div class="stat-group-cards">
+                <div class="stat-card"><div class="num" id="s-mia"     style="color:#0288D1">0</div><div class="lbl">MIA</div></div>
+                <div class="stat-card"><div class="num" id="s-optineo" style="color:#FF6F00">0</div><div class="lbl">OPTINEO</div></div>
+            </div>
+        </div>
+        <div class="stat-sep"></div>
+        <!-- Groupe Type -->
+        <div class="stat-group">
+            <div class="stat-group-label">Type</div>
+            <div class="stat-group-cards">
+                <div class="stat-card"><div class="num" id="s-auto" style="color:#2196F3">0</div><div class="lbl">Auto</div></div>
+                <div class="stat-card"><div class="num" id="s-mrh"  style="color:#9C27B0">0</div><div class="lbl">Hab.</div></div>
+            </div>
+        </div>
+        <div class="stat-sep"></div>
+        <!-- Groupe Nature -->
+        <div class="stat-group">
+            <div class="stat-group-label">Nature</div>
+            <div class="stat-group-cards">
+                <div class="stat-card"><div class="num" id="s-mat"   style="color:#42a5f5">0</div><div class="lbl">MAT</div></div>
+                <div class="stat-card"><div class="num" id="s-bdg"   style="color:#FF9800">0</div><div class="lbl">BDG</div></div>
+                <div class="stat-card"><div class="num" id="s-vol"   style="color:#f44336">0</div><div class="lbl">VOL</div></div>
+                <div class="stat-card"><div class="num" id="s-dde"   style="color:#00BCD4">0</div><div class="lbl">DDE</div></div>
+                <div class="stat-card"><div class="num" id="s-autre" style="color:#607d8b">0</div><div class="lbl">Autre</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="filtres-row">
+        <div class="filtres">
+            <!-- Groupe 0 : Tous -->
+            <button class="filtre-btn active" data-filtre="TOUS" onclick="filtrer('TOUS')">Tous</button>
+            <span class="filtre-sep"></span>
+            <!-- Groupe 1 : Portefeuille -->
+            <button class="filtre-btn" data-filtre="MIA"     onclick="filtrer('MIA')">MIA</button>
+            <button class="filtre-btn" data-filtre="OPTINEO" onclick="filtrer('OPTINEO')">OPTINEO</button>
+            <span class="filtre-sep"></span>
+            <!-- Groupe 2 : Type contrat -->
+            <button class="filtre-btn" data-filtre="AUTO" onclick="filtrer('AUTO')">Auto</button>
+            <button class="filtre-btn" data-filtre="MRH"  onclick="filtrer('MRH')">Habitation</button>
+            <span class="filtre-sep"></span>
+            <!-- Groupe 3 : Nature / Autre -->
+            <button class="filtre-btn" data-filtre="MAT"   onclick="filtrer('MAT')">MAT</button>
+            <button class="filtre-btn" data-filtre="BDG"   onclick="filtrer('BDG')">BDG</button>
+            <button class="filtre-btn" data-filtre="VOL"   onclick="filtrer('VOL')">VOL</button>
+            <button class="filtre-btn" data-filtre="DDE"   onclick="filtrer('DDE')">DDE</button>
+            <button class="filtre-btn" data-filtre="AUTRE" onclick="filtrer('AUTRE')">Autre</button>
+        </div>
+    </div>
+    <div id="onglets-gestionnaires-row" style="display:none; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:14px;">
+        <div id="onglets-gestionnaires" style="display:flex;"></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="checkbox-col"><input type="checkbox" id="check-all" onclick="toggleTout(this)"></th>
+                <th>#</th><th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Portefeuille</th><th>Nature</th><th>Type</th><th>Gestionnaire</th><th>Statut</th><th>Traité</th>
+            </tr>
+        </thead>
+        <tbody id="dossiers-tbody"></tbody>
+    </table>
+
+    <div id="barre-action">
+        <span id="nb-selectionnes">0 dossier(s) sélectionné(s)</span>
+        <button class="btn-action" onclick="toggleTout(null)">☑ Tout sélectionner</button>
+        <select id="select-gestionnaire-action"><option value="">-- Choisir un gestionnaire --</option></select>
+        <button class="btn-attribuer" onclick="attribuerSelection()">✔ Attribuer</button>
+        <button class="btn-desel"    onclick="deselectionnerTout()">✖ Désélectionner</button>
+    </div>
+</div>
+
+<script>
+    // ╔══════════════════════════════════════════════════════╗
+    // ║         CONFIGURATION SUPABASE — À REMPLIR          ║
+    // ╠══════════════════════════════════════════════════════╣
+    // ║  1. Remplace COLLE_TON_URL_ICI par ton Project URL   ║
+    // ║     Ex: https://abcdefgh.supabase.co                 ║
+    // ║  2. Remplace COLLE_TA_CLE_ICI par ta clé anon/public ║
+    // ║     Ex: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...     ║
+    // ╚══════════════════════════════════════════════════════╝
+    const SUPABASE_URL = 'https://xwiguxvmlqskzamapyzf.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aWd1eHZtbHFza3phbWFweXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODUwMTMsImV4cCI6MjA4ODc2MTAxM30.6on-JPw82PY3LZlUiHDwWlSkOt2l_rmfIsDwGPo137M';
+    const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ── Sauvegarde dans Supabase ──
+    async function sauvegarderDossiers() {
+        if (SUPABASE_URL === 'COLLE_TON_URL_ICI') return; // pas encore configuré
+        try {
+            // Vider la table puis réinsérer
+            await sbClient.from('dossiers').delete().neq('ref_sinistre', '');
+            const rows = dossiersData.map(function(d) {
+                return {
+                    ref_sinistre:  d.refSinistre,
+                    ref_contrat:   d.refContrat,
+                    nature:        d.nature,
+                    nature_label:  d.natureLabel,
+                    type:          d.type,
+                    portefeuille:  d.portefeuille,
+                    gestionnaire:  d.gestionnaire || null,
+                    traite:        d.traite || false,
+                    verrouille:    d.verrouille || false
+                };
+            });
+            await sbClient.from('dossiers').insert(rows);
+        } catch(e) { console.warn('Supabase save:', e.message); }
+    }
+
+    async function chargerDepuisSupabase() {
+        if (SUPABASE_URL === 'COLLE_TON_URL_ICI') return false;
+        try {
+            const { data, error } = await sbClient.from('dossiers').select('*').order('id');
+            if (error || !data || !data.length) return false;
+            dossiersData = data.map(function(d, i) {
+                return {
+                    index:        i + 1,
+                    refSinistre:  d.ref_sinistre,
+                    refContrat:   d.ref_contrat,
+                    nature:       d.nature,
+                    natureLabel:  d.nature_label || d.nature,
+                    type:         d.type,
+                    portefeuille: d.portefeuille,
+                    gestionnaire: d.gestionnaire,
+                    traite:       d.traite || false,
+                    verrouille:   d.verrouille || false
+                };
+            });
+            return true;
+        } catch(e) { console.warn('Supabase load:', e.message); return false; }
+    }
+
+    // ── Mise à jour statut traité d'un dossier ──
+    async function majTraiteSupabase(refSinistre, traite) {
+        if (SUPABASE_URL === 'COLLE_TON_URL_ICI') return;
+        await sbClient.from('dossiers').update({ traite: traite }).eq('ref_sinistre', refSinistre);
+    }
+
+    // ── Mise à jour gestionnaire ──
+    async function majGestionnaireSupabase(refSinistre, gestionnaire) {
+        if (SUPABASE_URL === 'COLLE_TON_URL_ICI') return;
+        await sbClient.from('dossiers').update({ gestionnaire: gestionnaire, verrouille: true }).eq('ref_sinistre', refSinistre);
+    }
+
+    // ── Rafraîchissement auto toutes les 15 secondes ──
+    setInterval(async function() {
+        if (SUPABASE_URL === 'COLLE_TON_URL_ICI') return;
+        if (!dossiersData.length) return;
+        var ok = await chargerDepuisSupabase();
+        if (ok) { renderTable(); }
+    }, 15000);
+
+    var dossiersData        = [];
+    var selectedManagers    = [];
+    var selectionValidee    = false;
+    var currentMode         = 'manual';
+    var filtresActifs       = { portefeuille: [], type: [], nature: [] };
+    var currentGest         = 'TOUS';
+    var toutSelectionne     = false;
+    var indexADeverrouiller = null;
+    var gestADesattr        = null;
+
+    // ── Gestionnaires ───────────────────────────────────────────
+    function toggleManager(item) {
+        if (selectionValidee) return;
+        var cb = item.querySelector('input[type="checkbox"]');
+        cb.checked = !cb.checked;
+        item.classList.toggle('selected', cb.checked);
+        majInfoSelection();
+    }
+    function majInfoSelection() {
+        var c = Array.from(document.querySelectorAll('.mgr-check:checked')).map(function(x){ return x.value; });
+        document.getElementById('selection-info').textContent = c.length === 0
+            ? 'Aucun gestionnaire sélectionné.'
+            : c.length + ' gestionnaire(s) : ' + c.join(', ');
+    }
+    function validerSelection() {
+        var c = Array.from(document.querySelectorAll('.mgr-check:checked')).map(function(x){ return x.value; });
+        if (!c.length) { alert('Sélectionnez au moins un gestionnaire.'); return; }
+        selectedManagers = c;
+        selectionValidee = true;
+        document.querySelectorAll('.manager-item').forEach(function(item) {
+            item.classList.toggle('grise', selectedManagers.indexOf(item.querySelector('input').value) === -1);
+            item.style.pointerEvents = 'none';
+        });
+        document.getElementById('selection-info').style.display    = 'none';
+        var sv = document.getElementById('selection-validee');
+        sv.textContent = '✔ Sélection validée : ' + selectedManagers.join(', ');
+        sv.style.display = 'inline-block';
+        document.querySelector('.btn-valider-gest').style.display  = 'none';
+        document.getElementById('btn-modifier-gest').style.display = 'inline-block';
+        majSelectGestionnaire(selectedManagers);
+        majCibleSelect();
+    }
+    function modifierSelection() {
+        selectionValidee = false;
+        document.querySelectorAll('.manager-item').forEach(function(item) {
+            item.classList.remove('grise'); item.style.pointerEvents = 'auto';
+        });
+        document.getElementById('selection-info').style.display    = 'block';
+        document.getElementById('selection-validee').style.display = 'none';
+        document.querySelector('.btn-valider-gest').style.display  = 'inline-block';
+        document.getElementById('btn-modifier-gest').style.display = 'none';
+        majInfoSelection();
+    }
+    function majCibleSelect() {
+        var cible = document.querySelector('input[name="cible"]:checked').value;
+        var sel   = document.getElementById('cible-gest-select');
+        sel.disabled = (cible === 'tous');
+        sel.innerHTML = '<option value="">-- Choisir --</option>';
+        selectedManagers.forEach(function(m) { sel.innerHTML += '<option value="' + m + '">' + m + '</option>'; });
+    }
+
+    // ── Excel ───────────────────────────────────────────────────
+    function loadExcel() {
+        var fi = document.getElementById('excel-file');
+        if (!fi.files[0]) { alert('Veuillez sélectionner un fichier Excel.'); return; }
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                var ws   = wb.Sheets[wb.SheetNames[0]];
+                var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                if (!rows.length) { alert('Fichier vide.'); return; }
+
+                // ✅ Détection automatique des colonnes par nom d'en-tête
+                var headers = rows[0].map(function(h) { return String(h).toLowerCase().trim(); });
+
+                function findCol(variants) {
+                    for (var v = 0; v < variants.length; v++) {
+                        var idx = headers.indexOf(variants[v]);
+                        if (idx !== -1) return idx;
+                    }
+                    return -1;
+                }
+
+                var colRefS  = findCol(['ref sinistre','réf sinistre','ref. sinistre','réf. sinistre','sinistre','ref_sinistre']);
+                var colRefC  = findCol(['ref contrat','réf contrat','ref. contrat','réf. contrat','contrat','ref_contrat']);
+                var colNatC  = findCol(['nature min','nature_min','naturemin','nat min','code nature','nature code']);
+                var colNatL  = findCol(['nature','desc. nature','description nature','libelle nature','nature label']);
+
+                // Si nature MIN non trouvée, utiliser nature comme code
+                if (colNatC === -1) colNatC = colNatL;
+                // Fallback positions par défaut si aucun header reconnu
+                if (colRefS === -1) colRefS = 0;
+                if (colRefC === -1) colRefC = 1;
+                if (colNatC === -1) colNatC = 2;
+                if (colNatL === -1) colNatL = 3;
+
+                var raw = [];
+                for (var i = 1; i < rows.length; i++) {
+                    var r    = rows[i];
+                    var refS = String(r[colRefS]||'').trim();
+                    var refC = String(r[colRefC]||'').trim();
+                    // Code court (MAT, BDG, VOL, DDE, MRH...) depuis Nature MIN
+                    var natRaw = String(r[colNatC]||'').toUpperCase().trim();
+                    // Label lisible depuis Nature
+                    var natL   = String(r[colNatL]||'').trim();
+
+                    if (!refS) continue;
+
+                    // ✅ Détection type : MRH si ref contrat contient MRH, sinon AUTO
+                    var type = refC.toUpperCase().indexOf('MRH') !== -1 ? 'MRH' : 'AUTO';
+
+                    // ✅ Critère portefeuille : OPTINEO ou MIA
+                    var portefeuille = 'MIA';
+                    if (refS.toUpperCase().indexOf('SINOPTI') !== -1 || refC.toUpperCase().indexOf('OPTIA') !== -1) {
+                        portefeuille = 'OPTINEO';
+                    }
+
+                    // ✅ Normalisation du code nature vers MAT/BDG/VOL/DDE/MRH/AUTO/AUTRE
+                    var nat = 'AUTRE';
+                    if      (natRaw === 'MAT' || natRaw.indexOf('MAT') === 0)  nat = 'MAT';
+                    else if (natRaw === 'BDG' || natRaw.indexOf('BDG') === 0)  nat = 'BDG';
+                    else if (natRaw === 'VOL' || natRaw.indexOf('VOL') === 0)  nat = 'VOL';
+                    else if (natRaw === 'DDE' || natRaw.indexOf('DDE') === 0)  nat = 'DDE';
+                    else if (natRaw === 'MRH' || natRaw.indexOf('MRH') === 0)  nat = 'MRH';
+                    else if (natRaw === 'AUTO'|| natRaw.indexOf('AUTO') === 0) nat = 'AUTO';
+                    else if (natRaw !== '')                                     nat = natRaw;
+
+                    if (!natL) natL = nat;
+
+                    raw.push({ refSinistre: refS, refContrat: refC, nature: nat, natureLabel: natL, type: type, portefeuille: portefeuille });
+                }
+
+                raw.reverse();
+                dossiersData = raw.map(function(d, i) {
+                    return { index: i+1, refSinistre: d.refSinistre, refContrat: d.refContrat,
+                             type: d.type, nature: d.nature, natureLabel: d.natureLabel,
+                             portefeuille: d.portefeuille,
+                             gestionnaire: null, verrouille: false };
+                });
+                // ═══════════════════════════════════════════════
+                // 🔒 PURGE RGPD : suppression immédiate du fichier
+                // Excel brut et de toutes les données non utilisées
+                // ═══════════════════════════════════════════════
+                raw.length = 0;          // purge tableau intermédiaire
+                rows.length = 0;         // purge données brutes du sheet
+                ws = null;               // purge worksheet
+                wb.Sheets = {};          // purge tous les sheets
+                wb = null;               // purge workbook
+                e.target.result = null;  // purge ArrayBuffer mémoire
+                document.getElementById('excel-file').value = ''; // reset input
+
+                if (!dossiersData.length) { alert('Aucun dossier trouvé.'); return; }
+
+                majStats();
+                document.getElementById('step2').style.display  = 'block';
+                document.getElementById('result-section').style.display = 'none';
+
+                // 🔒 Notification RGPD
+                var notif = document.createElement('div');
+                notif.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#2e7d32;color:white;padding:12px 18px;border-radius:8px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:9999;display:flex;align-items:center;gap:8px;';
+                notif.innerHTML = '🔒 <strong>Données sensibles purgées</strong> — seules les références ont été conservées.';
+                document.body.appendChild(notif);
+                setTimeout(function() {
+                    notif.style.transition = 'opacity 0.6s';
+                    notif.style.opacity = '0';
+                    setTimeout(function() { notif.remove(); }, 600);
+                }, 4000);
+
+            } catch(err) { alert('Erreur : ' + err.message); }
+        };
+        reader.readAsArrayBuffer(fi.files[0]);
+    }
+
+    function switchMode(mode) {
+        currentMode = mode;
+        ['auto','manual'].forEach(function(m) {
+            document.getElementById('tab-'   + m).classList.toggle('active', m === mode);
+            document.getElementById('panel-' + m).classList.toggle('active', m === mode);
+        });
+    }
+    function majSelectGestionnaire(managers) {
+        var sel = document.getElementById('select-gestionnaire-action');
+        sel.innerHTML = '<option value="">-- Choisir un gestionnaire --</option>';
+        managers.forEach(function(m) { sel.innerHTML += '<option value="' + m + '">' + m + '</option>'; });
+    }
+
+    // ── Distribution ────────────────────────────────────────────
+    function distribuerAuto() {
+        if (!selectionValidee) { alert('Validez d\'abord la sélection.'); return; }
+        var nb    = parseInt(document.getElementById('nb-par-gestionnaire').value) || 10;
+        var cible = document.querySelector('input[name="cible"]:checked').value;
+        var managers = cible === 'un'
+            ? [document.getElementById('cible-gest-select').value]
+            : selectedManagers;
+        if (cible === 'un' && !managers[0]) { alert('Sélectionnez un gestionnaire.'); return; }
+        var libres = dossiersData.filter(function(d) { return !d.verrouille; });
+        var mgrIdx = 0, cpt = 0, total = 0, max = nb * managers.length;
+        for (var i = 0; i < libres.length; i++) {
+            if (total >= max) break;
+            libres[i].gestionnaire = managers[mgrIdx];
+            libres[i].verrouille   = true;
+            cpt++; total++;
+            if (cpt >= nb) { cpt = 0; mgrIdx++; }
+        }
+        renderTable();
+        var deja = dossiersData.filter(function(d) { return d.verrouille; }).length;
+        var rest = dossiersData.filter(function(d) { return !d.verrouille; }).length;
+        document.getElementById('result-info').textContent =
+            '✅ ' + deja + ' dossiers attribués.' + (rest ? ' ⚠️ ' + rest + ' non attribués.' : ' Tous attribués !');
+    }
+    function afficherManuel() {
+        if (!selectionValidee) { alert('Validez d\'abord la sélection.'); return; }
+        renderTable();
+        document.getElementById('result-info').textContent = '📋 ' + dossiersData.length + ' dossiers — attribuez manuellement.';
+    }
+
+    function demanderReset() { document.getElementById('modal-reset').classList.add('show'); }
+    function confirmerReset() {
+        dossiersData.forEach(function(d) { d.gestionnaire = null; d.verrouille = false; });
+        fermerModal('modal-reset');
+        renderTable();
+        document.getElementById('result-info').textContent = '🔄 Toutes les attributions ont été réinitialisées.';
+    }
+    function demanderDesattr(gest) {
+        gestADesattr = gest;
+        var nb = dossiersData.filter(function(d){ return d.gestionnaire === gest; }).length;
+        document.getElementById('modal-desattr-msg').innerHTML =
+            'Désattribuer tous les dossiers de <strong>' + gest + '</strong> ?<br>' +
+            '<span style="color:#FF9800;font-size:13px;">' + nb + ' dossier(s) remis en attente.</span>';
+        document.getElementById('modal-desattr').classList.add('show');
+    }
+    function confirmerDesattr() {
+        dossiersData.forEach(function(d) { if (d.gestionnaire === gestADesattr) { d.gestionnaire = null; d.verrouille = false; } });
+        fermerModal('modal-desattr');
+        gestADesattr = null;
+        renderTable();
+    }
+    function demanderDeverrouillage(index) {
+        indexADeverrouiller = index;
+        var d = dossiersData[index];
+        document.getElementById('modal-unlock-msg').innerHTML =
+            'Déverrouiller <strong>' + d.refSinistre + '</strong> attribué à <strong>' + d.gestionnaire + '</strong> ?<br>' +
+            '<span style="color:#ef5350;font-size:13px;">L\'attribution sera supprimée.</span>';
+        document.getElementById('modal-unlock').classList.add('show');
+    }
+    function confirmerDeverrouillage() {
+        var i = indexADeverrouiller;
+        dossiersData[i].gestionnaire = null; dossiersData[i].verrouille = false;
+        var tr = document.querySelector('[data-index="' + i + '"]');
+        if (tr) {
+            tr.classList.remove('locked-row'); tr.setAttribute('data-gestionnaire', '');
+            tr.cells[0].innerHTML = '<input type="checkbox" class="row-check" data-index="' + i + '" onchange="majBarreAction()">';
+            document.getElementById('gest-'   + i).innerHTML = '—';
+            document.getElementById('statut-' + i).innerHTML = '<span class="tag-libre">⏳ En attente</span>';
+        }
+        fermerModal('modal-unlock');
+        majOngletsGestionnaire(); appliquerFiltres();
+    }
+    function fermerModal(id) {
+        document.getElementById(id).classList.remove('show');
+        if (id === 'modal-unlock')  indexADeverrouiller = null;
+        if (id === 'modal-desattr') gestADesattr = null;
+    }
+
+    // ── Export PDF ──────────────────────────────────────────────
+    function exporterTousPDFUnique() {
+        var jsPDFClass = window.jspdf.jsPDF;
+        var doc = new jsPDFClass({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        var today = new Date().toLocaleDateString('fr-FR');
+
+        // Récupérer la liste des gestionnaires dans l'ordre
+        var gestionnaires = [];
+        dossiersData.forEach(function(d) {
+            if (d.gestionnaire && gestionnaires.indexOf(d.gestionnaire) === -1) gestionnaires.push(d.gestionnaire);
+        });
+        if (!gestionnaires.length) { alert('Aucun dossier attribué à exporter.'); return; }
+
+        var premierePage = true;
+
+        gestionnaires.forEach(function(gestionnaire) {
+            var dossiers = dossiersData.filter(function(d) { return d.gestionnaire === gestionnaire; });
+
+            // Saut de page entre chaque gestionnaire (sauf le premier)
+            if (!premierePage) { doc.addPage(); }
+            premierePage = false;
+
+            // En-tête
+            pdfEntete(doc, gestionnaire, dossiers.length, today);
+
+            // Tableau
+            pdfTableau(doc, dossiers, function() {
+                doc.setDrawColor(76,175,80); doc.setLineWidth(0.5); doc.line(14,200,283,200);
+            });
+
+            // ── Nom du gestionnaire en filigrane discret en pied ──
+            var finalY = doc.lastAutoTable.finalY || 180;
+            if (finalY < 195) {
+                doc.setFontSize(8);
+                doc.setTextColor(180);
+                doc.setFont('helvetica', 'italic');
+                doc.text('— Fin des dossiers de ' + gestionnaire + ' —', 148, finalY + 6, { align: 'center' });
+            }
+        });
+
+        pdfNumerotation(doc);
+
+        pdfTelecharger(doc, 'Distribution_Tous_Gestionnaires_' + today.replace(/\//g, '-') + '.pdf');
+    }
+
+    function majExportBar() {
+        var gestionnaires = [];
+        dossiersData.forEach(function(d) {
+            if (d.gestionnaire && gestionnaires.indexOf(d.gestionnaire) === -1) gestionnaires.push(d.gestionnaire);
+        });
+        var bar = document.getElementById('export-bar');
+        if (!gestionnaires.length) { bar.style.display = 'none'; return; }
+        bar.style.display = 'flex';
+        var list = document.getElementById('export-gest-list');
+        list.innerHTML = '';
+        gestionnaires.forEach(function(g) {
+            var btn = document.createElement('button');
+            btn.className = 'btn-export-one';
+            btn.textContent = '📄 ' + g;
+            btn.onclick = function() { exporterPDFGestionnaire(g); };
+            list.appendChild(btn);
+        });
+    }
+
+    function pdfNumerotation(doc) {
+        var n = doc.internal.getNumberOfPages();
+        for (var p = 1; p <= n; p++) {
+            doc.setPage(p); doc.setFontSize(9); doc.setTextColor(150); doc.setFont('helvetica','normal');
+            doc.text('Page ' + p + ' / ' + n, 148, 205, { align: 'center' });
+        }
+    }
+
+        function pdfTableau(doc, dossiers, didDrawPage) {
+        var rows = dossiers.map(function(d, i) {
+            return [i+1, d.refSinistre, d.refContrat, d.portefeuille, d.nature, d.type];
+        });
+        var opts = {
+            startY: 26,
+            head: [['#','Ref. Sinistre','Ref. Contrat','Portefeuille','Nature','Type']],
+            body: rows,
+            styles: { fontSize: 10, cellPadding: 3 },
+            headStyles: { fillColor: [76,175,80], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245,245,245] },
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 58 }, 2: { cellWidth: 58 },
+                3: { cellWidth: 28, halign: 'center' },
+                4: { cellWidth: 28, halign: 'center' },
+                5: { cellWidth: 22, halign: 'center' }
+            },
+            margin: { left: 14, right: 14 }
+        };
+        if (didDrawPage) opts.didDrawPage = didDrawPage;
+        doc.autoTable(opts);
+    }
+
+        function pdfEntete(doc, gestionnaire, nbDossiers, today) {
+        doc.setFillColor(44, 62, 80); doc.rect(0, 0, 297, 22, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
+        doc.text('Liste des dossiers a traiter', 14, 10);
+        doc.setFontSize(11); doc.setFont('helvetica','normal');
+        doc.text('Gestionnaire : ' + gestionnaire, 14, 17);
+        doc.text('Date : ' + today + '   |   Total : ' + nbDossiers + ' dossier(s)', 200, 17);
+    }
+
+        function pdfTelecharger(doc, filename) {
+        var blob = doc.output('blob');
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    }
+
+        function exporterPDFGestionnaire(gestionnaire) {
+        var jsPDFClass = window.jspdf.jsPDF;
+        // ✅ Nouvelle instance isolée à chaque appel
+        var doc = new jsPDFClass({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        var dossiers = dossiersData.filter(function(d) { return d.gestionnaire === gestionnaire; });
+        var today = new Date().toLocaleDateString('fr-FR');
+
+        pdfEntete(doc, gestionnaire, dossiers.length, today);
+
+        pdfTableau(doc, dossiers, null);
+
+        pdfNumerotation(doc);
+
+        // ✅ Téléchargement via lien <a> invisible pour garantir un fichier par appel
+        pdfTelecharger(doc, 'Dossiers_' + gestionnaire.replace(/ /g, '_') + '_' + today.replace(/\//g, '-') + '.pdf');
+    }
+
+    // ── Onglets gestionnaires ───────────────────────────────────
+    function majOngletsGestionnaire() {
+        var container = document.getElementById('onglets-gestionnaires');
+        var comptages = {};
+        dossiersData.forEach(function(d) {
+            var g = d.gestionnaire || '⏳ Non attribué';
+            comptages[g] = (comptages[g] || 0) + 1;
+        });
+        var html = '<button class="onglet-gest" data-gest="TOUS" onclick="filtrerGestionnaire(\'TOUS\')">' +
+                   'Tous <span class="nb-badge">' + dossiersData.length + '</span></button>';
+        if (Object.keys(comptages).length) html += '<span class="gest-separator"></span>';
+        Object.keys(comptages).forEach(function(g) {
+            var safeG = g.replace(/'/g, "\\'");
+            var btnD  = (g !== '⏳ Non attribué')
+                ? '<button class="btn-desattr" onclick="event.stopPropagation();demanderDesattr(\'' + safeG + '\')" title="Désattribuer">✕</button>'
+                : '';
+            html += '<button class="onglet-gest" data-gest="' + g + '" onclick="filtrerGestionnaire(\'' + safeG + '\')">' +
+                    g + ' <span class="nb-badge">' + comptages[g] + '</span>' + btnD + '</button>';
+        });
+        container.innerHTML = html;
+        container.style.display = 'flex';
+        document.getElementById('onglets-gestionnaires-row').style.display = 'flex';
+        document.querySelectorAll('.onglet-gest').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-gest') === currentGest);
+        });
+        majExportBar();
+    }
+
+    // ── Rendu tableau ───────────────────────────────────────────
+    function majStats() {
+        var c = { AUTO:0, MRH:0, MAT:0, BDG:0, VOL:0, DDE:0, AUTRE:0, MIA:0, OPTINEO:0 };
+        dossiersData.forEach(function(d) {
+            if (d.type === 'MRH') c.MRH++; else c.AUTO++;
+            var natKey = (d.nature || '').toUpperCase();
+            if      (natKey === 'MAT') c.MAT++;
+            else if (natKey === 'BDG') c.BDG++;
+            else if (natKey === 'VOL') c.VOL++;
+            else if (natKey === 'DDE') c.DDE++;
+            else                       c.AUTRE++;
+            if ((d.portefeuille || '').toUpperCase() === 'OPTINEO') c.OPTINEO++; else c.MIA++;
+        });
+        document.getElementById('s-total').textContent = dossiersData.length;
+        ['auto','mrh','mat','bdg','vol','dde','autre','mia','optineo'].forEach(function(k) {
+            var el = document.getElementById('s-' + k);
+            if (el) el.textContent = c[k.toUpperCase()];
+        });
+    }
+
+    function renderTable() {
+        var tbody = document.getElementById('dossiers-tbody');
+        tbody.innerHTML = '';
+        dossiersData.forEach(function(d, i) {
+            var tr = document.createElement('tr');
+            tr.setAttribute('data-type',        d.type);
+            tr.setAttribute('data-nature',       d.nature);
+            tr.setAttribute('data-portefeuille', d.portefeuille || 'MIA');
+            tr.setAttribute('data-gestionnaire', d.gestionnaire || '');
+            tr.setAttribute('data-index',        i);
+            if (d.verrouille) tr.classList.add('locked-row');
+            var chk = d.verrouille
+                ? '🔒'
+                : '<input type="checkbox" class="row-check" data-index="' + i + '" onchange="majBarreAction()">';
+            var stat = d.verrouille
+                ? '<span class="tag-attribue">✔ Attribué</span><button class="btn-unlock" onclick="demanderDeverrouillage(' + i + ')">🔓 Déverrouiller</button>'
+                : (d.gestionnaire ? '<span class="tag-attribue">✔ Attribué</span>' : '<span class="tag-libre">⏳ En attente</span>');
+            tr.innerHTML =
+                '<td class="checkbox-col">' + chk + '</td>' +
+                '<td>' + d.index + '</td>' +
+                '<td style="font-size:12px;color:#555;">' + d.refSinistre + '</td>' +
+                '<td style="font-size:12px;color:#555;">' + d.refContrat + '</td>' +
+                '<td><span class="badge badge-' + d.portefeuille + '">' + (d.portefeuille === 'OPTINEO' ? 'OPTINEO' : 'MIA') + '</span></td>' +
+                '<td><span class="badge badge-' + d.nature + '">' + d.nature + '</span> <span style="font-size:12px;color:#777;">' + d.natureLabel + '</span></td>' +
+                '<td><span class="badge badge-' + d.type + '">' + (d.type === 'MRH' ? 'Hab.' : 'Auto') + '</span></td>' +
+                '<td id="gest-' + i + '">' + (d.gestionnaire ? '👤 ' + d.gestionnaire : '—') + '</td>' +
+                '<td id="statut-' + i + '">' + stat + '</td>' +
+                '<td style="text-align:center;">' +
+                  '<input type="checkbox" class="traite-check" data-ref="' + d.refSinistre + '" data-index="' + i + '" ' +
+                  (d.traite ? 'checked' : '') + ' onchange="toggleTraite(this)" ' +
+                  'style="width:18px;height:18px;accent-color:#4CAF50;cursor:pointer;">' +
+                '</td>';
+            if (d.traite) tr.style.opacity = '0.55';
+            tbody.appendChild(tr);
+        });
+        document.getElementById('stats-bandeau').style.display = 'flex';
+        majStats();
+        majOngletsGestionnaire();
+        document.getElementById('result-section').style.display = 'block';
+        document.getElementById('barre-action').style.display   = 'flex';
+        appliquerFiltres();
+    }
+
+    function filtrerGestionnaire(gest) {
+        currentGest = gest;
+        document.querySelectorAll('.onglet-gest').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-gest') === gest);
+        });
+        appliquerFiltres();
+    }
+    var GROUPE_PORTEFEUILLE = ['MIA','OPTINEO'];
+    var GROUPE_TYPE         = ['AUTO','MRH'];
+    var GROUPE_NATURE       = ['MAT','BDG','VOL','DDE','AUTRE'];
+
+    function groupeDe(filtre) {
+        if (filtre === 'TOUS') return 'tous';
+        if (GROUPE_PORTEFEUILLE.indexOf(filtre) !== -1) return 'portefeuille';
+        if (GROUPE_TYPE.indexOf(filtre) !== -1)         return 'type';
+        if (GROUPE_NATURE.indexOf(filtre) !== -1)       return 'nature';
+        return 'nature';
+    }
+
+    function filtrer(filtre) {
+        if (filtre === 'TOUS') {
+            // Tout réinitialiser
+            filtresActifs = { portefeuille: [], type: [], nature: [] };
+            document.querySelectorAll('.filtre-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            document.querySelector('[data-filtre="TOUS"]').classList.add('active');
+            appliquerFiltres();
+            return;
+        }
+
+        // Désactiver "Tous" si on sélectionne autre chose
+        document.querySelector('[data-filtre="TOUS"]').classList.remove('active');
+
+        var groupe = groupeDe(filtre);
+        var arr    = filtresActifs[groupe];
+        var idx    = arr.indexOf(filtre);
+
+        if (idx === -1) {
+            arr.push(filtre); // ajouter
+        } else {
+            arr.splice(idx, 1); // retirer si déjà actif (toggle)
+        }
+
+        // Si tous les groupes sont vides → revenir à "Tous"
+        if (!filtresActifs.portefeuille.length && !filtresActifs.type.length && !filtresActifs.nature.length) {
+            document.querySelector('[data-filtre="TOUS"]').classList.add('active');
+        }
+
+        // Mettre à jour l'apparence des boutons
+        document.querySelectorAll('.filtre-btn').forEach(function(b) {
+            var f = b.getAttribute('data-filtre');
+            if (f === 'TOUS') return;
+            var g   = groupeDe(f);
+            var act = filtresActifs[g] && filtresActifs[g].indexOf(f) !== -1;
+            b.classList.toggle('active', act);
+        });
+
+        appliquerFiltres();
+    }
+    function appliquerFiltres() {
+        var fp = filtresActifs.portefeuille;
+        var ft = filtresActifs.type;
+        var fn = filtresActifs.nature;
+        var tousVides = !fp.length && !ft.length && !fn.length;
+
+        document.querySelectorAll('#dossiers-tbody tr').forEach(function(tr) {
+            var type         = tr.getAttribute('data-type');
+            var nature       = tr.getAttribute('data-nature');
+            var portefeuille = tr.getAttribute('data-portefeuille') || 'MIA';
+            var gest         = tr.getAttribute('data-gestionnaire') || '⏳ Non attribué';
+
+            var okF;
+            if (tousVides) {
+                okF = true;
+            } else {
+                // Chaque groupe actif doit matcher (AND entre groupes)
+                // Au sein d'un groupe, au moins un doit matcher (OR)
+                var okP = !fp.length || fp.indexOf(portefeuille) !== -1;
+                var okT = !ft.length || ft.indexOf(type) !== -1;
+                var okN = !fn.length || fn.indexOf(nature) !== -1;
+                okF = okP && okT && okN;
+            }
+
+            var okG = currentGest === 'TOUS' || gest === currentGest;
+            tr.classList.toggle('hidden-row', !(okF && okG));
+        });
+    }
+    function majBarreAction() {
+        document.getElementById('nb-selectionnes').textContent = document.querySelectorAll('.row-check:checked').length + ' dossier(s) sélectionné(s)';
+    }
+    function toggleTout(checkbox) {
+        toutSelectionne = checkbox ? checkbox.checked : !toutSelectionne;
+        document.querySelectorAll('.row-check').forEach(function(cb) {
+            if (!cb.closest('tr').classList.contains('hidden-row')) cb.checked = toutSelectionne;
+        });
+        if (!checkbox) document.getElementById('check-all').checked = toutSelectionne;
+        majBarreAction();
+    }
+    function toggleTraite(checkbox) {
+        var i     = parseInt(checkbox.getAttribute('data-index'));
+        var ref   = checkbox.getAttribute('data-ref');
+        var etat  = checkbox.checked;
+        dossiersData[i].traite = etat;
+        var tr = checkbox.closest('tr');
+        tr.style.opacity = etat ? '0.55' : '1';
+        majTraiteSupabase(ref, etat);
+    }
+
+    function deselectionnerTout() {
+        toutSelectionne = false;
+        document.querySelectorAll('.row-check').forEach(function(cb) { cb.checked = false; });
+        document.getElementById('check-all').checked = false;
+        majBarreAction();
+    }
+    function attribuerSelection() {
+        var manager = document.getElementById('select-gestionnaire-action').value;
+        if (!manager) { alert("Sélectionnez un gestionnaire."); return; }
+        var checks = document.querySelectorAll('.row-check:checked');
+        if (!checks.length) { alert('Cochez au moins un dossier.'); return; }
+        checks.forEach(function(cb) {
+            var i = parseInt(cb.getAttribute('data-index'));
+            dossiersData[i].gestionnaire = manager; dossiersData[i].verrouille = true;
+            var tr = cb.closest('tr');
+            tr.classList.add('locked-row'); tr.setAttribute('data-gestionnaire', manager);
+            tr.cells[0].innerHTML = '🔒';
+            document.getElementById('gest-'   + i).innerHTML = '👤 ' + manager;
+            document.getElementById('statut-' + i).innerHTML =
+                '<span class="tag-attribue">✔ Attribué</span><button class="btn-unlock" onclick="demanderDeverrouillage(' + i + ')">🔓 Déverrouiller</button>';
+        });
+        majOngletsGestionnaire(); deselectionnerTout(); appliquerFiltres();
+        var att  = dossiersData.filter(function(d) { return d.verrouille; }).length;
+        var rest = dossiersData.filter(function(d) { return !d.verrouille; }).length;
+        document.getElementById('result-info').textContent = '✅ ' + att + ' attribués. ⏳ ' + rest + ' restants.';
+        sauvegarderDossiers();
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(function(m) {
+        m.addEventListener('click', function(e) { if (e.target === this) fermerModal(this.id); });
+    });
+
+    // ── Tentative de chargement Supabase au démarrage ──
+    (async function() {
+        var ok = await chargerDepuisSupabase();
+        if (ok) {
+            document.getElementById('step2').style.display = 'block';
+            document.getElementById('result-section').style.display = 'block';
+            renderTable();
+            majStats();
+            document.getElementById('result-info').textContent = '🔄 Données rechargées depuis Supabase.';
+        }
+    })();
+</script>
+</body>
+</html>
