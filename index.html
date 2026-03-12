@@ -483,16 +483,47 @@ async function handleFile(event) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!rows.length) { showNotif('Fichier vide ou format incorrect.', 'error'); return; }
+
+    // Normalisation des clés : on crée une map clé_normalisée -> clé_originale
+    const firstRow = rows[0];
+    const normalize = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    const keyMap = {};
+    Object.keys(firstRow).forEach(k => { keyMap[normalize(k)] = k; });
+
+    const get = (r, ...candidates) => {
+      for (const c of candidates) {
+        const norm = normalize(c);
+        if (keyMap[norm] !== undefined && r[keyMap[norm]] !== undefined && r[keyMap[norm]] !== '') {
+          return String(r[keyMap[norm]]).trim();
+        }
+      }
+      return '';
+    };
+
+    console.log('Colonnes Excel détectées:', Object.keys(firstRow));
+
     document.getElementById('import-result').innerHTML = '<div class="loading">Import en cours...</div>';
+
     const mapped = rows.map(r => ({
-      ref_sinistre: String(r['Réf. sinistre'] || r['ref_sinistre'] || r['REF SINISTRE'] || ''),
-      ref_contrat: String(r['Réf. contrat'] || r['ref_contrat'] || r['REF CONTRAT'] || ''),
-      nature: String(r['Nature'] || r['nature'] || ''),
-      nature_label: String(r['Nature label'] || r['nature_label'] || r['Libellé nature'] || ''),
-      type: String(r['Type'] || r['type'] || ''),
-      portefeuille: String(r['Portefeuille'] || r['portefeuille'] || ''),
-      gestionnaire: '', traite: false, verrouille: false
+      ref_sinistre: get(r, 'Réf. sinistre', 'Ref. sinistre', 'ref sinistre', 'REF SINISTRE', 'ref_sinistre', 'Référence sinistre'),
+      ref_contrat: get(r, 'Réf. contrat', 'Ref. contrat', 'ref contrat', 'REF CONTRAT', 'ref_contrat', 'Référence contrat'),
+      nature: get(r, 'Nature', 'nature', 'NATURE'),
+      nature_label: get(r, 'Nature label', 'nature_label', 'Libellé nature', 'Libelle nature', 'NatureLabel', 'NATURE LABEL'),
+      type: get(r, 'Type', 'type', 'TYPE'),
+      portefeuille: get(r, 'Portefeuille', 'portefeuille', 'PORTEFEUILLE'),
+      gestionnaire: '',
+      traite: false,
+      verrouille: false
     })).filter(d => d.ref_sinistre);
+
+    console.log(`Lignes mappées: ${mapped.length}`, mapped[0]);
+
+    if (!mapped.length) {
+      showNotif('Aucune ligne valide trouvée. Vérifiez les noms de colonnes.', 'error');
+      document.getElementById('import-result').innerHTML = '';
+      return;
+    }
+
     const { error } = await db.from('dossiers').insert(mapped);
     if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
     showNotif(`✅ ${mapped.length} dossiers importés !`, 'success');
