@@ -329,6 +329,9 @@ async function loadUserData() {
   buildTabs();
   await loadAllUsers();
   showTab('dashboard');
+  // Afficher le bouton reset uniquement pour admin/manager
+  const btnReset = document.getElementById('btn-reset-header');
+  if (btnReset) btnReset.style.display = ['admin','manager'].includes(data.role) ? '' : 'none';
 }
 
 async function doLogout() {
@@ -603,73 +606,167 @@ function statutBadge(statut) {
 async function renderAttribution() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
-  const gestionnaires = allUsers.filter(u => ['gestionnaire', 'manager', 'admin'].includes(u.role));
+
+  const gestionnaires = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
+
+  // Collect unique filter values
+  const portefeuilles = [...new Set(allDossiers.map(d => d.portefeuille).filter(Boolean))].sort();
+  const types = [...new Set(allDossiers.map(d => d.type).filter(Boolean))].sort();
+  const natures = [...new Set(allDossiers.map(d => d.nature_label || d.nature).filter(Boolean))].sort();
+
+  let filterPortefeuille = filterPortefeuille || '';
+  let filterType = filterType || '';
+  let filterNature = filterNature || '';
+  let nonAttribueOnly = false;
+
+  // Apply filters
   let filtered = allDossiers;
   if (searchQuery) filtered = filtered.filter(d =>
     (d.ref_sinistre||'').toLowerCase().includes(searchQuery) ||
-    (d.ref_contrat||'').toLowerCase().includes(searchQuery) ||
-    (d.gestionnaire||'').toLowerCase().includes(searchQuery));
-  if (filterGestionnaire) filtered = filtered.filter(d => d.gestionnaire === filterGestionnaire);
-  if (filterStatut) filtered = filtered.filter(d => (d.statut||'non_attribue') === filterStatut);
+    (d.ref_contrat||'').toLowerCase().includes(searchQuery)
+  );
+  if (window._fPortefeuille) filtered = filtered.filter(d => d.portefeuille === window._fPortefeuille);
+  if (window._fType) filtered = filtered.filter(d => d.type === window._fType);
+  if (window._fNature) filtered = filtered.filter(d => (d.nature_label||d.nature) === window._fNature);
+  if (window._fStatut) filtered = filtered.filter(d => (d.statut||'non_attribue') === window._fStatut);
+  if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
 
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','en_cours','ouvert','traite'].includes(d.statut)).length;
+  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
 
-  let html = `<div class="filters">
-    <input class="search-bar" placeholder="🔍 Rechercher..." value="${searchQuery}"
-      oninput="searchQuery=this.value.toLowerCase();renderAttribution()">
-    <select class="filter-select" onchange="filterGestionnaire=this.value;renderAttribution()">
-      <option value="">Tous les gestionnaires</option>
-      ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}" ${filterGestionnaire===g.prenom+' '+g.nom?'selected':''} >${g.prenom} ${g.nom}</option>`).join('')}
+  let html = `
+  <div class="filters" style="flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
+    <input class="search-bar" placeholder="🔍 Réf. sinistre / contrat..." value="${searchQuery||''}"
+      oninput="searchQuery=this.value.toLowerCase();renderAttribution()" style="width:220px">
+    <select class="filter-select" onchange="window._fPortefeuille=this.value;renderAttribution()">
+      <option value="">Tous les portefeuilles</option>
+      ${portefeuilles.map(p => `<option value="${p}" ${window._fPortefeuille===p?'selected':''}>${p}</option>`).join('')}
     </select>
-    <select class="filter-select" onchange="filterStatut=this.value;renderAttribution()">
+    <select class="filter-select" onchange="window._fType=this.value;renderAttribution()">
+      <option value="">Tous les types</option>
+      ${types.map(t => `<option value="${t}" ${window._fType===t?'selected':''}>${t}</option>`).join('')}
+    </select>
+    <select class="filter-select" onchange="window._fNature=this.value;renderAttribution()">
+      <option value="">Toutes les natures</option>
+      ${natures.map(n => `<option value="${n}" ${window._fNature===n?'selected':''}>${n}</option>`).join('')}
+    </select>
+    <select class="filter-select" onchange="window._fStatut=this.value;renderAttribution()">
       <option value="">Tous les statuts</option>
-      <option value="non_attribue">⚪ Non attribué</option>
-      <option value="attribue">🔵 Attribué</option>
-      <option value="en_cours">🟠 En cours</option>
-      <option value="ouvert">🔴 Ouvert</option>
-      <option value="traite">✅ Traité</option>
+      <option value="non_attribue" ${window._fStatut==='non_attribue'?'selected':''}>Non attribué</option>
+      <option value="attribue" ${window._fStatut==='attribue'?'selected':''}>Attribué</option>
+      <option value="encours" ${window._fStatut==='encours'?'selected':''}>En cours</option>
+      <option value="ouvert" ${window._fStatut==='ouvert'?'selected':''}>Ouvert</option>
+      <option value="traite" ${window._fStatut==='traite'?'selected':''}>Traité</option>
     </select>
-    <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''}>
-      🚀 DISPATCH ${nbVerrouilles > 0 ? `(${nbVerrouilles})` : ''}
+    <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
+      Non attribués seulement
+    </label>
+  </div>
+
+  <div style="background:white;border-radius:12px;padding:16px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:13px;color:#555;font-weight:600" id="selection-count">0 dossier(s) sélectionné(s)</span>
+    <select id="assign-bulk-select" class="filter-select" style="min-width:180px">
+      <option value="">— Choisir un gestionnaire —</option>
+      ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}">${g.prenom} ${g.nom} (${g.role})</option>`).join('')}
+    </select>
+    <button class="btn btn-primary" onclick="assignBulk()">✅ Attribuer la sélection</button>
+    <button class="btn btn-secondary" onclick="selectAll()">☑️ Tout sélectionner</button>
+    <button class="btn btn-secondary" onclick="clearSelection()">✖ Désélectionner</button>
+    <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto">
+      DISPATCHER ${nbVerrouilles > 0 ? nbVerrouilles : ''}
     </button>
   </div>
+
   <div class="table-container">
     <div class="table-toolbar">
-      <h2>Attribution des dossiers (${filtered.length})</h2>
+      <h2>Attribution des dossiers <span style="color:#888;font-weight:400;font-size:14px">(${filtered.length})</span></h2>
     </div>
-    <table><thead><tr>
-      <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Gestionnaire</th><th>🔒</th><th>Statut</th><th>Traité</th>
-    </tr></thead><tbody>`;
+    <table>
+      <thead><tr>
+        <th><input type="checkbox" id="check-all" onchange="toggleAll(this.checked)"></th>
+        <th>Réf. Sinistre</th>
+        <th>Portefeuille</th>
+        <th>Réf. Contrat</th>
+        <th>Type</th>
+        <th>Nature</th>
+        <th>Gestionnaire</th>
+        <th>🔒</th>
+        <th>Statut</th>
+        <th>Traité</th>
+      </tr></thead>
+      <tbody>`;
 
   if (!filtered.length) {
-    html += '<tr><td colspan="8" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>';
+    html += `<tr><td colspan="10" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>`;
   } else {
     filtered.forEach(d => {
-      const isMyDossier = d.gestionnaire === currentUserData.prenom + ' ' + currentUserData.nom;
-      const canCheckTraite = currentUserData.role === 'admin' || isMyDossier;
       const statut = d.statut || 'non_attribue';
+      const canCheckTraite = currentUserData.role === 'admin' || d.gestionnaire === `${currentUserData.prenom} ${currentUserData.nom}`;
       html += `<tr>
+        <td><input type="checkbox" class="row-check" data-id="${d.id}" onchange="updateSelectionCount()"></td>
         <td><strong>${d.ref_sinistre}</strong>
-          <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
+          <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
         </td>
-        <td>${d.ref_contrat}</td>
-        <td>${d.nature_label || d.nature}</td>
-        <td>${d.portefeuille}</td>
-        <td><select class="assign-select" onchange="assignDossier('${d.id}', this.value)">
-          <option value="">— Non attribué —</option>
-          ${gestionnaires.map(g => { const n = g.prenom+' '+g.nom; return `<option value="${n}" ${d.gestionnaire===n?'selected':''} >${n}</option>`; }).join('')}
-        </select></td>
+        <td><span class="badge" style="background:#e8f4fd;color:#1a5276">${d.portefeuille||'-'}</span></td>
+        <td>${d.ref_contrat||'-'}</td>
+        <td><span class="badge" style="background:${d.type==='Habitation'?'#fef9e7':'#eafaf1'};color:${d.type==='Habitation'?'#d35400':'#1e8449'}">${d.type||'-'}</span></td>
+        <td>${d.nature_label||d.nature||'-'}</td>
+        <td>
+          <select class="assign-select" onchange="assignDossier(${d.id}, this.value)">
+            <option value="">Non attribué</option>
+            ${gestionnaires.map(g => { const n=`${g.prenom} ${g.nom}`; return `<option value="${n}" ${d.gestionnaire===n?'selected':''}>${n}</option>`; }).join('')}
+          </select>
+        </td>
         <td><input type="checkbox" ${d.verrouille?'checked':''} title="${d.verrouille?'Verrouillé':'Non verrouillé'}"
-          onchange="toggleVerrouille('${d.id}', this.checked)" style="accent-color:#E71C7C;width:16px;height:16px;cursor:pointer"></td>
+          onchange="toggleVerrouille(${d.id},this.checked)" style="accent-color:#E71C7C;width:16px;height:16px;cursor:pointer"></td>
         <td>${statutBadge(statut)}</td>
-        <td><input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''} ${canCheckTraite?'':' disabled'}
-          onchange="toggleTraite('${d.id}', this.checked, '${d.gestionnaire||''}')"></td>
+        <td><input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''} ${canCheckTraite?'':'disabled'}
+          onchange="toggleTraite(${d.id},this.checked,'${d.gestionnaire||''}')"></td>
       </tr>`;
     });
   }
-  html += '</tbody></table></div>';
+
+  html += `</tbody></table></div>`;
   document.getElementById('main-content').innerHTML = html;
+}
+
+function updateSelectionCount() {
+  const checked = document.querySelectorAll('.row-check:checked').length;
+  const el = document.getElementById('selection-count');
+  if (el) el.textContent = `${checked} dossier(s) sélectionné(s)`;
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = checked; });
+  updateSelectionCount();
+}
+
+function selectAll() {
+  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = true; });
+  const all = document.getElementById('check-all');
+  if (all) all.checked = true;
+  updateSelectionCount();
+}
+
+function clearSelection() {
+  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = false; });
+  const all = document.getElementById('check-all');
+  if (all) all.checked = false;
+  updateSelectionCount();
+}
+
+async function assignBulk() {
+  const gestionnaire = document.getElementById('assign-bulk-select').value;
+  if (!gestionnaire) { showNotif('Choisissez un gestionnaire.', 'error'); return; }
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
+  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
+  for (const id of ids) {
+    await db.from('dossiers').update({ gestionnaire }).eq('id', id);
+  }
+  showNotif(`✅ ${ids.length} dossier(s) attribué(s) à ${gestionnaire}`, 'success');
+  clearSelection();
+  await loadDossiers();
+  renderAttribution();
 }
 
 // ===== MES DOSSIERS =====
@@ -824,6 +921,39 @@ async function toggleTraite(id, checked, gestionnaire) {
   if (error) { showNotif('Erreur.', 'error'); return; }
   showNotif(checked ? '✅ Dossier marqué traité' : '↩️ Dossier remis en cours', 'success');
   allDossiers = allDossiers.map(d => d.id === id ? {...d, traite: checked, statut: newStatut} : d);
+}
+
+// ===== RESET =====
+function showReset() {
+  if (!['admin','manager'].includes(currentUserData.role)) {
+    showNotif('Accès refusé.', 'error'); return;
+  }
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'reset-modal';
+  modal.innerHTML = `
+    <div class="modal" style="text-align:center">
+      <div style="font-size:52px;margin-bottom:12px">🗑️</div>
+      <h2 style="color:#e74c3c">Remise à zéro</h2>
+      <p style="color:#666;margin:16px 0">Cette action va <strong>supprimer définitivement tous les dossiers</strong> importés.<br>Cette opération est irréversible.</p>
+      <p style="background:#fff5f5;border-radius:8px;padding:12px;color:#e74c3c;font-weight:600;font-size:13px">
+        ⚠️ Tous les dossiers seront effacés
+      </p>
+      <div class="modal-actions" style="justify-content:center;margin-top:24px">
+        <button class="btn btn-secondary" onclick="closeModal('reset-modal')">Annuler</button>
+        <button class="btn btn-danger" onclick="doReset()">🗑️ Confirmer la remise à zéro</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function doReset() {
+  closeModal('reset-modal');
+  const { error } = await db.from('dossiers').delete().neq('id', 0);
+  if (error) { showNotif('Erreur lors de la remise à zéro : ' + error.message, 'error'); return; }
+  allDossiers = [];
+  showNotif('✅ Plateforme remise à zéro avec succès !', 'success');
+  renderDashboard();
 }
 
 // ===== NOTIF =====
