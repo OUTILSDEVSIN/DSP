@@ -477,6 +477,18 @@ function renderImport() {
     <div id="import-result"></div>`;
 }
 
+function detectPortefeuille(refContrat) {
+  const r = (refContrat || '').toUpperCase();
+  if (r.includes('OPTI')) return 'OPTINEO';
+  return 'MIA';
+}
+
+function detectType(refContrat) {
+  const r = (refContrat || '').toUpperCase();
+  if (r.includes('MRH')) return 'Habitation';
+  return 'Auto';
+}
+
 async function handleFile(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -508,12 +520,12 @@ async function handleFile(event) {
     document.getElementById('import-result').innerHTML = '<div class="loading">Import en cours...</div>';
 
     const mapped = rows.map(r => ({
-      ref_sinistre: get(r, 'Réf. sinistre', 'Ref. sinistre', 'ref sinistre', 'REF SINISTRE', 'ref_sinistre', 'Référence sinistre'),
-      ref_contrat: get(r, 'Réf. contrat', 'Ref. contrat', 'ref contrat', 'REF CONTRAT', 'ref_contrat', 'Référence contrat'),
-      nature: get(r, 'Nature', 'nature', 'NATURE'),
-      nature_label: get(r, 'Nature label', 'nature_label', 'Libellé nature', 'Libelle nature', 'NatureLabel', 'NATURE LABEL'),
-      type: get(r, 'Type', 'type', 'TYPE'),
-      portefeuille: get(r, 'Portefeuille', 'portefeuille', 'PORTEFEUILLE'),
+      ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
+      ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
+      nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
+      nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
+      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
+      portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
       gestionnaire: '',
       traite: false,
       verrouille: false
@@ -614,10 +626,12 @@ async function renderAttribution() {
   const types = [...new Set(allDossiers.map(d => d.type).filter(Boolean))].sort();
   const natures = [...new Set(allDossiers.map(d => d.nature_label || d.nature).filter(Boolean))].sort();
 
-  let filterPortefeuille = filterPortefeuille || '';
-  let filterType = filterType || '';
-  let filterNature = filterNature || '';
-  let nonAttribueOnly = false;
+  // Initialiser les filtres globaux si pas encore définis
+  if (window._fPortefeuille === undefined) window._fPortefeuille = '';
+  if (window._fType === undefined) window._fType = '';
+  if (window._fNature === undefined) window._fNature = '';
+  if (window._fStatut === undefined) window._fStatut = '';
+  if (window._fNonAttribue === undefined) window._fNonAttribue = false;
 
   // Apply filters
   let filtered = allDossiers;
