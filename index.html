@@ -549,9 +549,11 @@ async function doReset(type) {
     // Supprimer par batch via IDs réels
   const allIds = allDossiers.map(d => d.id);
   if (allIds.length === 0) { showNotif('Aucun dossier à supprimer.', 'info'); return; }
-  const { error } = await db.from('dossiers').delete().in('id', allIds);
+  console.log('T4 delete → ids:', allIds);
+  const { data: delData, error } = await db.from('dossiers').delete().in('id', allIds).select();
+  console.log('T4 delete → result:', delData, 'error:', error);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    showNotif('💣 ' + allIds.length + ' dossiers supprimés.', 'success');
+    showNotif('💣 ' + (delData ? delData.length : allIds.length) + ' dossiers supprimés.', 'success');
   } else {
     closeModal('reset-confirm-modal');
     const allIds2 = allDossiers.map(d => d.id);
@@ -1147,8 +1149,11 @@ async function doEditUser(id, originalEmail, isSelf) {
   if (!prenom || !nom || !email) { errEl.textContent = 'Tous les champs sont requis.'; errEl.style.display = 'block'; return; }
   const updates = { prenom, nom, email };
   if (!isSelf) updates.role = document.getElementById('edit-role').value;
-  const { error } = await db.from('utilisateurs').update(updates).eq('id', id);
+  console.log('doEditUser → id:', id, 'updates:', updates);
+  const { data: updData, error } = await db.from('utilisateurs').update(updates).eq('id', id).select();
+  console.log('doEditUser → result:', updData, 'error:', error);
   if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
+  if (!updData || updData.length === 0) { errEl.textContent = '⚠️ Aucune ligne modifiée — vérifiez les permissions Supabase (RLS).'; errEl.style.display = 'block'; return; }
   closeModal('edit-user-modal');
   showNotif('✅ Profil mis à jour !', 'success');
   await loadAllUsers(); renderUtilisateurs();
@@ -1392,37 +1397,9 @@ async function toggleTraite(id, checked, gestionnaire) {
 }
 
 // ===== RESET =====
-function showReset() {
-  if (!['admin','manager'].includes(currentUserData.role)) {
-    showNotif('Accès refusé.', 'error'); return;
-  }
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'reset-modal';
-  modal.innerHTML = `
-    <div class="modal" style="text-align:center">
-      <div style="font-size:52px;margin-bottom:12px">🗑️</div>
-      <h2 style="color:#e74c3c">Remise à zéro</h2>
-      <p style="color:#666;margin:16px 0">Cette action va <strong>supprimer définitivement tous les dossiers</strong> importés.<br>Cette opération est irréversible.</p>
-      <p style="background:#fff5f5;border-radius:8px;padding:12px;color:#e74c3c;font-weight:600;font-size:13px">
-        ⚠️ Tous les dossiers seront effacés
-      </p>
-      <div class="modal-actions" style="justify-content:center;margin-top:24px">
-        <button class="btn btn-secondary" onclick="closeModal('reset-modal')">Annuler</button>
-        <button class="btn btn-danger" onclick="doReset()">🗑️ Confirmer la remise à zéro</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
+// ancienne showReset supprimée
 
-async function doReset() {
-  closeModal('reset-modal');
-  const { error } = await db.from('dossiers').delete().neq('id', 0);
-  if (error) { showNotif('Erreur lors de la remise à zéro : ' + error.message, 'error'); return; }
-  allDossiers = [];
-  showNotif('✅ Plateforme remise à zéro avec succès !', 'success');
-  renderDashboard();
-}
+// ancien doReset supprimé (remplacé par T4)
 
 // ===== NOTIF =====
 function showNotif(msg, type = 'info') {
