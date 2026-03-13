@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.1.0">
+  <meta name="version" content="2.2.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -252,7 +252,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.1.0';
+    const APP_VERSION = '2.2.0';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -427,7 +427,7 @@ async function loadAllUsers() {
 }
 
 async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('*').order('created_at', { ascending: false });
+  const { data } = await db.from('dossiers').select('*').order('created_at', { ascending: true });
   allDossiers = data || [];
 }
 
@@ -556,11 +556,103 @@ async function handleFile(event) {
     showNotif(`✅ ${mapped.length} dossiers importés !`, 'success');
     document.getElementById('import-result').innerHTML =
       `<div class="stat-card" style="max-width:300px"><div class="number" style="color:#27ae60">${mapped.length}</div><div class="label">Dossiers importés</div></div>`;
+    await loadDossiers();
+    await loadAllUsers();
+    showAutoAssignModal(mapped.length);
   };
   reader.readAsArrayBuffer(file);
 }
 
 // ===== DISPATCH =====
+// AUTO ASSIGN
+function showAutoAssignModal(totalImported) {
+  const gestionnaires = allUsers.filter(u => ['gestionnaire','manager'].includes(u.role));
+  if (!gestionnaires.length) return;
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'auto-assign-modal';
+  modal.style.zIndex = '3000';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:500px;width:95vw">
+      <div style="font-size:40px;text-align:center;margin-bottom:8px">🎯</div>
+      <h2 style="text-align:center">Attribution automatique</h2>
+      <p style="color:#666;font-size:14px;text-align:center;margin-bottom:20px">
+        <strong>${totalImported}</strong> dossiers importés. Souhaitez-vous les attribuer maintenant ?
+      </p>
+      <div style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:16px">
+        ${gestionnaires.map(g => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:normal;margin:0">
+              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" style="width:16px;height:16px;accent-color:#1e3a5f">
+              <span>${g.prenom} ${g.nom}</span>
+              <span class="badge role-${g.role}" style="font-size:10px">${g.role}</span>
+            </label>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:#888">Nb dossiers :</span>
+              <input type="number" class="gest-nb" data-nom="${g.prenom} ${g.nom}" value="10" min="1" max="${totalImported}"
+                style="width:60px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center">
+            </div>
+          </div>`).join('')}
+      </div>
+      <div id="auto-assign-error" style="color:#e74c3c;font-size:13px;background:#fff5f5;padding:10px;border-radius:8px;display:none;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-secondary" onclick="closeModal('auto-assign-modal')">Passer →</button>
+        <button class="btn btn-primary" onclick="doAutoAssign(${totalImported})">✅ Attribuer automatiquement</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function doAutoAssign(totalImported) {
+  const checks = [...document.querySelectorAll('.gest-check:checked')];
+  if (!checks.length) {
+    const err = document.getElementById('auto-assign-error');
+    err.textContent = 'Sélectionnez au moins un gestionnaire.';
+    err.style.display = 'block'; return;
+  }
+  const selections = checks.map(cb => ({
+    nom: cb.dataset.nom,
+    nb: parseInt(document.querySelector(`.gest-nb[data-nom="${cb.dataset.nom}"]`).value) || 10
+  }));
+  const totalDemande = selections.reduce((s, x) => s + x.nb, 0);
+  const dossiersNonAttribues = allDossiers.filter(d => !d.gestionnaire);
+  const disponibles = dossiersNonAttribues.length;
+  if (totalDemande > disponibles) {
+    const parGest = Math.floor(disponibles / selections.length);
+    const err = document.getElementById('auto-assign-error');
+    err.innerHTML = `⚠️ Vous demandez <strong>${totalDemande}</strong> dossiers mais il n'en reste que <strong>${disponibles}</strong> non attribués.<br><br>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
+        <button class="btn btn-secondary" onclick="document.getElementById('auto-assign-error').style.display='none'">✏️ Modifier</button>
+        <button class="btn btn-warning" onclick="doAutoAssignEquitable(${disponibles})">⚖️ Répartir équitablement (${parGest} chacun)</button>
+      </div>`;
+    err.style.display = 'block'; return;
+  }
+  await executeAutoAssign(selections, dossiersNonAttribues);
+}
+
+async function doAutoAssignEquitable(disponibles) {
+  const checks = [...document.querySelectorAll('.gest-check:checked')];
+  const nb = Math.floor(disponibles / checks.length);
+  const selections = checks.map(cb => ({ nom: cb.dataset.nom, nb }));
+  const dossiers = allDossiers.filter(d => !d.gestionnaire);
+  await executeAutoAssign(selections, dossiers);
+}
+
+async function executeAutoAssign(selections, dossiers) {
+  let idx = 0;
+  for (const sel of selections) {
+    const batch = dossiers.slice(idx, idx + sel.nb);
+    for (const d of batch) {
+      await db.from('dossiers').update({ gestionnaire: sel.nom }).eq('id', d.id);
+    }
+    idx += sel.nb;
+  }
+  closeModal('auto-assign-modal');
+  showNotif(`✅ ${idx} dossiers attribués automatiquement !`, 'success');
+  await loadDossiers();
+  showTab('attribution');
+}
+
 function showDispatch() {
   const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'en_cours' && d.statut !== 'ouvert' && d.statut !== 'traite');
   if (!verrouilles.length) { showNotif('Aucun dossier verrouillé à dispatcher.', 'error'); return; }
@@ -634,19 +726,18 @@ async function renderAttribution() {
   const role = currentUserData.role;
   const gestionnaires = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
 
-  // Init global filters
   if (window._fPortefeuille === undefined) window._fPortefeuille = '';
   if (window._fType === undefined) window._fType = '';
   if (window._fNature === undefined) window._fNature = '';
   if (window._fStatut === undefined) window._fStatut = '';
+  if (window._fGestionnaire === undefined) window._fGestionnaire = '';
   if (window._fNonAttribue === undefined) window._fNonAttribue = false;
 
-  // Unique filter values
   const portefeuilles = [...new Set(allDossiers.map(d => d.portefeuille).filter(Boolean))].sort();
   const types = [...new Set(allDossiers.map(d => d.type).filter(Boolean))].sort();
   const natures = [...new Set(allDossiers.map(d => d.nature_label || d.nature).filter(Boolean))].sort();
+  const gestionnairesNoms = [...new Set(allDossiers.map(d => d.gestionnaire).filter(Boolean))].sort();
 
-  // Apply filters
   let filtered = allDossiers;
   if (searchQuery) filtered = filtered.filter(d =>
     (d.ref_sinistre||'').toLowerCase().includes(searchQuery) ||
@@ -656,33 +747,43 @@ async function renderAttribution() {
   if (window._fType) filtered = filtered.filter(d => d.type === window._fType);
   if (window._fNature) filtered = filtered.filter(d => (d.nature_label||d.nature) === window._fNature);
   if (window._fStatut) filtered = filtered.filter(d => (d.statut||'non_attribue') === window._fStatut);
+  if (window._fGestionnaire) filtered = filtered.filter(d => (d.gestionnaire||'') === window._fGestionnaire);
   if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
 
-  // TICKET 1 – Stats par critère (sur tous les dossiers, pas filtrés)
-  const statsData = [
-    { label: 'Total', count: allDossiers.length, color: '#1e3a5f', bg: '#e8f4fd' },
-    { label: 'Non attribués', count: allDossiers.filter(d => !d.gestionnaire).length, color: '#e74c3c', bg: '#fadbd8' },
-    { label: 'Attribués', count: allDossiers.filter(d => d.gestionnaire && d.statut === 'attribue').length, color: '#1a5276', bg: '#d6eaf8' },
-    { label: 'En cours', count: allDossiers.filter(d => d.statut === 'encours').length, color: '#d35400', bg: '#fdebd0' },
-    { label: 'Ouverts', count: allDossiers.filter(d => d.statut === 'ouvert').length, color: '#922b21', bg: '#fadbd8' },
-    { label: 'Traités', count: allDossiers.filter(d => d.traite).length, color: '#1e8449', bg: '#d5f5e3' },
-    { label: 'Verrouillés', count: allDossiers.filter(d => d.verrouille).length, color: '#7d3c98', bg: '#ebdef0' },
-  ];
+  // Bandeau résumé par critères de recherche (hors gestionnaire)
+  const countsPortefeuille = portefeuilles.map(v => ({ label: v, count: allDossiers.filter(d => d.portefeuille === v).length, color: '#1a5276', bg: '#e8f4fd' }));
+  const countsType = types.map(v => ({ label: v, count: allDossiers.filter(d => d.type === v).length, color: '#1e8449', bg: '#eafaf1' }));
+  const countsNature = natures.map(v => ({ label: v, count: allDossiers.filter(d => (d.nature_label||d.nature) === v).length, color: '#d35400', bg: '#fdebd0' }));
+  const countsStatut = [
+    { value: 'non_attribue', label: 'Non attribué' },
+    { value: 'attribue', label: 'Attribué' },
+    { value: 'encours', label: 'En cours' },
+    { value: 'ouvert', label: 'Ouvert' },
+    { value: 'traite', label: 'Traité' }
+  ].map(s => ({ label: s.label, count: allDossiers.filter(d => (d.statut||'non_attribue') === s.value).length, color: '#7d3c98', bg: '#ebdef0' }));
 
   const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
 
   let html = `
-  <!-- TICKET 1: Stats bar -->
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-    ${statsData.map(s => `
-      <div style="background:${s.bg};border-radius:10px;padding:8px 16px;display:flex;flex-direction:column;align-items:center;min-width:90px;cursor:pointer"
-        onclick="window._fStatut='';renderAttribution()">
-        <span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span>
-        <span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span>
-      </div>`).join('')}
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;font-weight:800;color:#1a5276;min-width:95px;text-transform:uppercase">Portefeuille</div>
+      ${countsPortefeuille.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;font-weight:800;color:#1e8449;min-width:95px;text-transform:uppercase">Type</div>
+      ${countsType.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;font-weight:800;color:#d35400;min-width:95px;text-transform:uppercase">Nature</div>
+      ${countsNature.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;font-weight:800;color:#7d3c98;min-width:95px;text-transform:uppercase">Statut</div>
+      ${countsStatut.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+    </div>
   </div>
 
-  <!-- Filters -->
   <div class="filters" style="flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
     <input class="search-bar" placeholder="🔍 Réf. sinistre / contrat..." value="${searchQuery||''}"
       oninput="searchQuery=this.value.toLowerCase();renderAttribution()" style="width:220px">
@@ -706,13 +807,16 @@ async function renderAttribution() {
       <option value="ouvert" ${window._fStatut==='ouvert'?'selected':''}>Ouvert</option>
       <option value="traite" ${window._fStatut==='traite'?'selected':''}>Traité</option>
     </select>
+    <select class="filter-select" onchange="window._fGestionnaire=this.value;renderAttribution()">
+      <option value="">Tous les gestionnaires</option>
+      ${gestionnairesNoms.map(g => `<option value="${g}" ${window._fGestionnaire===g?'selected':''}>${g}</option>`).join('')}
+    </select>
     <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
       <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
       Non attribués seulement
     </label>
   </div>
 
-  <!-- TICKET 2: Barre attribution réorganisée -->
   <div style="background:white;border-radius:12px;padding:14px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <button class="btn btn-secondary" onclick="selectAll()">☑️ Tout sélectionner</button>
     <select id="assign-bulk-select" class="filter-select" style="min-width:180px">
@@ -727,7 +831,6 @@ async function renderAttribution() {
     </button>
   </div>
 
-  <!-- Table -->
   <div class="table-container">
     <div class="table-toolbar">
       <h2>Attribution des dossiers <span style="color:#888;font-weight:400;font-size:14px">(${filtered.length})</span></h2>
@@ -755,12 +858,8 @@ async function renderAttribution() {
       const monNom = `${currentUserData.prenom} ${currentUserData.nom}`;
       const isManager = ['admin','manager'].includes(role);
       const isMyDossier = d.gestionnaire === monNom;
-
-      // TICKET 5 – Traité irréversible pour gestionnaire
       const canCheckTraite = isManager || (isMyDossier && !d.traite);
-      const canUncheckTraite = isManager; // seul manager/admin peut décocher
-
-      // TICKET 4 – Réattribution après dispatch : manager/admin seulement
+      const canUncheckTraite = isManager;
       const canReassign = isManager || statut === 'non_attribue';
 
       html += `<tr>
@@ -796,73 +895,6 @@ async function renderAttribution() {
   html += `</tbody></table></div>`;
   document.getElementById('main-content').innerHTML = html;
 }
-
-function updateSelectionCount() {
-  const checked = document.querySelectorAll('.row-check:checked').length;
-  const el = document.getElementById('selection-count');
-  if (el) el.textContent = `${checked} sélectionné(s)`;
-}
-
-function toggleAll(checked) {
-  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = checked; });
-  updateSelectionCount();
-}
-
-function selectAll() {
-  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = true; });
-  const all = document.getElementById('check-all');
-  if (all) all.checked = true;
-  updateSelectionCount();
-}
-
-function clearSelection() {
-  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = false; });
-  const all = document.getElementById('check-all');
-  if (all) all.checked = false;
-  updateSelectionCount();
-}
-
-async function lockSelection() {
-  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
-  const gestionnaire = document.getElementById('assign-bulk-select').value;
-  for (const id of ids) {
-    const upd = { verrouille: true };
-    if (gestionnaire) upd.gestionnaire = gestionnaire;
-    await db.from('dossiers').update(upd).eq('id', id);
-  }
-  showNotif(`🔒 ${ids.length} dossier(s) verrouillé(s)${gestionnaire ? ' et attribué(s) à ' + gestionnaire : ''}.`, 'success');
-  clearSelection();
-  await loadDossiers();
-  renderAttribution();
-}
-
-async function unlockSelection() {
-  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
-  for (const id of ids) {
-    await db.from('dossiers').update({ verrouille: false }).eq('id', id);
-  }
-  showNotif(`🔓 ${ids.length} dossier(s) déverrouillé(s).`, 'info');
-  clearSelection();
-  await loadDossiers();
-  renderAttribution();
-}
-
-async function assignBulk() {
-  const gestionnaire = document.getElementById('assign-bulk-select').value;
-  if (!gestionnaire) { showNotif('Choisissez un gestionnaire.', 'error'); return; }
-  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
-  for (const id of ids) {
-    await db.from('dossiers').update({ gestionnaire }).eq('id', id);
-  }
-  showNotif(`✅ ${ids.length} dossier(s) attribué(s) à ${gestionnaire}`, 'success');
-  clearSelection();
-  await loadDossiers();
-  renderAttribution();
-}
-
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
@@ -988,15 +1020,55 @@ async function doAddUser() {
 
 // ===== ACTIONS =====
 async function toggleVerrouille(id, checked) {
+  const isManager = ['admin','manager'].includes(currentUserData.role);
+  const dossier = allDossiers.find(d => d.id === id);
+  const statut = dossier?.statut || 'non_attribue';
+  const isDispatched = ['attribue','encours','ouvert','traite'].includes(statut);
+
+  // Si on veut déverrouiller un dossier dispatché → seul manager
+  if (!checked && isDispatched && !isManager) {
+    showNotif('Seul le manager peut déverrouiller un dossier dispatché.', 'error');
+    renderAttribution(); return;
+  }
+
+  // Si manager déverrouille un dossier dispatché → confirmation + désattribution
+  if (!checked && isDispatched && isManager) {
+    const confirmModal = document.createElement('div');
+    confirmModal.className = 'modal-overlay';
+    confirmModal.id = 'unlock-confirm-modal';
+    confirmModal.innerHTML = `
+      <div class="modal" style="text-align:center">
+        <div style="font-size:44px;margin-bottom:12px">🔓</div>
+        <h2 style="color:#e74c3c">Déverrouiller ce dossier ?</h2>
+        <p style="color:#666;margin:16px 0">Cette action va <strong>désattribuer</strong> le dossier et remettre son statut à <strong>Non attribué</strong>.</p>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
+          <button class="btn btn-secondary" onclick="closeModal('unlock-confirm-modal');renderAttribution()">Annuler</button>
+          <button class="btn btn-danger" onclick="confirmUnlock(${id})">🔓 Confirmer le déverrouillage</button>
+        </div>
+      </div>`;
+    document.body.appendChild(confirmModal);
+    return;
+  }
+
   const { error } = await db.from('dossiers').update({ verrouille: checked }).eq('id', id);
   if (error) { showNotif('Erreur.', 'error'); return; }
   allDossiers = allDossiers.map(d => d.id === id ? {...d, verrouille: checked} : d);
   showNotif(checked ? '🔒 Dossier verrouillé' : '🔓 Dossier déverrouillé', 'info');
   // Mettre à jour le compteur dispatch
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','en_cours','ouvert','traite'].includes(d.statut||'non_attribue')).length;
+  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut||'non_attribue')).length;
   const btn = document.querySelector('.btn-dispatch');
-  if (btn) { btn.disabled = nbVerrouilles === 0; btn.textContent = `🚀 DISPATCH${nbVerrouilles > 0 ? ' ('+nbVerrouilles+')' : ''}`; }
+  if (btn) { btn.disabled = nbVerrouilles === 0; btn.textContent = `🚀 DISPATCHER${nbVerrouilles > 0 ? ` (${nbVerrouilles})` : ''}`; }
 }
+
+async function confirmUnlock(id) {
+  closeModal('unlock-confirm-modal');
+  const { error } = await db.from('dossiers').update({ verrouille: false, gestionnaire: '', statut: 'non_attribue' }).eq('id', id);
+  if (error) { showNotif('Erreur lors du déverrouillage.', 'error'); return; }
+  showNotif('🔓 Dossier déverrouillé et désattribué.', 'success');
+  await loadDossiers();
+  renderAttribution();
+}
+
 async function assignDossier(id, gestionnaire) {
   const { error } = await db.from('dossiers').update({ gestionnaire }).eq('id', id);
   if (error) { showNotif('Erreur lors de l\'attribution.', 'error'); return; }
