@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:,">
 <meta name="version" content="2.5.0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
@@ -408,13 +409,13 @@ async function handleFile(event) {
     if (!rows.length) { showNotif('Fichier vide ou format incorrect.', 'error'); return; }
     document.getElementById('import-result').innerHTML = '<div class="loading">Import en cours...</div>';
     const mapped = rows.map(r => ({
-      ref_sinistre: String(r['Réf. sinistre'] || r['ref_sinistre'] || r['REF SINISTRE'] || ''),
-      ref_contrat: String(r['Réf. contrat'] || r['ref_contrat'] || r['REF CONTRAT'] || ''),
-      nature: String(r['Nature'] || r['nature'] || ''),
-      nature_label: String(r['Nature label'] || r['nature_label'] || r['Libellé nature'] || ''),
-      type: String(r['Type'] || r['type'] || ''),
-      portefeuille: String(r['Portefeuille'] || r['portefeuille'] || ''),
-      gestionnaire: '', traite: false, verrouille: false
+      ref_sinistre: String(r['Ref sinistre'] || r['Réf. sinistre'] || r['ref_sinistre'] || r['REF SINISTRE'] || '').trim(),
+      ref_contrat:  String(r['Ref contrat']  || r['Réf. contrat']  || r['ref_contrat']  || r['REF CONTRAT']  || '').trim(),
+      nature:       String(r['Nature MIN']   || r['nature']        || r['NATURE']        || '').trim(),
+      nature_label: String(r['Nature']       || r['Desc. Nature']  || r['nature_label']  || r['Libellé nature'] || '').trim(),
+      type:         String(r['Typologie']    || r['Type']          || r['type']          || '').trim(),
+      portefeuille: String(r['Portefeuille'] || r['portefeuille']  || '').trim(),
+      statut: 'nonattribue', gestionnaire: '', traite: false, verrouille: false
     })).filter(d => d.ref_sinistre);
     const { error } = await db.from('dossiers').insert(mapped);
     if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
