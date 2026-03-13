@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.2.1">
+  <meta name="version" content="2.2.2">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -252,7 +252,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.2.1';
+    const APP_VERSION = '2.2.2';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -338,6 +338,7 @@ async function loadUserData() {
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
   document.getElementById('header-role').textContent = data.role.toUpperCase();
+  checkVersionSync();
   buildTabs();
   await loadAllUsers();
   showTab('dashboard');
@@ -884,14 +885,13 @@ async function renderAttribution() {
         <td><span class="badge" style="background:${d.type==='Habitation'?'#fef9e7':'#eafaf1'};color:${d.type==='Habitation'?'#d35400':'#1e8449'}">${d.type||'-'}</span></td>
         <td>${d.nature_label||d.nature||'-'}</td>
         <td>
-          ${canReassign ? `
-          <select class="assign-select" onchange="assignDossier(${d.id}, this.value)">
-            <option value="">Non attribué</option>
-            ${gestionnaires.map(g => { const n=`${g.prenom} ${g.nom}`; return `<option value="${n}" ${d.gestionnaire===n?'selected':''}>${n}</option>`; }).join('')}
-          </select>` : `<span style="font-size:13px;color:#555">${d.gestionnaire||'-'}</span>`}
+          <span style="font-size:13px;font-weight:600;color:${d.gestionnaire?'#1e3a5f':'#bbb'}">
+            ${d.gestionnaire || '—'}
+          </span>
         </td>
-        <td><input type="checkbox" ${d.verrouille?'checked':''} title="${d.verrouille?'Verrouillé':'Non verrouillé'}"
-          onchange="toggleVerrouille(${d.id},this.checked)" style="accent-color:#E71C7C;width:16px;height:16px;cursor:pointer"></td>
+        <td style="text-align:center;font-size:17px;cursor:default" title="${d.verrouille?'Verrouillé':'Non verrouillé'}">
+          ${d.verrouille ? '🔒' : '🔓'}
+        </td>
         <td>${statutBadge(statut)}</td>
         <td>
           <input type="checkbox" class="traite-checkbox"
@@ -1062,12 +1062,42 @@ async function lockSelection() {
   const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
   if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
   const gestionnaire = document.getElementById('assign-bulk-select')?.value || '';
+  const sansGest = ids.filter(id => { const d = allDossiers.find(x => x.id === id); return !gestionnaire && !(d && d.gestionnaire); });
+  if (sansGest.length > 0) {
+    const gests = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay'; modal.id = 'lock-warn-modal';
+    modal.innerHTML = '<div class="modal" style="text-align:center;max-width:420px">'
+      + '<div style="font-size:44px;margin-bottom:12px">⚠️</div>'
+      + '<h2 style="color:#e74c3c">Gestionnaire manquant</h2>'
+      + '<p style="color:#666;margin:14px 0"><strong>' + sansGest.length + '</strong> dossier(s) sans gestionnaire.<br>Sélectionnez-en un avant de verrouiller.</p>'
+      + '<select id="lock-warn-select" class="filter-select" style="width:100%;margin-bottom:20px">'
+      + '<option value="">— Choisir un gestionnaire —</option>'
+      + gests.map(g => '<option value="' + g.prenom + ' ' + g.nom + '">' + g.prenom + ' ' + g.nom + ' (' + g.role + ')</option>').join('')
+      + '</select>'
+      + '<div style="display:flex;gap:10px;justify-content:center">'
+      + '<button class="btn btn-secondary" onclick="closeModal('lock-warn-modal')">Annuler</button>'
+      + '<button class="btn btn-warning" onclick="confirmLockWithGest(' + JSON.stringify(ids) + ')">🔒 Verrouiller</button>'
+      + '</div></div>';
+    document.body.appendChild(modal); return;
+  }
+  await executeLock(ids, gestionnaire);
+}
+
+async function confirmLockWithGest(ids) {
+  const gestionnaire = document.getElementById('lock-warn-select')?.value;
+  if (!gestionnaire) { showNotif('Veuillez sélectionner un gestionnaire.', 'error'); return; }
+  closeModal('lock-warn-modal');
+  await executeLock(ids, gestionnaire);
+}
+
+async function executeLock(ids, gestionnaire) {
   for (const id of ids) {
     const upd = { verrouille: true };
     if (gestionnaire) upd.gestionnaire = gestionnaire;
     await db.from('dossiers').update(upd).eq('id', id);
   }
-  showNotif(`🔒 ${ids.length} dossier(s) verrouillé(s)${gestionnaire ? ' et attribués à ' + gestionnaire : ''}.`, 'success');
+  showNotif('🔒 ' + ids.length + ' dossier(s) verrouillé(s)' + (gestionnaire ? ' et attribués à ' + gestionnaire : '') + '.', 'success');
   clearSelection();
   await loadDossiers();
   renderAttribution();
