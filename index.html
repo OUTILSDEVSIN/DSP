@@ -775,13 +775,14 @@ async function executeAutoAssign(selections, dossiers) {
   let idx = 0;
   for (const sel of selections) {
     const batch = dossiers.slice(idx, idx + sel.nb);
-    for (const d of batch) {
-      await db.from('dossiers').update({ gestionnaire: sel.nom }).eq('id', d.id);
+    const ids = batch.map(d => d.id);
+    if (ids.length > 0) {
+      await db.from('dossiers').update({ gestionnaire: sel.nom, verrouille: true }).in('id', ids);
     }
     idx += sel.nb;
   }
   closeModal('auto-assign-modal');
-  showNotif(`✅ ${idx} dossiers attribués automatiquement !`, 'success');
+  showNotif(`✅ ${idx} dossiers attribués et verrouillés !`, 'success');
   await loadDossiers();
   showTab('attribution');
 }
