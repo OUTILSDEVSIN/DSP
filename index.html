@@ -330,7 +330,7 @@ async function checkVersionSync() {
       banner.id = 'version-banner';
       banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#e74c3c,#c0392b);color:white;text-align:center;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px';
       banner.innerHTML = '⚠️ Nouvelle version (v' + data.version_attendue + ') disponible.'
-        + '<button onclick="localStorage.removeItem('dsp_version'); window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now()" style="background:white;color:#e74c3c;border:none;padding:4px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🔄 Mettre à jour</button>'
+        + '<button onclick="localStorage.removeItem(\"dsp_version\"); window.location.href = window.location.pathname + \"?v=\" + Date.now()" style="background:white;color:#e74c3c;border:none;padding:4px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🔄 Mettre à jour</button>'
         + '<button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">✕</button>';
       document.body.prepend(banner);
     }
