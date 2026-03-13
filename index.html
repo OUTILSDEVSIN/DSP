@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.2.0">
+  <meta name="version" content="2.2.1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -252,7 +252,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.2.0';
+    const APP_VERSION = '2.2.1';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -765,22 +765,26 @@ async function renderAttribution() {
   const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
 
   let html = `
-  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="font-size:12px;font-weight:800;color:#1a5276;min-width:95px;text-transform:uppercase">Portefeuille</div>
-      ${countsPortefeuille.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+  <div style="background:white;border-radius:14px;padding:14px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:0;flex-wrap:wrap;overflow:hidden">
+    <!-- Portefeuille -->
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 16px 6px 0;border-right:1px solid #eee;margin-right:16px;flex-shrink:0">
+      <span style="font-size:10px;font-weight:800;color:#1a5276;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">📁 Portefeuille</span>
+      ${countsPortefeuille.map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="font-size:12px;font-weight:800;color:#1e8449;min-width:95px;text-transform:uppercase">Type</div>
-      ${countsType.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+    <!-- Type -->
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 16px 6px 0;border-right:1px solid #eee;margin-right:16px;flex-shrink:0">
+      <span style="font-size:10px;font-weight:800;color:#1e8449;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">🚗 Type</span>
+      ${countsType.map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="font-size:12px;font-weight:800;color:#d35400;min-width:95px;text-transform:uppercase">Nature</div>
-      ${countsNature.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+    <!-- Statut -->
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 16px 6px 0;border-right:1px solid #eee;margin-right:16px;flex-wrap:wrap;flex-shrink:0">
+      <span style="font-size:10px;font-weight:800;color:#7d3c98;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">📊 Statut</span>
+      ${countsStatut.filter(s=>s.count>0).map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="font-size:12px;font-weight:800;color:#7d3c98;min-width:95px;text-transform:uppercase">Statut</div>
-      ${countsStatut.map(s => `<div style="background:${s.bg};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;min-width:90px"><span style="font-size:22px;font-weight:800;color:${s.color}">${s.count}</span><span style="font-size:11px;color:${s.color};font-weight:600;text-align:center">${s.label}</span></div>`).join('')}
+    <!-- Nature -->
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:800;color:#d35400;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">🏷️ Nature</span>
+      ${countsNature.map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
   </div>
 
@@ -817,17 +821,25 @@ async function renderAttribution() {
     </label>
   </div>
 
-  <div style="background:white;border-radius:12px;padding:14px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <button class="btn btn-secondary" onclick="selectAll()">☑️ Tout sélectionner</button>
-    <select id="assign-bulk-select" class="filter-select" style="min-width:180px">
-      <option value="">— Gestionnaire —</option>
+  <div style="background:white;border-radius:14px;padding:12px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;background:#f0f2f5;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:#1e3a5f;user-select:none">
+      <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:#1e3a5f">
+      Tout sélectionner
+    </label>
+    <div style="width:1px;height:28px;background:#e0e0e0;flex-shrink:0"></div>
+    <select id="assign-bulk-select" class="filter-select" style="min-width:190px">
+      <option value="">— Attribuer à —</option>
       ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}">${g.prenom} ${g.nom} (${g.role})</option>`).join('')}
     </select>
-    <button class="btn btn-warning" onclick="lockSelection()">🔒 Verrouiller la sélection</button>
-    <button class="btn btn-secondary" onclick="unlockSelection()">🔓 Déverrouiller la sélection</button>
-    <span style="font-size:13px;color:#555;font-weight:600;margin-left:4px" id="selection-count">0 sélectionné(s)</span>
-    <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto">
-      🚀 DISPATCHER ${nbVerrouilles > 0 ? `(${nbVerrouilles})` : ''}
+    <button class="btn btn-warning" onclick="lockSelection()" style="display:flex;align-items:center;gap:6px">
+      🔒 Verrouiller
+    </button>
+    <button class="btn btn-secondary" onclick="unlockSelection()" style="display:flex;align-items:center;gap:6px">
+      🔓 Déverrouiller
+    </button>
+    <span style="font-size:13px;color:#888;font-weight:600;background:#f0f2f5;padding:5px 12px;border-radius:20px" id="selection-count">0 sélectionné(s)</span>
+    <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      🚀 DISPATCHER ${nbVerrouilles > 0 ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:1px 8px">${nbVerrouilles}</span>` : ''}
     </button>
   </div>
 
@@ -1019,6 +1031,60 @@ async function doAddUser() {
 }
 
 // ===== ACTIONS =====
+
+// ── SÉLECTION & VERROUILLAGE ──────────────────────────────
+function updateSelectionCount() {
+  const n = document.querySelectorAll('.row-check:checked').length;
+  const el = document.getElementById('selection-count');
+  if (el) el.textContent = n + ' sélectionné(s)';
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);
+  updateSelectionCount();
+}
+
+function selectAll() {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = true);
+  const all = document.getElementById('check-all');
+  if (all) all.checked = true;
+  updateSelectionCount();
+}
+
+function clearSelection() {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
+  const all = document.getElementById('check-all');
+  if (all) all.checked = false;
+  updateSelectionCount();
+}
+
+async function lockSelection() {
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
+  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
+  const gestionnaire = document.getElementById('assign-bulk-select')?.value || '';
+  for (const id of ids) {
+    const upd = { verrouille: true };
+    if (gestionnaire) upd.gestionnaire = gestionnaire;
+    await db.from('dossiers').update(upd).eq('id', id);
+  }
+  showNotif(`🔒 ${ids.length} dossier(s) verrouillé(s)${gestionnaire ? ' et attribués à ' + gestionnaire : ''}.`, 'success');
+  clearSelection();
+  await loadDossiers();
+  renderAttribution();
+}
+
+async function unlockSelection() {
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
+  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
+  for (const id of ids) {
+    await db.from('dossiers').update({ verrouille: false }).eq('id', id);
+  }
+  showNotif(`🔓 ${ids.length} dossier(s) déverrouillé(s).`, 'info');
+  clearSelection();
+  await loadDossiers();
+  renderAttribution();
+}
+
 async function toggleVerrouille(id, checked) {
   const isManager = ['admin','manager'].includes(currentUserData.role);
   const dossier = allDossiers.find(d => d.id === id);
