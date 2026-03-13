@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.2.2">
+  <meta name="version" content="2.2.3">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -252,7 +252,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.2.2';
+    const APP_VERSION = '2.2.3';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -318,6 +318,24 @@ let searchQuery = '';
 let filterGestionnaire = '';
 let filterStatut = '';
 
+// ── VÉRIFICATION VERSION SUPABASE ────────────────────────
+async function checkVersionSync() {
+  try {
+    const { data, error } = await db.rpc('check_app_version', { version_live: APP_VERSION });
+    if (error || !data) return;
+    if (data.status === 'mismatch') {
+      if (document.getElementById('version-banner')) return;
+      const banner = document.createElement('div');
+      banner.id = 'version-banner';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#e74c3c,#c0392b);color:white;text-align:center;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px';
+      banner.innerHTML = '⚠️ Nouvelle version (v' + data.version_attendue + ') disponible.'
+        + '<button onclick="location.reload(true)" style="background:white;color:#e74c3c;border:none;padding:4px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🔄 Mettre à jour</button>'
+        + '<button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">✕</button>';
+      document.body.prepend(banner);
+    }
+  } catch(e) { /* silencieux */ }
+}
+
 // ===== AUTH =====
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
@@ -338,7 +356,7 @@ async function loadUserData() {
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
   document.getElementById('header-role').textContent = data.role.toUpperCase();
-  if (typeof checkVersionSync === 'function') checkVersionSync();
+  checkVersionSync();
   buildTabs();
   await loadAllUsers();
   showTab('dashboard');
@@ -554,7 +572,7 @@ async function handleFile(event) {
 
     const { error } = await db.from('dossiers').insert(mapped);
     if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
-    showNotif(`✅ ${mapped.length} dossiers importés !`, 'success');
+    showNotif('✅ ' + mapped.length + ' dossiers importés. Données personnelles non conservées (RGPD).', 'success');
     document.getElementById('import-result').innerHTML =
       `<div class="stat-card" style="max-width:300px"><div class="number" style="color:#27ae60">${mapped.length}</div><div class="label">Dossiers importés</div></div>`;
     await loadDossiers();
@@ -873,10 +891,13 @@ async function renderAttribution() {
       const isMyDossier = d.gestionnaire === monNom;
       const canCheckTraite = isManager || (isMyDossier && !d.traite);
       const canUncheckTraite = isManager;
+      const canAdmin = isManager;
       const canReassign = isManager || statut === 'non_attribue';
 
       html += `<tr>
-        <td><input type="checkbox" class="row-check" data-id="${d.id}" onchange="updateSelectionCount()"></td>
+        <td><input type="checkbox" class="row-check" data-id="${d.id}"
+          ${d.verrouille ? 'disabled title="Dossier verrouillé — déverrouillez-le d'abord"' : ''}
+          onchange="updateSelectionCount()"></td>
         <td><strong>${d.ref_sinistre||''}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
         </td>
@@ -889,16 +910,19 @@ async function renderAttribution() {
             ${d.gestionnaire || '—'}
           </span>
         </td>
-        <td style="text-align:center;font-size:17px;cursor:default" title="${d.verrouille?'Verrouillé':'Non verrouillé'}">
-          ${d.verrouille ? '🔒' : '🔓'}
+        <td style="text-align:center;font-size:17px">
+          ${d.verrouille
+            ? (isManager
+                ? `<span title="Cliquer pour libérer" style="cursor:pointer" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" style="display:inline-block;transition:transform 0.15s" onclick="showUnlockConfirm(${d.id})">🔒</span>`
+                : '<span title="Verrouillé" style="cursor:default">🔒</span>')
+            : '<span title="Non verrouillé" style="cursor:default;opacity:0.3">🔓</span>'
+          }
         </td>
         <td>${statutBadge(statut)}</td>
-        <td>
-          <input type="checkbox" class="traite-checkbox"
-            ${d.traite?'checked':''}
-            ${(d.traite && !canUncheckTraite) || (!d.traite && !canCheckTraite) ? 'disabled' : ''}
-            title="${d.traite && !canUncheckTraite ? 'Seul le manager peut décocher' : ''}"
-            onchange="toggleTraite(${d.id},this.checked,'${d.gestionnaire||''}')">
+        <td style="text-align:center">
+          <span style="font-size:15px;opacity:${d.traite?'1':'0.2'}" title="${d.traite?'Traité':'Non traité'}">
+            ${d.traite ? '✅' : '⬜'}
+          </span>
         </td>
       </tr>`;
     });
@@ -1139,23 +1163,9 @@ async function toggleVerrouille(id, checked) {
     renderAttribution(); return;
   }
 
-  // Si manager déverrouille un dossier dispatché → confirmation + désattribution
   if (!checked && isDispatched && isManager) {
-    const confirmModal = document.createElement('div');
-    confirmModal.className = 'modal-overlay';
-    confirmModal.id = 'unlock-confirm-modal';
-    confirmModal.innerHTML = `
-      <div class="modal" style="text-align:center">
-        <div style="font-size:44px;margin-bottom:12px">🔓</div>
-        <h2 style="color:#e74c3c">Déverrouiller ce dossier ?</h2>
-        <p style="color:#666;margin:16px 0">Cette action va <strong>désattribuer</strong> le dossier et remettre son statut à <strong>Non attribué</strong>.</p>
-        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
-          <button class="btn btn-secondary" onclick="closeModal('unlock-confirm-modal');renderAttribution()">Annuler</button>
-          <button class="btn btn-danger" onclick="confirmUnlock(${id})">🔓 Confirmer le déverrouillage</button>
-        </div>
-      </div>`;
-    document.body.appendChild(confirmModal);
-    return;
+    showUnlockConfirm(id);
+    renderAttribution(); return;
   }
 
   const { error } = await db.from('dossiers').update({ verrouille: checked }).eq('id', id);
@@ -1166,6 +1176,28 @@ async function toggleVerrouille(id, checked) {
   const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut||'non_attribue')).length;
   const btn = document.querySelector('.btn-dispatch');
   if (btn) { btn.disabled = nbVerrouilles === 0; btn.textContent = `🚀 DISPATCHER${nbVerrouilles > 0 ? ` (${nbVerrouilles})` : ''}`; }
+}
+
+function showUnlockConfirm(id) {
+  const existing = document.getElementById('unlock-confirm-modal');
+  if (existing) existing.remove();
+  const d = allDossiers.find(x => x.id === id);
+  const gname = d && d.gestionnaire ? ' (attribué à <strong>' + d.gestionnaire + '</strong>)' : '';
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay'; modal.id = 'unlock-confirm-modal';
+  const inner = document.createElement('div');
+  inner.className = 'modal'; inner.style.cssText = 'text-align:center;max-width:420px';
+  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">🔓</div>'
+    + '<h2 style="color:#e74c3c">Libérer ce dossier ?</h2>'
+    + '<p style="color:#666;margin:16px 0">Cette action va <strong>désattribuer</strong> le dossier' + gname + ' et remettre son statut à <strong>Non attribué</strong>.</p>';
+  const btns = document.createElement('div');
+  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
+  const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler';
+  btnC.onclick = () => closeModal('unlock-confirm-modal');
+  const btnO = document.createElement('button'); btnO.className = 'btn btn-danger'; btnO.textContent = '🔓 Confirmer la libération';
+  btnO.onclick = () => confirmUnlock(id);
+  btns.appendChild(btnC); btns.appendChild(btnO); inner.appendChild(btns); modal.appendChild(inner);
+  document.body.appendChild(modal);
 }
 
 async function confirmUnlock(id) {
