@@ -338,7 +338,7 @@ async function loadUserData() {
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
   document.getElementById('header-role').textContent = data.role.toUpperCase();
-  checkVersionSync();
+  if (typeof checkVersionSync === 'function') checkVersionSync();
   buildTabs();
   await loadAllUsers();
   showTab('dashboard');
