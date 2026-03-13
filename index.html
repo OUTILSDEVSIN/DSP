@@ -546,14 +546,19 @@ async function doReset(type) {
       showNotif('Tapez CONFIRMER pour valider.', 'error'); return;
     }
     closeModal('reset-confirm-modal');
-    const { error } = await db.from('dossiers').delete().neq('id', 0);
+    // Supprimer par batch via IDs réels
+  const allIds = allDossiers.map(d => d.id);
+  if (allIds.length === 0) { showNotif('Aucun dossier à supprimer.', 'info'); return; }
+  const { error } = await db.from('dossiers').delete().in('id', allIds);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    showNotif('💣 Tous les dossiers ont été supprimés.', 'success');
+    showNotif('💣 ' + allIds.length + ' dossiers supprimés.', 'success');
   } else {
     closeModal('reset-confirm-modal');
-    const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'non_attribue', traite: false }).neq('id', 0);
+    const allIds2 = allDossiers.map(d => d.id);
+  if (allIds2.length === 0) { showNotif('Aucun dossier à réinitialiser.', 'info'); return; }
+  const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'non_attribue', traite: false }).in('id', allIds2);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    showNotif('🔄 Toutes les attributions ont été réinitialisées.', 'success');
+    showNotif('🔄 ' + allIds2.length + ' dossiers réinitialisés.', 'success');
   }
   await loadDossiers(); renderDashboard();
 }
@@ -1087,6 +1092,7 @@ async function renderUtilisateurs() {
     <h2 style="color:#1e3a5f">Équipe (${allUsers.length} membres)</h2>
     <button class="btn btn-success" onclick="showAddUser()">➕ Ajouter un membre</button>
   </div><div class="users-grid">`;
+  const isManager = ['admin','manager'].includes(currentUserData.role);
   allUsers.forEach(u => {
     const ac = u.role==='admin'?'avatar-admin':u.role==='manager'?'avatar-manager':'avatar-gestionnaire';
     const rc = u.role==='admin'?'role-admin':u.role==='manager'?'role-manager':'role-gestionnaire';
@@ -1303,7 +1309,6 @@ async function unlockSelection() {
 }
 
 async function toggleVerrouille(id, checked) {
-  const isManager = ['admin','manager'].includes(currentUserData.role);
   const dossier = allDossiers.find(d => d.id === id);
   const statut = dossier?.statut || 'non_attribue';
   const isDispatched = ['attribue','encours','ouvert','traite'].includes(statut);
