@@ -499,13 +499,20 @@ function showResetMenu() {
   inner.style.cssText = 'text-align:center;max-width:440px';
   inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">⚙️</div>'
     + '<h2 style="color:#e74c3c">Réinitialisation</h2>'
-    + '<p style="color:#666;margin:16px 0">Choisissez le type de réinitialisation :</p>'
-    + '<div style="display:flex;flex-direction:column;gap:12px;margin-top:20px">'
-    + '<button class="btn btn-warning" onclick="showResetConfirm('attributions')">🔄 Réinitialiser les attributions<br><small style="font-weight:400;opacity:0.8">Supprime toutes les attributions, remet les statuts à zéro</small></button>'
-    + '<button class="btn btn-danger" onclick="showResetConfirm('complet')">💣 Réinitialisation complète<br><small style="font-weight:400;opacity:0.8">Supprime TOUTES les données importées</small></button>'
-    + '<button class="btn btn-secondary" onclick="closeModal('reset-modal')" style="margin-top:4px">Annuler</button>'
-    + '</div>';
-  modal.appendChild(inner); document.body.appendChild(modal);
+    + '<p style="color:#666;margin:16px 0">Choisissez le type de réinitialisation :</p>';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;margin-top:20px';
+  const b1 = document.createElement('button'); b1.className = 'btn btn-warning';
+  b1.innerHTML = '🔄 Réinitialiser les attributions<br><small style="font-weight:400;opacity:0.8">Supprime toutes les attributions, remet les statuts à zéro</small>';
+  b1.onclick = () => showResetConfirm('attributions');
+  const b2 = document.createElement('button'); b2.className = 'btn btn-danger';
+  b2.innerHTML = '💣 Réinitialisation complète<br><small style="font-weight:400;opacity:0.8">Supprime TOUTES les données importées</small>';
+  b2.onclick = () => showResetConfirm('complet');
+  const b3 = document.createElement('button'); b3.className = 'btn btn-secondary';
+  b3.style.marginTop = '4px'; b3.textContent = 'Annuler';
+  b3.onclick = () => closeModal('reset-modal');
+  wrap.appendChild(b1); wrap.appendChild(b2); wrap.appendChild(b3);
+  inner.appendChild(wrap); modal.appendChild(inner); document.body.appendChild(modal);
 }
 
 function showResetConfirm(type) {
@@ -1114,12 +1121,16 @@ function showEditUser(id, prenom, nom, email, role) {
     + '<div class="form-group"><label>Rôle</label><select id="edit-role"' + (isSelf?' disabled title="Impossible de modifier votre propre rôle"':'') + '>' + opts + '</select>'
     + (isSelf ? '<small style="color:#e74c3c">Vous ne pouvez pas changer votre propre rôle.</small>' : '') + '</div>'
     + '<div class="modal-error" id="edit-user-error"></div>'
-    + '<div class="modal-actions">'
-    + '<button class="btn btn-secondary" onclick="closeModal('edit-user-modal')">Annuler</button>'
-    + '<button class="btn btn-primary" onclick="doEditUser('' + id + '','' + email + '',' + isSelf + ')">Enregistrer</button>'
-    + '</div>';
-  modal.appendChild(inner); document.body.appendChild(modal);
+    + '';
+  const editBtns = document.createElement('div'); editBtns.className = 'modal-actions';
+  const editBtnC = document.createElement('button'); editBtnC.className = 'btn btn-secondary';
+  editBtnC.textContent = 'Annuler'; editBtnC.onclick = () => closeModal('edit-user-modal');
+  const editBtnO = document.createElement('button'); editBtnO.className = 'btn btn-primary';
+  editBtnO.textContent = 'Enregistrer'; editBtnO.onclick = () => doEditUser(id, email, isSelf);
+  editBtns.appendChild(editBtnC); editBtns.appendChild(editBtnO);
+  inner.appendChild(editBtns); modal.appendChild(inner); document.body.appendChild(modal);
 }
+
 
 async function doEditUser(id, originalEmail, isSelf) {
   const prenom = document.getElementById('edit-prenom').value.trim();
