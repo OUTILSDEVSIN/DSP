@@ -2,17 +2,16 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta name="version" content="2.5.0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.3.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-  /* ===== RESET & BASE ===== */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; color: #1a1a2e; }
 
-  /* ===== LOGIN ===== */
+  /* LOGIN */
   #login-screen {
     display: flex; align-items: center; justify-content: center;
     min-height: 100vh;
@@ -24,11 +23,7 @@
     background: radial-gradient(ellipse at 30% 50%, rgba(231,28,124,0.15) 0%, transparent 60%),
                 radial-gradient(ellipse at 70% 50%, rgba(231,28,124,0.1) 0%, transparent 60%);
   }
-  .login-box {
-    background: white; border-radius: 20px; padding: 44px 40px;
-    width: 400px; box-shadow: 0 30px 80px rgba(0,0,0,0.4);
-    position: relative; z-index: 1;
-  }
+  .login-box { background: white; border-radius: 20px; padding: 44px 40px; width: 400px; box-shadow: 0 30px 80px rgba(0,0,0,0.4); position: relative; z-index: 1; }
   .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
   .login-logo-text { font-size: 22px; font-weight: 800; color: #1a1a2e; letter-spacing: -0.5px; }
   .login-logo-text span { color: #E71C7C; }
@@ -42,142 +37,62 @@
   .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: #bbb; }
   .login-error { color: #e74c3c; text-align: center; font-size: 13px; margin-top: 10px; display: none; background: #fff5f5; padding: 8px; border-radius: 8px; }
 
-  /* ===== APP LAYOUT ===== */
+  /* APP */
   #app-screen { display: none; }
 
-  /* ===== HEADER (maquette: fond blanc, sobre) ===== */
+  /* HEADER — fond blanc sobre (maquette) */
   header {
-    background: white;
-    color: #1a1a2e;
-    padding: 0 28px;
-    display: flex; align-items: center; justify-content: space-between;
-    height: 56px;
-    border-bottom: 1px solid #e8e8e8;
+    background: white; color: #1a1a2e;
+    padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+    height: 54px; border-bottom: 1px solid #e8e8e8;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     position: sticky; top: 0; z-index: 100;
   }
-  .header-left { display: flex; align-items: center; gap: 10px; }
-  .header-logo-icon { font-size: 20px; }
-  .header-title { font-size: 16px; font-weight: 700; color: #1a1a2e; white-space: nowrap; }
-  .header-right { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
-  .header-username { font-weight: 600; color: #1a1a2e; margin-right: 4px; }
-  .header-role-tag {
-    font-size: 11px; font-weight: 700; padding: 2px 8px;
-    border-radius: 6px; background: #f0f2f5; color: #555;
-    text-transform: uppercase; letter-spacing: 0.5px;
-  }
-  .header-sep { color: #ddd; margin: 0 4px; }
-  .btn-header {
-    background: none; border: none; color: #666; padding: 6px 10px;
-    border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.15s;
-    display: flex; align-items: center; gap: 5px;
-  }
+  .header-left { display: flex; align-items: center; gap: 8px; }
+  .header-title { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+  .header-right { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+  .header-username { font-weight: 600; color: #1a1a2e; margin-right: 2px; }
+  .header-role-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #f0f2f5; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 6px; }
+  .header-sep { color: #ddd; margin: 0 2px; }
+  .btn-header { background: none; border: none; color: #777; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
   .btn-header:hover { background: #f5f5f5; color: #1a1a2e; }
   .btn-header-danger { color: #e74c3c; }
-  .btn-header-danger:hover { background: #fff5f5; color: #c0392b; }
+  .btn-header-danger:hover { background: #fff5f5; }
 
-  /* ===== TABS (maquette: fond gris, onglet actif souligné rose) ===== */
-  .tabs {
-    display: flex; gap: 0; padding: 0 24px;
-    background: white; border-bottom: 1px solid #e8e8e8;
-    overflow-x: auto;
-  }
-  .tab {
-    padding: 14px 18px; cursor: pointer; white-space: nowrap;
-    font-size: 13px; font-weight: 500; color: #888;
-    border-bottom: 3px solid transparent;
-    transition: all 0.2s; display: flex; align-items: center; gap: 6px;
-  }
+  /* TABS — onglet actif souligné rose (maquette) */
+  .tabs { display: flex; padding: 0 20px; background: white; border-bottom: 1px solid #e8e8e8; overflow-x: auto; }
+  .tab { padding: 14px 16px; cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 500; color: #999; border-bottom: 3px solid transparent; transition: all 0.2s; }
   .tab.active { color: #E71C7C; border-bottom-color: #E71C7C; font-weight: 700; }
   .tab:hover:not(.active) { color: #1a1a2e; background: #fafafa; }
 
-  /* ===== CONTENT ===== */
+  /* CONTENT */
   .content { padding: 20px 24px; }
 
-  /* ===== STATS CARDS ===== */
+  /* STATS */
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .stat-card {
-    background: white; border-radius: 10px; padding: 16px 20px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #f0f0f0;
-  }
+  .stat-card { background: white; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border: 1px solid #eeeeee; }
   .stat-card .number { font-size: 28px; font-weight: 700; color: #1a1a2e; }
-  .stat-card .label { font-size: 12px; color: #999; margin-top: 2px; }
+  .stat-card .label { font-size: 12px; color: #999; margin-top: 3px; }
 
-  /* ===== FILTER BANDEAU (maquette style) ===== */
-  .filter-bandeau {
-    background: white; border-radius: 10px; padding: 12px 16px;
-    margin-bottom: 12px; border: 1px solid #ececec;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    display: flex; flex-wrap: wrap; gap: 0; align-items: center; overflow: hidden;
-  }
-  .filter-bandeau-group {
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 16px 4px 0; margin-right: 16px;
-    border-right: 1px solid #eee;
-  }
-  .filter-bandeau-group:last-child { border-right: none; margin-right: 0; }
-  .filter-bandeau-label {
-    font-size: 10px; font-weight: 800; color: #aaa;
-    text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; margin-right: 4px;
-  }
-  .filter-pill {
-    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
-    white-space: nowrap; cursor: pointer; transition: all 0.15s;
-  }
-  .filter-pill:hover { opacity: 0.8; }
-
-  /* ===== TABLE CONTAINER ===== */
-  .table-container {
-    background: white; border-radius: 10px;
-    border: 1px solid #ececec;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden;
-  }
-  .table-toolbar {
-    padding: 14px 18px; display: flex; align-items: center;
-    justify-content: space-between; border-bottom: 1px solid #f0f0f0;
-    flex-wrap: wrap; gap: 10px; background: white;
-  }
+  /* TABLE */
+  .table-container { background: white; border-radius: 10px; border: 1px solid #eeeeee; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
+  .table-toolbar { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; gap: 10px; }
   .table-toolbar h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; }
-  .table-toolbar h2 span { color: #999; font-weight: 400; font-size: 13px; margin-left: 4px; }
-
-  /* ===== FILTERS BAR ===== */
-  .filters {
-    display: flex; gap: 8px; flex-wrap: wrap;
-    padding: 12px 18px; background: #fafafa; border-bottom: 1px solid #f0f0f0;
-    align-items: center;
-  }
-  .search-bar {
-    padding: 7px 12px; border: 1px solid #e0e0e0; border-radius: 7px;
-    font-size: 13px; outline: none; width: 210px; background: white;
-    transition: border 0.2s;
-  }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 18px; background: #fafafa; border-bottom: 1px solid #f0f0f0; align-items: center; }
+  .search-bar { padding: 7px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; outline: none; width: 210px; transition: border 0.2s; }
   .search-bar:focus { border-color: #E71C7C; }
-  .filter-select {
-    padding: 7px 10px; border: 1px solid #e0e0e0; border-radius: 7px;
-    font-size: 13px; outline: none; background: white; cursor: pointer;
-    transition: border 0.2s;
-  }
+  .filter-select { padding: 7px 10px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; outline: none; background: white; cursor: pointer; }
   .filter-select:focus { border-color: #E71C7C; }
-
-  /* ===== TABLE ===== */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead { background: #fafafa; }
-  th {
-    padding: 10px 14px; text-align: left; font-weight: 600;
-    color: #888; border-bottom: 1px solid #ececec;
-    white-space: nowrap; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
-  }
+  th { padding: 10px 14px; text-align: left; font-weight: 600; color: #999; border-bottom: 1px solid #eeeeee; white-space: nowrap; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
   td { padding: 11px 14px; border-bottom: 1px solid #f5f5f5; color: #1a1a2e; }
   tr:hover td { background: #fafbff; }
   tr:last-child td { border-bottom: none; }
 
-  /* ===== BADGES STATUT avec point coloré (style maquette) ===== */
-  .badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
-    white-space: nowrap;
-  }
-  .badge::before { content: '●'; font-size: 8px; }
+  /* BADGES avec point coloré (maquette) */
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge::before { content: '●'; font-size: 7px; }
   .badge-nonattribue { background: #f5f5f5; color: #888; }
   .badge-nonattribue::before { color: #ccc; }
   .badge-attribue { background: #eaf4ff; color: #1a6bbf; }
@@ -191,22 +106,8 @@
   .badge-nontraite { background: #fff8e6; color: #b07800; }
   .badge-nontraite::before { color: #f0a500; }
 
-  /* petit badge sans point pour type/portefeuille */
-  .tag {
-    display: inline-block; padding: 2px 9px; border-radius: 6px;
-    font-size: 11px; font-weight: 600; white-space: nowrap;
-  }
-  .tag-auto { background: #e8f4fd; color: #1a5276; }
-  .tag-hab { background: #eafaf1; color: #1e8449; }
-  .tag-mia { background: #f0f2f5; color: #555; }
-  .tag-opti { background: #fef9e7; color: #7d6608; }
-
-  /* ===== BOUTONS ===== */
-  .btn {
-    padding: 8px 16px; border-radius: 7px; border: none;
-    cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s;
-    display: inline-flex; align-items: center; gap: 5px;
-  }
+  /* BOUTONS */
+  .btn { padding: 8px 14px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
   .btn-primary { background: #1e3a5f; color: white; }
   .btn-primary:hover { background: #2d5a8e; }
   .btn-success { background: #27ae60; color: white; }
@@ -217,79 +118,44 @@
   .btn-danger:hover { background: #c0392b; }
   .btn-secondary { background: #f0f2f5; color: #555; border: 1px solid #e0e0e0; }
   .btn-secondary:hover { background: #e5e8ec; }
-  .btn-outline { background: white; color: #555; border: 1px solid #ddd; }
-  .btn-outline:hover { background: #f5f5f5; border-color: #bbb; }
 
-  /* BOUTON DISPATCHER (maquette: rose vif, prominent) */
-  .btn-dispatch {
-    padding: 10px 24px;
-    background: linear-gradient(135deg, #E71C7C, #c4156a);
-    color: white; border: none; border-radius: 8px;
-    font-size: 13px; font-weight: 800; cursor: pointer;
-    box-shadow: 0 3px 12px rgba(231,28,124,0.4);
-    transition: all 0.2s; letter-spacing: 0.8px; text-transform: uppercase;
-    display: inline-flex; align-items: center; gap: 6px;
-  }
+  /* DISPATCHER — rose vif uppercase (maquette) */
+  .btn-dispatch { padding: 10px 22px; background: linear-gradient(135deg, #E71C7C, #c4156a); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 12px rgba(231,28,124,0.4); transition: all 0.2s; letter-spacing: 1px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
   .btn-dispatch:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(231,28,124,0.5); }
   .btn-dispatch:active { transform: translateY(0); }
   .btn-dispatch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-  /* ===== BOUTON COPY ===== */
-  .btn-copy {
-    background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 5px;
-    padding: 3px 7px; cursor: pointer; font-size: 11px; color: #888;
-    transition: all 0.15s; margin-left: 5px;
-  }
-  .btn-copy:hover { background: #ececec; border-color: #ccc; color: #555; }
+  /* COPY BTN */
+  .btn-copy { background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 5px; padding: 3px 7px; cursor: pointer; font-size: 11px; color: #999; transition: all 0.15s; margin-left: 4px; }
+  .btn-copy:hover { background: #ececec; color: #555; }
   .btn-copy.copied { background: #eafaf1; border-color: #27ae60; color: #1e8449; }
 
-  /* ===== CHECKBOX ROWS ===== */
-  .row-check { width: 16px; height: 16px; cursor: pointer; accent-color: #E71C7C; }
-  .traite-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: #27ae60; }
+  /* CHECKBOXES */
+  .row-check { width: 15px; height: 15px; cursor: pointer; accent-color: #E71C7C; }
+  .traite-checkbox { width: 15px; height: 15px; cursor: pointer; accent-color: #27ae60; }
   .traite-checkbox:disabled { cursor: not-allowed; opacity: 0.35; }
+  select.assign-select { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; background: white; cursor: pointer; min-width: 155px; }
 
-  /* ===== ACTION BAR ATTRIBUTION ===== */
-  .action-bar {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding: 10px 18px; background: #fafafa; border-bottom: 1px solid #f0f0f0;
-  }
-  .action-bar label { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; color: #555; }
-  select.assign-select {
-    padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 7px;
-    font-size: 13px; background: white; cursor: pointer; min-width: 160px;
-  }
+  /* BANDEAU COMPTEURS (maquette) */
+  .filter-bandeau { background: white; border-radius: 10px; padding: 10px 16px; margin-bottom: 12px; border: 1px solid #eeeeee; display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; }
+  .filter-bandeau-group { display: flex; align-items: center; gap: 6px; padding: 4px 16px 4px 0; margin-right: 16px; border-right: 1px solid #eee; flex-wrap: wrap; }
+  .filter-bandeau-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+  .filter-bandeau-label { font-size: 10px; font-weight: 800; color: #bbb; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; margin-right: 2px; }
+  .filter-pill { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 
-  /* ===== MODALS ===== */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-    display: flex; align-items: center; justify-content: center; z-index: 1000;
-    backdrop-filter: blur(2px);
-  }
-  .modal {
-    background: white; border-radius: 14px; padding: 28px;
-    width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-    max-height: 90vh; overflow-y: auto;
-  }
+  /* MODALS */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
+  .modal { background: white; border-radius: 14px; padding: 28px; width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
   .modal h2 { color: #1a1a2e; margin-bottom: 18px; font-size: 18px; }
   .modal label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 5px; margin-top: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .modal input, .modal select {
-    width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0;
-    border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s;
-  }
+  .modal input, .modal select { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s; }
   .modal input:focus, .modal select:focus { border-color: #E71C7C; }
   .modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
   .modal-error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
 
-  /* ===== DISPATCH MODAL ===== */
-  .dispatch-modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-    display: flex; align-items: center; justify-content: center; z-index: 2000;
-    backdrop-filter: blur(3px);
-  }
-  .dispatch-modal {
-    background: white; border-radius: 16px; padding: 36px;
-    width: 420px; box-shadow: 0 30px 80px rgba(0,0,0,0.25); text-align: center;
-  }
+  /* DISPATCH MODAL */
+  .dispatch-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(3px); }
+  .dispatch-modal { background: white; border-radius: 16px; padding: 36px; width: 420px; box-shadow: 0 30px 80px rgba(0,0,0,0.25); text-align: center; }
   .dispatch-modal .icon { font-size: 48px; margin-bottom: 14px; }
   .dispatch-modal h2 { color: #1a1a2e; font-size: 20px; margin-bottom: 8px; }
   .dispatch-modal p { color: #777; font-size: 14px; margin-bottom: 6px; }
@@ -297,117 +163,68 @@
   .dispatch-modal .count small { font-size: 13px; color: #999; font-weight: 400; display: block; }
   .dispatch-actions { display: flex; gap: 10px; margin-top: 24px; justify-content: center; }
 
-  /* ===== UPLOAD ZONE ===== */
-  .upload-zone {
-    border: 2px dashed #d0dcea; border-radius: 12px; padding: 48px;
-    text-align: center; background: white; margin-bottom: 20px;
-    transition: all 0.2s; cursor: pointer;
-  }
+  /* UPLOAD */
+  .upload-zone { border: 2px dashed #d0dcea; border-radius: 12px; padding: 48px; text-align: center; background: white; margin-bottom: 20px; transition: all 0.2s; cursor: pointer; }
   .upload-zone:hover { border-color: #E71C7C; background: #fff5f9; }
   .upload-zone .icon { font-size: 44px; margin-bottom: 10px; }
   .upload-zone h3 { color: #1e3a5f; margin-bottom: 6px; font-size: 15px; }
   .upload-zone p { color: #aaa; font-size: 13px; }
   #file-input { display: none; }
 
-  /* ===== ÉQUIPE CARDS ===== */
+  /* ÉQUIPE */
   .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
-  .user-card {
-    background: white; border-radius: 10px; padding: 16px 18px;
-    border: 1px solid #ececec; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    display: flex; align-items: center; gap: 14px;
-    transition: box-shadow 0.15s;
-  }
+  .user-card { background: white; border-radius: 10px; padding: 16px 18px; border: 1px solid #eeeeee; box-shadow: 0 1px 4px rgba(0,0,0,0.04); display: flex; align-items: center; gap: 14px; transition: box-shadow 0.15s; }
   .user-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09); }
-  .user-avatar {
-    width: 44px; height: 44px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 700; color: white; flex-shrink: 0;
-  }
+  .user-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: white; flex-shrink: 0; }
   .avatar-admin { background: linear-gradient(135deg, #1e3a5f, #2d6a9f); }
   .avatar-manager { background: linear-gradient(135deg, #7d3c98, #a569bd); }
   .avatar-gestionnaire { background: linear-gradient(135deg, #27ae60, #52be80); }
   .user-info h4 { font-size: 14px; color: #1a1a2e; font-weight: 600; }
   .user-info p { font-size: 12px; color: #999; margin-top: 1px; }
-  .user-role-badge {
-    padding: 2px 9px; border-radius: 8px; font-size: 11px; font-weight: 700;
-    margin-top: 5px; display: inline-block;
-  }
+  .user-role-badge { padding: 2px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-top: 5px; display: inline-block; }
   .role-admin { background: #e8f0fb; color: #1a5276; }
   .role-manager { background: #f3eaf9; color: #7d3c98; }
   .role-gestionnaire { background: #eafaf1; color: #1e8449; }
 
-  /* ===== FORM CARD ===== */
-  .form-card {
-    background: white; border-radius: 10px; padding: 24px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06); max-width: 480px;
-    border: 1px solid #ececec;
-  }
+  /* FORM */
+  .form-card { background: white; border-radius: 10px; padding: 24px; border: 1px solid #eeeeee; max-width: 480px; }
   .form-card h2 { color: #1a1a2e; margin-bottom: 16px; font-size: 16px; }
   .form-group { margin-bottom: 14px; }
   .form-group label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .form-group input, .form-group select {
-    width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0;
-    border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s;
-  }
+  .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s; }
   .form-group input:focus, .form-group select:focus { border-color: #E71C7C; }
   .form-error { color: #e74c3c; font-size: 12px; margin-top: 6px; display: none; }
   .form-success { color: #27ae60; font-size: 12px; margin-top: 6px; display: none; }
 
-  /* ===== NOTIF TOAST ===== */
-  .notif {
-    position: fixed; bottom: 20px; right: 20px;
-    padding: 12px 18px; border-radius: 9px; color: white;
-    font-size: 13px; font-weight: 500; z-index: 9999;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    animation: slideIn 0.3s ease; max-width: 300px;
-    display: flex; align-items: center; gap: 8px;
-  }
+  /* NOTIF */
+  .notif { position: fixed; bottom: 20px; right: 20px; padding: 12px 18px; border-radius: 9px; color: white; font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: 0 4px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s ease; max-width: 300px; }
   .notif-success { background: #27ae60; }
   .notif-error { background: #e74c3c; }
   .notif-info { background: #2d6a9f; }
   @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-  /* ===== MISC ===== */
+  /* MISC */
   .loading { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
   .empty-state { text-align: center; padding: 50px; color: #ccc; }
   .empty-state .icon { font-size: 44px; margin-bottom: 10px; }
   .star-supp { color: #f39c12; font-size: 14px; margin-left: 3px; }
-  .btn-demander-supp {
-    padding: 9px 18px; background: linear-gradient(135deg, #27ae60, #1e8449);
-    color: white; border: none; border-radius: 8px; font-size: 13px;
-    font-weight: 600; cursor: pointer; transition: all 0.2s;
-    display: inline-flex; align-items: center; gap: 5px;
-  }
+  .btn-demander-supp { padding: 9px 18px; background: linear-gradient(135deg, #27ae60, #1e8449); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; }
   .btn-demander-supp:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(39,174,96,0.4); }
   .btn-demander-supp:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  /* ===== PROGRESS BAR ===== */
   .progress-bar-wrap { display: flex; align-items: center; gap: 8px; }
   .progress-bar-bg { background: #eee; border-radius: 10px; height: 7px; width: 80px; overflow: hidden; }
   .progress-bar-fill { background: #27ae60; height: 7px; border-radius: 10px; }
 
-  /* ===== RESPONSIVE ===== */
   @media (max-width: 768px) {
     .content { padding: 12px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     table { font-size: 11px; }
     th, td { padding: 8px 10px; }
     .modal { width: 95vw; padding: 20px; }
-    header { padding: 0 14px; }
-    .header-title { font-size: 14px; }
+    header { padding: 0 12px; }
+    .header-title { font-size: 13px; }
   }
 </style>
-  <script>
-    // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.3.0';
-    const storedVersion = localStorage.getItem('dsp_version');
-    if (storedVersion && storedVersion !== APP_VERSION) {
-      localStorage.setItem('dsp_version', APP_VERSION);
-      window.location.href = window.location.href.split('?')[0] + '?v=' + APP_VERSION;
-    } else {
-      localStorage.setItem('dsp_version', APP_VERSION);
-    }
-  </script>
 </head>
 <body>
 
@@ -437,7 +254,7 @@
 <div id="app-screen">
   <header>
     <div class="header-left">
-      <span class="header-logo-icon">🛡️</span>
+      <span style="font-size:18px">🛡️</span>
       <span class="header-title">DSP — Distribution des Sinistres</span>
     </div>
     <div class="header-right">
@@ -454,6 +271,8 @@
 </div>
 
 <script>
+const APP_VERSION = '2.5.0';
+
 const SUPABASE_URL = 'https://xwiguxvmlqskzamapyzf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aWd1eHZtbHFza3phbWFweXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODUwMTMsImV4cCI6MjA4ODc2MTAxM30.6on-JPw82PY3LZlUiHDwWlSkOt2l_rmfIsDwGPo137M';
 const { createClient } = supabase;
@@ -467,24 +286,6 @@ let allUsers = [];
 let searchQuery = '';
 let filterGestionnaire = '';
 let filterStatut = '';
-
-// ── VÉRIFICATION VERSION SUPABASE ────────────────────────
-async function checkVersionSync() {
-  try {
-    const { data, error } = await db.rpc('check_app_version', { version_live: APP_VERSION });
-    if (error || !data) return;
-    if (data.status === 'mismatch') {
-      if (document.getElementById('version-banner')) return;
-      const banner = document.createElement('div');
-      banner.id = 'version-banner';
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#e74c3c,#c0392b);color:white;text-align:center;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px';
-      banner.innerHTML = '⚠️ Nouvelle version (v' + data.version_attendue + ') disponible.'
-        + '<button onclick="localStorage.removeItem(\"dsp_version\"); window.location.href = window.location.pathname + \"?v=\" + Date.now()" style="background:white;color:#e74c3c;border:none;padding:4px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🔄 Mettre à jour</button>'
-        + '<button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">✕</button>';
-      document.body.prepend(banner);
-    }
-  } catch(e) { /* silencieux */ }
-}
 
 // ===== AUTH =====
 async function doLogin() {
@@ -506,13 +307,11 @@ async function loadUserData() {
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
   document.getElementById('header-role').textContent = data.role.toUpperCase();
-  checkVersionSync();
   buildTabs();
   await loadAllUsers();
   showTab('dashboard');
-  // Afficher le bouton reset uniquement pour admin/manager
   const btnReset = document.getElementById('btn-reset-header');
-  if (btnReset) btnReset.style.display = ['admin','manager'].includes(data.role) ? '' : 'none';
+  if (btnReset) btnReset.style.display = ['admin','manager'].includes(data.role) ? 'inline-flex' : 'none';
 }
 
 async function doLogout() {
@@ -596,122 +395,11 @@ async function loadAllUsers() {
 }
 
 async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('*').order('created_at', { ascending: true });
+  const { data } = await db.from('dossiers').select('*').order('created_at', { ascending: false });
   allDossiers = data || [];
 }
 
 // ===== DASHBOARD =====
-
-// ── T2 — LIBÉRER UN GESTIONNAIRE ─────────────────────────────────
-function showReleaseManager(nom) {
-  const dossiers = allDossiers.filter(d => d.gestionnaire === nom && !d.traite);
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'release-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.style.cssText = 'text-align:center;max-width:440px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">🔓</div>'
-    + '<h2 style="color:#e74c3c">Libérer ' + nom + ' ?</h2>'
-    + '<p style="color:#666;margin:16px 0">Cette action va libérer <strong>' + dossiers.length + ' dossier(s) non traité(s)</strong> et les remettre disponibles.</p>'
-    + (dossiers.length === 0 ? '<p style="color:#27ae60;font-weight:600">✅ Aucun dossier non traité à libérer.</p>' : '');
-  const btns = document.createElement('div');
-  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
-  const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler';
-  btnC.onclick = () => closeModal('release-modal');
-  btns.appendChild(btnC);
-  if (dossiers.length > 0) {
-    const btnO = document.createElement('button'); btnO.className = 'btn btn-danger';
-    btnO.textContent = '🔓 Confirmer la libération';
-    btnO.onclick = () => doReleaseManager(nom);
-    btns.appendChild(btnO);
-  }
-  inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-async function doReleaseManager(nom) {
-  closeModal('release-modal');
-  const dossiers = allDossiers.filter(d => d.gestionnaire === nom && !d.traite);
-  let ok = 0;
-  for (const d of dossiers) {
-    const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'non_attribue' }).eq('id', d.id);
-    if (!error) ok++;
-  }
-  showNotif('🔓 ' + ok + ' dossier(s) libéré(s) pour ' + nom, 'success');
-  await loadDossiers(); renderDashboard();
-}
-
-
-// ── T4 — RÉINITIALISATION ────────────────────────────────────────
-function showResetMenu() {
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'reset-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.style.cssText = 'text-align:center;max-width:440px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">⚙️</div>'
-    + '<h2 style="color:#e74c3c">Réinitialisation</h2>'
-    + '<p style="color:#666;margin:16px 0">Choisissez le type de réinitialisation :</p>';
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;margin-top:20px';
-  const b1 = document.createElement('button'); b1.className = 'btn btn-warning';
-  b1.innerHTML = '🔄 Réinitialiser les attributions<br><small style="font-weight:400;opacity:0.8">Supprime toutes les attributions, remet les statuts à zéro</small>';
-  b1.onclick = () => showResetConfirm('attributions');
-  const b2 = document.createElement('button'); b2.className = 'btn btn-danger';
-  b2.innerHTML = '💣 Réinitialisation complète<br><small style="font-weight:400;opacity:0.8">Supprime TOUTES les données importées</small>';
-  b2.onclick = () => showResetConfirm('complet');
-  const b3 = document.createElement('button'); b3.className = 'btn btn-secondary';
-  b3.style.marginTop = '4px'; b3.textContent = 'Annuler';
-  b3.onclick = () => closeModal('reset-modal');
-  wrap.appendChild(b1); wrap.appendChild(b2); wrap.appendChild(b3);
-  inner.appendChild(wrap); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-function showResetConfirm(type) {
-  closeModal('reset-modal');
-  const isComplet = type === 'complet';
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'reset-confirm-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.style.cssText = 'text-align:center;max-width:420px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">' + (isComplet ? '💣' : '🔄') + '</div>'
-    + '<h2 style="color:#e74c3c">' + (isComplet ? 'Réinitialisation COMPLÈTE' : 'Réinitialiser les attributions') + '</h2>'
-    + '<p style="color:#666;margin:16px 0">' + (isComplet
-      ? '⚠️ <strong>ATTENTION !</strong> Cette action supprimera <strong>tous les dossiers</strong>. Cette action est <strong>irréversible</strong>.'
-      : 'Toutes les attributions seront supprimées et les statuts remis à zéro.') + '</p>'
-    + (isComplet ? '<p style="color:#e74c3c;font-weight:700;font-size:15px">Tapez CONFIRMER pour valider :</p><input type="text" id="reset-confirm-input" placeholder="CONFIRMER" style="width:100%;padding:10px;border:2px solid #e74c3c;border-radius:8px;font-size:15px;text-align:center;margin-bottom:16px">' : '');
-  const btns = document.createElement('div');
-  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:8px';
-  const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler';
-  btnC.onclick = () => closeModal('reset-confirm-modal');
-  const btnO = document.createElement('button'); btnO.className = 'btn btn-danger';
-  btnO.textContent = isComplet ? '💣 Supprimer tout' : '🔄 Confirmer la réinitialisation';
-  btnO.onclick = () => doReset(type);
-  btns.appendChild(btnC); btns.appendChild(btnO);
-  inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-async function doReset(type) {
-  if (type === 'complet') {
-    const input = document.getElementById('reset-confirm-input');
-    if (!input || input.value.trim() !== 'CONFIRMER') {
-      showNotif('Tapez CONFIRMER pour valider.', 'error'); return;
-    }
-    closeModal('reset-confirm-modal');
-    // Supprimer par batch via IDs réels
-  const allIds = allDossiers.map(d => d.id);
-  if (allIds.length === 0) { showNotif('Aucun dossier à supprimer.', 'info'); return; }
-  const { error } = await db.from('dossiers').delete().in('id', allIds);
-    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    showNotif('💣 ' + allIds.length + ' dossiers supprimés.', 'success');
-  } else {
-    closeModal('reset-confirm-modal');
-    const allIds2 = allDossiers.map(d => d.id);
-  if (allIds2.length === 0) { showNotif('Aucun dossier à réinitialiser.', 'info'); return; }
-  const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'non_attribue', traite: false }).in('id', allIds2);
-    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    showNotif('🔄 ' + allIds2.length + ' dossiers réinitialisés.', 'success');
-  }
-  await loadDossiers(); renderDashboard();
-}
-
 async function renderDashboard() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
@@ -738,7 +426,7 @@ async function renderDashboard() {
 
   if ((role === 'admin' || role === 'manager') && total > 0) {
     html += `<div class="table-container"><div class="table-toolbar"><h2>Répartition par gestionnaire</h2></div><table>
-      <thead><tr><th>Gestionnaire</th><th>Rôle</th><th>Total</th><th>Traités</th><th>En cours</th><th>Progression</th><th></th></tr></thead><tbody>`;
+      <thead><tr><th>Gestionnaire</th><th>Rôle</th><th>Total</th><th>Traités</th><th>En cours</th><th>Progression</th></tr></thead><tbody>`;
     const membres = allUsers.filter(u => u.role !== 'admin' || u.email === currentUserData.email);
     membres.forEach(g => {
       const nom = g.prenom + ' ' + g.nom;
@@ -746,12 +434,12 @@ async function renderDashboard() {
       const tr = allDossiers.filter(d => d.gestionnaire === nom && d.traite).length;
       const pct = t > 0 ? Math.round(tr / t * 100) : 0;
       const hasSuppDemande = allDossiers.some(d => d.gestionnaire === nom && d.demande_supp);
-        html += `<tr><td><strong>${nom}</strong>${hasSuppDemande ? ' <span class="star-supp" title="A demandé un dossier supplémentaire">⭐</span>' : ''}</td><td><span class="badge role-${g.role}" style="padding:3px 8px;border-radius:10px;font-size:11px">${g.role}</span></td>
+        html += `<tr><td><strong>${nom}</strong>${hasSuppDemande ? ' <span class="star-supp">⭐</span>' : ''}</td><td><span class="badge role-${g.role}" style="padding:3px 8px;border-radius:10px;font-size:11px">${g.role}</span></td>
         <td>${t}</td><td>${tr}</td><td>${t - tr}</td>
         <td><div style="display:flex;align-items:center;gap:8px">
         <div style="background:#eee;border-radius:10px;height:8px;width:80px">
         <div style="background:#27ae60;height:8px;border-radius:10px;width:${pct}%"></div></div>
-        <small style="color:#888">${pct}%</small></div></td><td><button class="btn btn-warning" style="padding:4px 12px;font-size:12px" onclick="showReleaseManager('${nom}')">🔓 Libérer</button></td></tr>`;
+        <small style="color:#888">${pct}%</small></div></td></tr>`;
     });
     html += '</tbody></table></div>';
   }
@@ -770,18 +458,6 @@ function renderImport() {
     <div id="import-result"></div>`;
 }
 
-function detectPortefeuille(refContrat) {
-  const r = (refContrat || '').toUpperCase();
-  if (r.includes('OPTI')) return 'OPTINEO';
-  return 'MIA';
-}
-
-function detectType(refContrat) {
-  const r = (refContrat || '').toUpperCase();
-  if (r.includes('MRH')) return 'Habitation';
-  return 'Auto';
-}
-
 async function handleFile(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -791,149 +467,26 @@ async function handleFile(event) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!rows.length) { showNotif('Fichier vide ou format incorrect.', 'error'); return; }
-
-    // Normalisation des clés : on crée une map clé_normalisée -> clé_originale
-    const firstRow = rows[0];
-    const normalize = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-    const keyMap = {};
-    Object.keys(firstRow).forEach(k => { keyMap[normalize(k)] = k; });
-
-    const get = (r, ...candidates) => {
-      for (const c of candidates) {
-        const norm = normalize(c);
-        if (keyMap[norm] !== undefined && r[keyMap[norm]] !== undefined && r[keyMap[norm]] !== '') {
-          return String(r[keyMap[norm]]).trim();
-        }
-      }
-      return '';
-    };
-
-    console.log('Colonnes Excel détectées:', Object.keys(firstRow));
-
     document.getElementById('import-result').innerHTML = '<div class="loading">Import en cours...</div>';
-
     const mapped = rows.map(r => ({
-      ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
-      ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
-      nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
-      nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
-      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
-      portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
-      gestionnaire: '',
-      traite: false,
-      verrouille: false
+      ref_sinistre: String(r['Réf. sinistre'] || r['ref_sinistre'] || r['REF SINISTRE'] || ''),
+      ref_contrat: String(r['Réf. contrat'] || r['ref_contrat'] || r['REF CONTRAT'] || ''),
+      nature: String(r['Nature'] || r['nature'] || ''),
+      nature_label: String(r['Nature label'] || r['nature_label'] || r['Libellé nature'] || ''),
+      type: String(r['Type'] || r['type'] || ''),
+      portefeuille: String(r['Portefeuille'] || r['portefeuille'] || ''),
+      gestionnaire: '', traite: false, verrouille: false
     })).filter(d => d.ref_sinistre);
-
-    console.log(`Lignes mappées: ${mapped.length}`, mapped[0]);
-
-    if (!mapped.length) {
-      showNotif('Aucune ligne valide trouvée. Vérifiez les noms de colonnes.', 'error');
-      document.getElementById('import-result').innerHTML = '';
-      return;
-    }
-
     const { error } = await db.from('dossiers').insert(mapped);
     if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
-    showNotif('✅ ' + mapped.length + ' dossiers importés. Données personnelles non conservées (RGPD).', 'success');
+    showNotif(`✅ ${mapped.length} dossiers importés !`, 'success');
     document.getElementById('import-result').innerHTML =
       `<div class="stat-card" style="max-width:300px"><div class="number" style="color:#27ae60">${mapped.length}</div><div class="label">Dossiers importés</div></div>`;
-    await loadDossiers();
-    await loadAllUsers();
-    showAutoAssignModal(mapped.length);
   };
   reader.readAsArrayBuffer(file);
 }
 
 // ===== DISPATCH =====
-// AUTO ASSIGN
-function showAutoAssignModal(totalImported) {
-  const gestionnaires = allUsers.filter(u => ['gestionnaire','manager'].includes(u.role));
-  if (!gestionnaires.length) return;
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'auto-assign-modal';
-  modal.style.zIndex = '3000';
-  modal.innerHTML = `
-    <div class="modal" style="max-width:500px;width:95vw">
-      <div style="font-size:40px;text-align:center;margin-bottom:8px">🎯</div>
-      <h2 style="text-align:center">Attribution automatique</h2>
-      <p style="color:#666;font-size:14px;text-align:center;margin-bottom:20px">
-        <strong>${totalImported}</strong> dossiers importés. Souhaitez-vous les attribuer maintenant ?
-      </p>
-      <div style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:16px">
-        ${gestionnaires.map(g => `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:normal;margin:0">
-              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" style="width:16px;height:16px;accent-color:#1e3a5f">
-              <span>${g.prenom} ${g.nom}</span>
-              <span class="badge role-${g.role}" style="font-size:10px">${g.role}</span>
-            </label>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:12px;color:#888">Nb dossiers :</span>
-              <input type="number" class="gest-nb" data-nom="${g.prenom} ${g.nom}" value="10" min="1" max="${totalImported}"
-                style="width:60px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center">
-            </div>
-          </div>`).join('')}
-      </div>
-      <div id="auto-assign-error" style="color:#e74c3c;font-size:13px;background:#fff5f5;padding:10px;border-radius:8px;display:none;margin-bottom:12px"></div>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn btn-secondary" onclick="closeModal('auto-assign-modal')">Passer →</button>
-        <button class="btn btn-primary" onclick="doAutoAssign(${totalImported})">✅ Attribuer automatiquement</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-async function doAutoAssign(totalImported) {
-  const checks = [...document.querySelectorAll('.gest-check:checked')];
-  if (!checks.length) {
-    const err = document.getElementById('auto-assign-error');
-    err.textContent = 'Sélectionnez au moins un gestionnaire.';
-    err.style.display = 'block'; return;
-  }
-  const selections = checks.map(cb => ({
-    nom: cb.dataset.nom,
-    nb: parseInt(document.querySelector(`.gest-nb[data-nom="${cb.dataset.nom}"]`).value) || 10
-  }));
-  const totalDemande = selections.reduce((s, x) => s + x.nb, 0);
-  const dossiersNonAttribues = allDossiers.filter(d => !d.gestionnaire);
-  const disponibles = dossiersNonAttribues.length;
-  if (totalDemande > disponibles) {
-    const parGest = Math.floor(disponibles / selections.length);
-    const err = document.getElementById('auto-assign-error');
-    err.innerHTML = `⚠️ Vous demandez <strong>${totalDemande}</strong> dossiers mais il n'en reste que <strong>${disponibles}</strong> non attribués.<br><br>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
-        <button class="btn btn-secondary" onclick="document.getElementById('auto-assign-error').style.display='none'">✏️ Modifier</button>
-        <button class="btn btn-warning" onclick="doAutoAssignEquitable(${disponibles})">⚖️ Répartir équitablement (${parGest} chacun)</button>
-      </div>`;
-    err.style.display = 'block'; return;
-  }
-  await executeAutoAssign(selections, dossiersNonAttribues);
-}
-
-async function doAutoAssignEquitable(disponibles) {
-  const checks = [...document.querySelectorAll('.gest-check:checked')];
-  const nb = Math.floor(disponibles / checks.length);
-  const selections = checks.map(cb => ({ nom: cb.dataset.nom, nb }));
-  const dossiers = allDossiers.filter(d => !d.gestionnaire);
-  await executeAutoAssign(selections, dossiers);
-}
-
-async function executeAutoAssign(selections, dossiers) {
-  let idx = 0;
-  for (const sel of selections) {
-    const batch = dossiers.slice(idx, idx + sel.nb);
-    for (const d of batch) {
-      await db.from('dossiers').update({ gestionnaire: sel.nom }).eq('id', d.id);
-    }
-    idx += sel.nb;
-  }
-  closeModal('auto-assign-modal');
-  showNotif(`✅ ${idx} dossiers attribués automatiquement !`, 'success');
-  await loadDossiers();
-  showTab('attribution');
-}
-
 function showDispatch() {
   const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'en_cours' && d.statut !== 'ouvert' && d.statut !== 'traite');
   if (!verrouilles.length) { showNotif('Aucun dossier verrouillé à dispatcher.', 'error'); return; }
@@ -1003,196 +556,75 @@ function statutBadge(statut) {
 async function renderAttribution() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
-
-  const role = currentUserData.role;
-  const gestionnaires = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
-
-  if (window._fPortefeuille === undefined) window._fPortefeuille = '';
-  if (window._fType === undefined) window._fType = '';
-  if (window._fNature === undefined) window._fNature = '';
-  if (window._fStatut === undefined) window._fStatut = '';
-  if (window._fGestionnaire === undefined) window._fGestionnaire = '';
-  if (window._fNonAttribue === undefined) window._fNonAttribue = false;
-
-  const portefeuilles = [...new Set(allDossiers.map(d => d.portefeuille).filter(Boolean))].sort();
-  const types = [...new Set(allDossiers.map(d => d.type).filter(Boolean))].sort();
-  const natures = [...new Set(allDossiers.map(d => d.nature_label || d.nature).filter(Boolean))].sort();
-  const gestionnairesNoms = [...new Set(allDossiers.map(d => d.gestionnaire).filter(Boolean))].sort();
-
+  const gestionnaires = allUsers.filter(u => ['gestionnaire', 'manager', 'admin'].includes(u.role));
   let filtered = allDossiers;
   if (searchQuery) filtered = filtered.filter(d =>
     (d.ref_sinistre||'').toLowerCase().includes(searchQuery) ||
-    (d.ref_contrat||'').toLowerCase().includes(searchQuery)
-  );
-  if (window._fPortefeuille) filtered = filtered.filter(d => d.portefeuille === window._fPortefeuille);
-  if (window._fType) filtered = filtered.filter(d => d.type === window._fType);
-  if (window._fNature) filtered = filtered.filter(d => (d.nature_label||d.nature) === window._fNature);
-  if (window._fStatut) filtered = filtered.filter(d => (d.statut||'non_attribue') === window._fStatut);
-  if (window._fGestionnaire) filtered = filtered.filter(d => (d.gestionnaire||'') === window._fGestionnaire);
-  if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
+    (d.ref_contrat||'').toLowerCase().includes(searchQuery) ||
+    (d.gestionnaire||'').toLowerCase().includes(searchQuery));
+  if (filterGestionnaire) filtered = filtered.filter(d => d.gestionnaire === filterGestionnaire);
+  if (filterStatut) filtered = filtered.filter(d => (d.statut||'non_attribue') === filterStatut);
 
-  // Bandeau résumé par critères de recherche (hors gestionnaire)
-  const countsPortefeuille = portefeuilles.map(v => ({ label: v, count: allDossiers.filter(d => d.portefeuille === v).length, color: '#1a5276', bg: '#e8f4fd' }));
-  const countsType = types.map(v => ({ label: v, count: allDossiers.filter(d => d.type === v).length, color: '#1e8449', bg: '#eafaf1' }));
-  const countsNature = natures.map(v => ({ label: v, count: allDossiers.filter(d => (d.nature_label||d.nature) === v).length, color: '#d35400', bg: '#fdebd0' }));
-  const countsStatut = [
-    { value: 'non_attribue', label: 'Non attribué' },
-    { value: 'attribue', label: 'Attribué' },
-    { value: 'encours', label: 'En cours' },
-    { value: 'ouvert', label: 'Ouvert' },
-    { value: 'traite', label: 'Traité' }
-  ].map(s => ({ label: s.label, count: allDossiers.filter(d => (d.statut||'non_attribue') === s.value).length, color: '#7d3c98', bg: '#ebdef0' }));
+  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','en_cours','ouvert','traite'].includes(d.statut)).length;
 
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
-
-  let html = `
-  <div style="background:white;border-radius:14px;padding:14px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:0;flex-wrap:wrap;overflow:hidden">
-    <!-- Portefeuille -->
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 16px 6px 0;border-right:1px solid #eee;margin-right:16px;flex-shrink:0">
-      <span style="font-size:10px;font-weight:800;color:#1a5276;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">📁 Portefeuille</span>
-      ${countsPortefeuille.map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
-    </div>
-    <!-- Type -->
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 16px 6px 0;border-right:1px solid #eee;margin-right:16px;flex-shrink:0">
-      <span style="font-size:10px;font-weight:800;color:#1e8449;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">🚗 Type</span>
-      ${countsType.map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
-    </div>
-    <!-- Statut -->
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 16px 6px 0;border-right:1px solid #eee;margin-right:16px;flex-wrap:wrap;flex-shrink:0">
-      <span style="font-size:10px;font-weight:800;color:#7d3c98;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">📊 Statut</span>
-      ${countsStatut.filter(s=>s.count>0).map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
-    </div>
-    <!-- Nature -->
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap">
-      <span style="font-size:10px;font-weight:800;color:#d35400;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">🏷️ Nature</span>
-      ${countsNature.map(s => `<span style="background:${s.bg};color:${s.color};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap">${s.label} <strong>${s.count}</strong></span>`).join('')}
-    </div>
-  </div>
-
-  <div class="filters" style="flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
-    <input class="search-bar" placeholder="🔍 Réf. sinistre / contrat..." value="${searchQuery||''}"
-      oninput="searchQuery=this.value.toLowerCase();renderAttribution()" style="width:220px">
-    <select class="filter-select" onchange="window._fPortefeuille=this.value;renderAttribution()">
-      <option value="">Tous les portefeuilles</option>
-      ${portefeuilles.map(p => `<option value="${p}" ${window._fPortefeuille===p?'selected':''}>${p}</option>`).join('')}
-    </select>
-    <select class="filter-select" onchange="window._fType=this.value;renderAttribution()">
-      <option value="">Tous les types</option>
-      ${types.map(t => `<option value="${t}" ${window._fType===t?'selected':''}>${t}</option>`).join('')}
-    </select>
-    <select class="filter-select" onchange="window._fNature=this.value;renderAttribution()">
-      <option value="">Toutes les natures</option>
-      ${natures.map(n => `<option value="${n}" ${window._fNature===n?'selected':''}>${n}</option>`).join('')}
-    </select>
-    <select class="filter-select" onchange="window._fStatut=this.value;renderAttribution()">
-      <option value="">Tous les statuts</option>
-      <option value="non_attribue" ${window._fStatut==='non_attribue'?'selected':''}>Non attribué</option>
-      <option value="attribue" ${window._fStatut==='attribue'?'selected':''}>Attribué</option>
-      <option value="encours" ${window._fStatut==='encours'?'selected':''}>En cours</option>
-      <option value="ouvert" ${window._fStatut==='ouvert'?'selected':''}>Ouvert</option>
-      <option value="traite" ${window._fStatut==='traite'?'selected':''}>Traité</option>
-    </select>
-    <select class="filter-select" onchange="window._fGestionnaire=this.value;renderAttribution()">
+  let html = `<div class="filters">
+    <input class="search-bar" placeholder="🔍 Rechercher..." value="${searchQuery}"
+      oninput="searchQuery=this.value.toLowerCase();renderAttribution()">
+    <select class="filter-select" onchange="filterGestionnaire=this.value;renderAttribution()">
       <option value="">Tous les gestionnaires</option>
-      ${gestionnairesNoms.map(g => `<option value="${g}" ${window._fGestionnaire===g?'selected':''}>${g}</option>`).join('')}
+      ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}" ${filterGestionnaire===g.prenom+' '+g.nom?'selected':''} >${g.prenom} ${g.nom}</option>`).join('')}
     </select>
-    <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
-      <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
-      Non attribués seulement
-    </label>
-  </div>
-
-  <div style="background:white;border-radius:14px;padding:12px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;background:#f0f2f5;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:#1e3a5f;user-select:none">
-      <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:#1e3a5f">
-      Tout sélectionner
-    </label>
-    <div style="width:1px;height:28px;background:#e0e0e0;flex-shrink:0"></div>
-    <select id="assign-bulk-select" class="filter-select" style="min-width:190px">
-      <option value="">— Attribuer à —</option>
-      ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}">${g.prenom} ${g.nom} (${g.role})</option>`).join('')}
+    <select class="filter-select" onchange="filterStatut=this.value;renderAttribution()">
+      <option value="">Tous les statuts</option>
+      <option value="non_attribue">⚪ Non attribué</option>
+      <option value="attribue">🔵 Attribué</option>
+      <option value="en_cours">🟠 En cours</option>
+      <option value="ouvert">🔴 Ouvert</option>
+      <option value="traite">✅ Traité</option>
     </select>
-    <button class="btn btn-warning" onclick="lockSelection()" style="display:flex;align-items:center;gap:6px">
-      🔒 Verrouiller
-    </button>
-    <button class="btn btn-secondary" onclick="unlockSelection()" style="display:flex;align-items:center;gap:6px">
-      🔓 Déverrouiller
-    </button>
-    <span style="font-size:13px;color:#888;font-weight:600;background:#f0f2f5;padding:5px 12px;border-radius:20px" id="selection-count">0 sélectionné(s)</span>
-    <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto;display:flex;align-items:center;gap:8px">
-      🚀 DISPATCHER ${nbVerrouilles > 0 ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:1px 8px">${nbVerrouilles}</span>` : ''}
+    <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''}>
+      🚀 DISPATCH ${nbVerrouilles > 0 ? `(${nbVerrouilles})` : ''}
     </button>
   </div>
-
   <div class="table-container">
     <div class="table-toolbar">
-      <h2>Attribution des dossiers <span style="color:#888;font-weight:400;font-size:14px">(${filtered.length})</span></h2>
+      <h2>Attribution des dossiers (${filtered.length})</h2>
     </div>
-    <table>
-      <thead><tr>
-        <th><input type="checkbox" id="check-all" onchange="toggleAll(this.checked)"></th>
-        <th>Réf. Sinistre</th>
-        <th>Portefeuille</th>
-        <th>Réf. Contrat</th>
-        <th>Type</th>
-        <th>Nature</th>
-        <th>Gestionnaire</th>
-        <th>🔒</th>
-        <th>Statut</th>
-        <th>Traité</th>
-      </tr></thead>
-      <tbody>`;
+    <table><thead><tr>
+      <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
+      <th>Portefeuille</th><th>Gestionnaire</th><th>🔒</th><th>Statut</th><th>Traité</th>
+    </tr></thead><tbody>`;
 
   if (!filtered.length) {
-    html += `<tr><td colspan="10" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>`;
+    html += '<tr><td colspan="8" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>';
   } else {
     filtered.forEach(d => {
+      const isMyDossier = d.gestionnaire === currentUserData.prenom + ' ' + currentUserData.nom;
+      const canCheckTraite = currentUserData.role === 'admin' || isMyDossier;
       const statut = d.statut || 'non_attribue';
-      const monNom = `${currentUserData.prenom} ${currentUserData.nom}`;
-      const isManager = ['admin','manager'].includes(role);
-      const isMyDossier = d.gestionnaire === monNom;
-      const canCheckTraite = isManager || (isMyDossier && !d.traite);
-      const canUncheckTraite = isManager;
-      const canAdmin = isManager;
-      const canReassign = isManager || statut === 'non_attribue';
-
       html += `<tr>
-        <td><input type="checkbox" class="row-check" data-id="${d.id}"
-          ${d.verrouille ? 'disabled title="Dossier verrouillé — libérez-le d\u0027abord"' : ''}
-          onchange="updateSelectionCount()"></td>
-        <td><strong>${d.ref_sinistre||''}</strong>
-          <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
+        <td><strong>${d.ref_sinistre}</strong>
+          <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
         </td>
-        <td><span class="badge" style="background:#e8f4fd;color:#1a5276">${d.portefeuille||'-'}</span></td>
-        <td>${d.ref_contrat||'-'}</td>
-        <td><span class="badge" style="background:${d.type==='Habitation'?'#fef9e7':'#eafaf1'};color:${d.type==='Habitation'?'#d35400':'#1e8449'}">${d.type||'-'}</span></td>
-        <td>${d.nature_label||d.nature||'-'}</td>
-        <td>
-          <span style="font-size:13px;font-weight:600;color:${d.gestionnaire?'#1e3a5f':'#bbb'}">
-            ${d.gestionnaire || '—'}
-          </span>
-        </td>
-        <td style="text-align:center;font-size:17px">
-          ${d.verrouille
-            ? (isManager
-                ? `<span title="Cliquer pour libérer" style="cursor:pointer;display:inline-block;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" onclick="showUnlockConfirm(${d.id})">🔒</span>`
-                : '<span title="Verrouillé" style="cursor:default">🔒</span>')
-            : '<span title="Non verrouillé" style="cursor:default;opacity:0.3">🔓</span>'
-          }
-        </td>
+        <td>${d.ref_contrat}</td>
+        <td>${d.nature_label || d.nature}</td>
+        <td>${d.portefeuille}</td>
+        <td><select class="assign-select" onchange="assignDossier('${d.id}', this.value)">
+          <option value="">— Non attribué —</option>
+          ${gestionnaires.map(g => { const n = g.prenom+' '+g.nom; return `<option value="${n}" ${d.gestionnaire===n?'selected':''} >${n}</option>`; }).join('')}
+        </select></td>
+        <td><input type="checkbox" ${d.verrouille?'checked':''} title="${d.verrouille?'Verrouillé':'Non verrouillé'}"
+          onchange="toggleVerrouille('${d.id}', this.checked)" style="accent-color:#E71C7C;width:16px;height:16px;cursor:pointer"></td>
         <td>${statutBadge(statut)}</td>
-        <td style="text-align:center">
-          <span style="font-size:15px;opacity:${d.traite?'1':'0.2'}" title="${d.traite?'Traité':'Non traité'}">
-            ${d.traite ? '✅' : '⬜'}
-          </span>
-        </td>
+        <td><input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''} ${canCheckTraite?'':' disabled'}
+          onchange="toggleTraite('${d.id}', this.checked, '${d.gestionnaire||''}')"></td>
       </tr>`;
     });
   }
-
-  html += `</tbody></table></div>`;
+  html += '</tbody></table></div>';
   document.getElementById('main-content').innerHTML = html;
 }
+
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
@@ -1205,7 +637,7 @@ async function renderMesDossiers() {
     <div class="stat-card"><div class="number" style="color:#e67e22">${mesDossiers.filter(d=>!d.traite).length}</div><div class="label">En cours</div></div>
   </div>
   <div class="table-container">
-    <div class="table-toolbar" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><h2>Mes dossiers</h2><button class="btn btn-success" style="font-size:13px" onclick="demanderDossierSupp()">➕ Demander un dossier supplémentaire</button></div>
+    <div class="table-toolbar"><h2>Mes dossiers</h2><button class="btn-demander-supp" onclick="demanderDossierSupp()">➕ Demander un dossier supplémentaire</button></div>
     <table><thead><tr>
       <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
       <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
@@ -1218,7 +650,7 @@ async function renderMesDossiers() {
       const canSee = ['attribue','en_cours','ouvert','traite'].includes(statut);
       if (!canSee) return;
       html += `<tr>
-        <td><strong>${d.ref_sinistre}</strong>${d.demande_supp ? ' <span class="star-supp" title="Dossier supplémentaire ⭐">⭐</span>' : ''}
+        <td><strong>${d.ref_sinistre}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
         </td>
         <td>${d.ref_contrat}</td>
@@ -1242,66 +674,21 @@ async function renderUtilisateurs() {
     <h2 style="color:#1e3a5f">Équipe (${allUsers.length} membres)</h2>
     <button class="btn btn-success" onclick="showAddUser()">➕ Ajouter un membre</button>
   </div><div class="users-grid">`;
-  const isManager = ['admin','manager'].includes(currentUserData.role);
   allUsers.forEach(u => {
     const ac = u.role==='admin'?'avatar-admin':u.role==='manager'?'avatar-manager':'avatar-gestionnaire';
     const rc = u.role==='admin'?'role-admin':u.role==='manager'?'role-manager':'role-gestionnaire';
     const initials = (u.prenom?.[0]||'')+( u.nom?.[0]||'');
-    html += `<div class="user-card" style="position:relative">
+    html += `<div class="user-card">
       <div class="user-avatar ${ac}">${initials}</div>
       <div class="user-info">
         <h4>${u.prenom} ${u.nom}</h4>
-        <p style="font-size:12px;color:#888">${u.email}</p>
+        <p>${u.email}</p>
         <span class="user-role-badge ${rc}">${u.role.toUpperCase()}</span>
       </div>
-      ${isManager ? `<button class="btn btn-secondary" style="position:absolute;top:12px;right:12px;padding:4px 10px;font-size:12px" onclick="showEditUser('${u.id}','${u.prenom}','${u.nom}','${u.email}','${u.role}')" title="Modifier">✏️</button>` : ''}
     </div>`;
   });
   html += '</div>';
   document.getElementById('main-content').innerHTML = html;
-}
-
-
-// ── T7/T8 — MODIFIER PROFIL & RÔLE ──────────────────────────────
-function showEditUser(id, prenom, nom, email, role) {
-  const isSelf = currentUserData.email === email;
-  const roles = ['gestionnaire','manager','admin'];
-  const opts = roles.map(r => '<option value="' + r + '"' + (role===r?' selected':'') + '>' + r.charAt(0).toUpperCase()+r.slice(1) + '</option>').join('');
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'edit-user-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.innerHTML = '<h2 style="color:#1e3a5f;margin-bottom:20px">✏️ Modifier le profil</h2>'
-    + '<div class="form-group"><label>Prénom</label><input type="text" id="edit-prenom" value="' + prenom + '"></div>'
-    + '<div class="form-group"><label>Nom</label><input type="text" id="edit-nom" value="' + nom + '"></div>'
-    + '<div class="form-group"><label>Email</label><input type="email" id="edit-email" value="' + email + '"></div>'
-    + '<div class="form-group"><label>Rôle</label><select id="edit-role"' + (isSelf?' disabled title="Impossible de modifier votre propre rôle"':'') + '>' + opts + '</select>'
-    + (isSelf ? '<small style="color:#e74c3c">Vous ne pouvez pas changer votre propre rôle.</small>' : '') + '</div>'
-    + '<div class="modal-error" id="edit-user-error"></div>'
-    + '';
-  const editBtns = document.createElement('div'); editBtns.className = 'modal-actions';
-  const editBtnC = document.createElement('button'); editBtnC.className = 'btn btn-secondary';
-  editBtnC.textContent = 'Annuler'; editBtnC.onclick = () => closeModal('edit-user-modal');
-  const editBtnO = document.createElement('button'); editBtnO.className = 'btn btn-primary';
-  editBtnO.textContent = 'Enregistrer'; editBtnO.onclick = () => doEditUser(id, email, isSelf);
-  editBtns.appendChild(editBtnC); editBtns.appendChild(editBtnO);
-  inner.appendChild(editBtns); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-
-async function doEditUser(id, originalEmail, isSelf) {
-  const prenom = document.getElementById('edit-prenom').value.trim();
-  const nom = document.getElementById('edit-nom').value.trim();
-  const email = document.getElementById('edit-email').value.trim();
-  const errEl = document.getElementById('edit-user-error');
-  errEl.style.display = 'none';
-  if (!prenom || !nom || !email) { errEl.textContent = 'Tous les champs sont requis.'; errEl.style.display = 'block'; return; }
-  const updates = { prenom, nom, email };
-  if (!isSelf) updates.role = document.getElementById('edit-role').value;
-  const { error } = await db.from('utilisateurs').update(updates).eq('id', id);
-  if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
-  closeModal('edit-user-modal');
-  showNotif('✅ Profil mis à jour !', 'success');
-  await loadAllUsers(); renderUtilisateurs();
 }
 
 function showAddUser() {
@@ -1362,159 +749,16 @@ async function doAddUser() {
 }
 
 // ===== ACTIONS =====
-
-// ── SÉLECTION & VERROUILLAGE ──────────────────────────────
-function updateSelectionCount() {
-  const n = document.querySelectorAll('.row-check:checked').length;
-  const el = document.getElementById('selection-count');
-  if (el) el.textContent = n + ' sélectionné(s)';
-}
-
-function toggleAll(checked) {
-  document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);
-  updateSelectionCount();
-}
-
-function selectAll() {
-  document.querySelectorAll('.row-check').forEach(cb => cb.checked = true);
-  const all = document.getElementById('check-all');
-  if (all) all.checked = true;
-  updateSelectionCount();
-}
-
-function clearSelection() {
-  document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
-  const all = document.getElementById('check-all');
-  if (all) all.checked = false;
-  updateSelectionCount();
-}
-
-async function lockSelection() {
-  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
-  const gestionnaire = document.getElementById('assign-bulk-select')?.value || '';
-  const sansGest = ids.filter(id => { const d = allDossiers.find(x => x.id === id); return !gestionnaire && !(d && d.gestionnaire); });
-  if (sansGest.length > 0) {
-    const gests = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay'; modal.id = 'lock-warn-modal';
-    // Construire la modale sans guillemets imbriqués
-    const inner = document.createElement('div');
-    inner.className = 'modal';
-    inner.style.cssText = 'text-align:center;max-width:420px';
-    inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">&#9888;&#65039;</div>'
-      + '<h2 style="color:#e74c3c">Gestionnaire manquant</h2>'
-      + '<p style="color:#666;margin:14px 0"><strong>' + sansGest.length + '</strong> dossier(s) sans gestionnaire.<br>Selectionnez-en un avant de verrouiller.</p>';
-    const sel = document.createElement('select');
-    sel.id = 'lock-warn-select'; sel.className = 'filter-select';
-    sel.style.cssText = 'width:100%;margin-bottom:20px';
-    sel.innerHTML = '<option value="">— Choisir un gestionnaire —</option>'
-      + gests.map(g => { const n = g.prenom + ' ' + g.nom; return '<option value="' + n + '">' + n + ' (' + g.role + ')</option>'; }).join('');
-    inner.appendChild(sel);
-    const btns = document.createElement('div');
-    btns.style.cssText = 'display:flex;gap:10px;justify-content:center';
-    const btnCancel = document.createElement('button');
-    btnCancel.className = 'btn btn-secondary'; btnCancel.textContent = 'Annuler';
-    btnCancel.onclick = () => closeModal('lock-warn-modal');
-    const btnOk = document.createElement('button');
-    btnOk.className = 'btn btn-warning'; btnOk.textContent = '🔒 Verrouiller';
-    btnOk.onclick = () => confirmLockWithGest(ids);
-    btns.appendChild(btnCancel); btns.appendChild(btnOk);
-    inner.appendChild(btns);
-    modal.appendChild(inner);
-    document.body.appendChild(modal); return;
-  }
-  await executeLock(ids, gestionnaire);
-}
-
-async function confirmLockWithGest(ids) {
-  const gestionnaire = document.getElementById('lock-warn-select')?.value;
-  if (!gestionnaire) { showNotif('Veuillez sélectionner un gestionnaire.', 'error'); return; }
-  closeModal('lock-warn-modal');
-  await executeLock(ids, gestionnaire);
-}
-
-async function executeLock(ids, gestionnaire) {
-  for (const id of ids) {
-    const upd = { verrouille: true };
-    if (gestionnaire) upd.gestionnaire = gestionnaire;
-    await db.from('dossiers').update(upd).eq('id', id);
-  }
-  showNotif('🔒 ' + ids.length + ' dossier(s) verrouillé(s)' + (gestionnaire ? ' et attribués à ' + gestionnaire : '') + '.', 'success');
-  clearSelection();
-  await loadDossiers();
-  renderAttribution();
-}
-
-async function unlockSelection() {
-  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
-  for (const id of ids) {
-    await db.from('dossiers').update({ verrouille: false }).eq('id', id);
-  }
-  showNotif(`🔓 ${ids.length} dossier(s) déverrouillé(s).`, 'info');
-  clearSelection();
-  await loadDossiers();
-  renderAttribution();
-}
-
 async function toggleVerrouille(id, checked) {
-  const dossier = allDossiers.find(d => d.id === id);
-  const statut = dossier?.statut || 'non_attribue';
-  const isDispatched = ['attribue','encours','ouvert','traite'].includes(statut);
-
-  // Si on veut déverrouiller un dossier dispatché → seul manager
-  if (!checked && isDispatched && !isManager) {
-    showNotif('Seul le manager peut déverrouiller un dossier dispatché.', 'error');
-    renderAttribution(); return;
-  }
-
-  if (!checked && isDispatched && isManager) {
-    showUnlockConfirm(id);
-    renderAttribution(); return;
-  }
-
   const { error } = await db.from('dossiers').update({ verrouille: checked }).eq('id', id);
   if (error) { showNotif('Erreur.', 'error'); return; }
   allDossiers = allDossiers.map(d => d.id === id ? {...d, verrouille: checked} : d);
   showNotif(checked ? '🔒 Dossier verrouillé' : '🔓 Dossier déverrouillé', 'info');
   // Mettre à jour le compteur dispatch
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut||'non_attribue')).length;
+  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','en_cours','ouvert','traite'].includes(d.statut||'non_attribue')).length;
   const btn = document.querySelector('.btn-dispatch');
-  if (btn) { btn.disabled = nbVerrouilles === 0; btn.textContent = `🚀 DISPATCHER${nbVerrouilles > 0 ? ` (${nbVerrouilles})` : ''}`; }
+  if (btn) { btn.disabled = nbVerrouilles === 0; btn.textContent = `🚀 DISPATCH${nbVerrouilles > 0 ? ' ('+nbVerrouilles+')' : ''}`; }
 }
-
-function showUnlockConfirm(id) {
-  const existing = document.getElementById('unlock-confirm-modal');
-  if (existing) existing.remove();
-  const d = allDossiers.find(x => x.id === id);
-  const gname = d && d.gestionnaire ? ' (attribué à <strong>' + d.gestionnaire + '</strong>)' : '';
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'unlock-confirm-modal';
-  const inner = document.createElement('div');
-  inner.className = 'modal'; inner.style.cssText = 'text-align:center;max-width:420px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">🔓</div>'
-    + '<h2 style="color:#e74c3c">Libérer ce dossier ?</h2>'
-    + '<p style="color:#666;margin:16px 0">Cette action va <strong>désattribuer</strong> le dossier' + gname + ' et remettre son statut à <strong>Non attribué</strong>.</p>';
-  const btns = document.createElement('div');
-  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
-  const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler';
-  btnC.onclick = () => closeModal('unlock-confirm-modal');
-  const btnO = document.createElement('button'); btnO.className = 'btn btn-danger'; btnO.textContent = '🔓 Confirmer la libération';
-  btnO.onclick = () => confirmUnlock(id);
-  btns.appendChild(btnC); btns.appendChild(btnO); inner.appendChild(btns); modal.appendChild(inner);
-  document.body.appendChild(modal);
-}
-
-async function confirmUnlock(id) {
-  closeModal('unlock-confirm-modal');
-  const { error } = await db.from('dossiers').update({ verrouille: false, gestionnaire: '', statut: 'non_attribue' }).eq('id', id);
-  if (error) { showNotif('Erreur lors du déverrouillage.', 'error'); return; }
-  showNotif('🔓 Dossier déverrouillé et désattribué.', 'success');
-  await loadDossiers();
-  renderAttribution();
-}
-
 async function assignDossier(id, gestionnaire) {
   const { error } = await db.from('dossiers').update({ gestionnaire }).eq('id', id);
   if (error) { showNotif('Erreur lors de l\'attribution.', 'error'); return; }
@@ -1524,63 +768,24 @@ async function assignDossier(id, gestionnaire) {
 
 async function toggleTraite(id, checked, gestionnaire) {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-  const isManager = ['admin','manager'].includes(currentUserData.role);
-  if (!isManager && gestionnaire !== monNom) {
+  if (currentUserData.role !== 'admin' && gestionnaire !== monNom) {
     showNotif('Vous ne pouvez cocher que vos propres dossiers.', 'error');
     renderAttribution(); return;
   }
-  // TICKET 5 – Gestionnaire ne peut pas décocher Traité
-  if (!checked && !isManager) {
-    showNotif('Seul le manager peut réinitialiser un dossier traité.', 'error');
-    renderAttribution(); return;
-  }
-  const newStatut = checked ? 'traite' : 'ouvert';
+  const newStatut = checked ? 'traite' : 'en_cours';
   const { error } = await db.from('dossiers').update({ traite: checked, statut: newStatut }).eq('id', id);
   if (error) { showNotif('Erreur.', 'error'); return; }
   showNotif(checked ? '✅ Dossier marqué traité' : '↩️ Dossier remis en cours', 'success');
   allDossiers = allDossiers.map(d => d.id === id ? {...d, traite: checked, statut: newStatut} : d);
 }
 
-// ===== RESET =====
-function showReset() {
-  if (!['admin','manager'].includes(currentUserData.role)) {
-    showNotif('Accès refusé.', 'error'); return;
-  }
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'reset-modal';
-  modal.innerHTML = `
-    <div class="modal" style="text-align:center">
-      <div style="font-size:52px;margin-bottom:12px">🗑️</div>
-      <h2 style="color:#e74c3c">Remise à zéro</h2>
-      <p style="color:#666;margin:16px 0">Cette action va <strong>supprimer définitivement tous les dossiers</strong> importés.<br>Cette opération est irréversible.</p>
-      <p style="background:#fff5f5;border-radius:8px;padding:12px;color:#e74c3c;font-weight:600;font-size:13px">
-        ⚠️ Tous les dossiers seront effacés
-      </p>
-      <div class="modal-actions" style="justify-content:center;margin-top:24px">
-        <button class="btn btn-secondary" onclick="closeModal('reset-modal')">Annuler</button>
-        <button class="btn btn-danger" onclick="doReset()">🗑️ Confirmer la remise à zéro</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-async function doReset() {
-  closeModal('reset-modal');
-  const { error } = await db.from('dossiers').delete().neq('id', 0);
-  if (error) { showNotif('Erreur lors de la remise à zéro : ' + error.message, 'error'); return; }
-  allDossiers = [];
-  showNotif('✅ Plateforme remise à zéro avec succès !', 'success');
-  renderDashboard();
-}
-
+// ===== NOTIF =====
 
   // ===== TICKET 10 — DEMANDE DOSSIER SUPPLÉMENTAIRE =====
   async function demanderDossierSupp() {
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
     const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
     const nonTraites = mesDossiers.filter(d => !d.traite);
-
     if (nonTraites.length > 0) {
       const modal = document.createElement('div');
       modal.className = 'modal-overlay';
@@ -1588,49 +793,31 @@ async function doReset() {
       const inner = document.createElement('div');
       inner.className = 'modal';
       inner.style.cssText = 'text-align:center;max-width:400px';
-      inner.innerHTML = `
-        <div style="font-size:52px;margin-bottom:12px">🐌</div>
-        <h2 style="color:#e74c3c">Pas trop vite !</h2>
-        <p style="color:#666;margin:16px 0">Tu as encore <strong>${nonTraites.length} dossier(s) non traité(s)</strong>.<br>Finis d'abord tes dossiers avant d'en demander un nouveau !</p>
-        <div style="margin-top:20px">
-          <button class="btn btn-secondary" onclick="closeModal('supp-blocked-modal')" style="width:100%">OK, compris !</button>
-        </div>`;
+      inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">🐌</div>' +
+        '<h2 style="color:#e74c3c">Pas trop vite !</h2>' +
+        '<p style="color:#666;margin:16px 0">Tu as encore <strong>' + nonTraites.length + ' dossier(s) non traité(s)</strong>.<br>Finis d\'abord tes dossiers avant d\'en demander un nouveau !</p>' +
+        '<div style="margin-top:20px"><button class="btn btn-secondary" onclick="closeModal(\'supp-blocked-modal\')" style="width:100%">OK, compris !</button></div>';
       modal.appendChild(inner);
       document.body.appendChild(modal);
       return;
     }
-
     const disponibles = allDossiers.filter(d => !d.gestionnaire && !d.verrouille && d.statut === 'nonattribue');
-    if (disponibles.length === 0) {
-      showNotif('Aucun dossier disponible pour le moment.', 'error');
-      return;
-    }
-
+    if (disponibles.length === 0) { showNotif('Aucun dossier disponible pour le moment.', 'error'); return; }
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'supp-confirm-modal';
     const inner = document.createElement('div');
     inner.className = 'modal';
     inner.style.cssText = 'text-align:center;max-width:400px';
-    inner.innerHTML = `
-      <div style="font-size:52px;margin-bottom:12px">📋</div>
-      <h2 style="color:#1e3a5f">Demander un dossier ?</h2>
-      <p style="color:#666;margin:16px 0">Il reste <strong>${disponibles.length} dossier(s) disponible(s)</strong>.<br>Un dossier va vous être attribué automatiquement.</p>`;
+    inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div>' +
+      '<h2 style="color:#1e3a5f">Demander un dossier ?</h2>' +
+      '<p style="color:#666;margin:16px 0">Il reste <strong>' + disponibles.length + ' dossier(s) disponible(s)</strong>.<br>Un dossier va vous être attribué automatiquement.</p>';
     const btns = document.createElement('div');
     btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
-    const btnC = document.createElement('button');
-    btnC.className = 'btn btn-secondary';
-    btnC.textContent = 'Annuler';
-    btnC.onclick = () => closeModal('supp-confirm-modal');
-    const btnO = document.createElement('button');
-    btnO.className = 'btn btn-success';
-    btnO.textContent = 'Confirmer';
-    btnO.onclick = confirmerDossierSupp;
-    btns.appendChild(btnC);
-    btns.appendChild(btnO);
-    inner.appendChild(btns);
-    modal.appendChild(inner);
-    document.body.appendChild(modal);
+    const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler'; btnC.onclick = () => closeModal('supp-confirm-modal');
+    const btnO = document.createElement('button'); btnO.className = 'btn btn-success'; btnO.textContent = 'Confirmer'; btnO.onclick = confirmerDossierSupp;
+    btns.appendChild(btnC); btns.appendChild(btnO);
+    inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
   }
 
   async function confirmerDossierSupp() {
@@ -1638,13 +825,7 @@ async function doReset() {
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
     const disponibles = allDossiers.filter(d => !d.gestionnaire && !d.verrouille && d.statut === 'nonattribue');
     if (disponibles.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
-    const dossier = disponibles[0];
-    const { error } = await db.from('dossiers').update({
-      gestionnaire: monNom,
-      statut: 'attribue',
-      verrouille: true,
-      demande_supp: true
-    }).eq('id', dossier.id);
+    const { error } = await db.from('dossiers').update({ gestionnaire: monNom, statut: 'attribue', verrouille: true, demande_supp: true }).eq('id', disponibles[0].id);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
     showNotif('🎉 Nouveau dossier attribué !', 'success');
     await loadDossiers();
@@ -1652,7 +833,6 @@ async function doReset() {
   }
   // ===== FIN TICKET 10 =====
 
-// ===== NOTIF =====
 function showNotif(msg, type = 'info') {
   const el = document.createElement('div');
   el.className = `notif notif-${type}`;
