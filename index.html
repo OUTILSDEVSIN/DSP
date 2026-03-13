@@ -723,43 +723,65 @@ async function toggleTraite(id, checked, gestionnaire) {
   // ===== T10 — DEMANDE DOSSIER SUPPLÉMENTAIRE =====
   async function demanderDossierSupp() {
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    const nonTraites = allDossiers.filter(d => d.gestionnaire === monNom && !d.traite);
+    const nonTraites = allDossiers.filter(function(d) { return d.gestionnaire === monNom && !d.traite; });
     if (nonTraites.length > 0) {
       const modal = document.createElement('div');
-      modal.className = 'modal-overlay'; modal.id = 'supp-blocked-modal';
+      modal.className = 'modal-overlay';
+      modal.id = 'supp-blocked-modal';
       const inner = document.createElement('div');
-      inner.className = 'modal'; inner.style.cssText = 'text-align:center;max-width:400px';
+      inner.className = 'modal';
+      inner.style.cssText = 'text-align:center;max-width:400px';
+      const btnClose = document.createElement('button');
+      btnClose.className = 'btn btn-secondary';
+      btnClose.textContent = 'OK, compris !';
+      btnClose.style.width = '100%';
+      btnClose.onclick = function() { closeModal('supp-blocked-modal'); };
       inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">🐌</div>'
         + '<h2 style="color:#e74c3c">Pas trop vite !</h2>'
-        + '<p style="color:#666;margin:16px 0">Tu as encore <strong>' + nonTraites.length + ' dossier(s) non traité(s)</strong>.<br>Finis tes dossiers avant d'en demander un nouveau !</p>'
-        + '<div style="margin-top:20px"><button class="btn btn-secondary" onclick="closeModal('supp-blocked-modal')" style="width:100%">OK, compris !</button></div>';
-      modal.appendChild(inner); document.body.appendChild(modal); return;
+        + '<p style="color:#666;margin:16px 0">Tu as encore <strong>' + nonTraites.length + ' dossier(s) non traité(s)</strong>.<br>Finis tes dossiers avant d&#39;en demander un nouveau !</p>'
+        + '<div id="supp-blocked-btn" style="margin-top:20px"></div>';
+      modal.appendChild(inner);
+      document.body.appendChild(modal);
+      document.getElementById('supp-blocked-btn').appendChild(btnClose);
+      return;
     }
-    const disponibles = allDossiers.filter(d => !d.gestionnaire && !d.verrouille && d.statut === 'nonattribue');
+    const disponibles = allDossiers.filter(function(d) { return !d.gestionnaire && !d.verrouille && d.statut === 'nonattribue'; });
     if (disponibles.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
     const modal = document.createElement('div');
-    modal.className = 'modal-overlay'; modal.id = 'supp-confirm-modal';
+    modal.className = 'modal-overlay';
+    modal.id = 'supp-confirm-modal';
     const inner = document.createElement('div');
-    inner.className = 'modal'; inner.style.cssText = 'text-align:center;max-width:400px';
+    inner.className = 'modal';
+    inner.style.cssText = 'text-align:center;max-width:400px';
     inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div>'
       + '<h2 style="color:#1e3a5f">Demander un dossier ?</h2>'
-      + '<p style="color:#666;margin:16px 0">Il reste <strong>' + disponibles.length + ' dossier(s) disponible(s)</strong>.<br>Un dossier va vous être attribué automatiquement.</p>';
-    const btns = document.createElement('div');
-    btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
-    const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler'; btnC.onclick = () => closeModal('supp-confirm-modal');
-    const btnO = document.createElement('button'); btnO.className = 'btn btn-success'; btnO.textContent = 'Confirmer'; btnO.onclick = confirmerDossierSupp;
-    btns.appendChild(btnC); btns.appendChild(btnO); inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
+      + '<p style="color:#666;margin:16px 0">Il reste <strong>' + disponibles.length + ' dossier(s) disponible(s)</strong>.<br>Un dossier va vous être attribué automatiquement.</p>'
+      + '<div id="supp-confirm-btns" style="display:flex;gap:10px;justify-content:center;margin-top:20px"></div>';
+    modal.appendChild(inner);
+    document.body.appendChild(modal);
+    const btnC = document.createElement('button');
+    btnC.className = 'btn btn-secondary';
+    btnC.textContent = 'Annuler';
+    btnC.onclick = function() { closeModal('supp-confirm-modal'); };
+    const btnO = document.createElement('button');
+    btnO.className = 'btn btn-success';
+    btnO.textContent = 'Confirmer';
+    btnO.onclick = confirmerDossierSupp;
+    const btnsDiv = document.getElementById('supp-confirm-btns');
+    btnsDiv.appendChild(btnC);
+    btnsDiv.appendChild(btnO);
   }
 
   async function confirmerDossierSupp() {
     closeModal('supp-confirm-modal');
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    const disponibles = allDossiers.filter(d => !d.gestionnaire && !d.verrouille && d.statut === 'nonattribue');
+    const disponibles = allDossiers.filter(function(d) { return !d.gestionnaire && !d.verrouille && d.statut === 'nonattribue'; });
     if (disponibles.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
     const { error } = await db.from('dossiers').update({ gestionnaire: monNom, statut: 'attribue', verrouille: true, demande_supp: true }).eq('id', disponibles[0].id);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
     showNotif('Nouveau dossier attribué !', 'success');
-    await loadDossiers(); renderMesDossiers();
+    await loadDossiers();
+    renderMesDossiers();
   }
   // ===== FIN T10 =====
 
