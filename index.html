@@ -896,7 +896,7 @@ async function renderAttribution() {
 
       html += `<tr>
         <td><input type="checkbox" class="row-check" data-id="${d.id}"
-          ${d.verrouille ? 'disabled title="Dossier verrouillé — déverrouillez-le d'abord"' : ''}
+          ${d.verrouille ? 'disabled title="Dossier verrouillé — libérez-le d\u0027abord"' : ''}
           onchange="updateSelectionCount()"></td>
         <td><strong>${d.ref_sinistre||''}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
@@ -913,7 +913,7 @@ async function renderAttribution() {
         <td style="text-align:center;font-size:17px">
           ${d.verrouille
             ? (isManager
-                ? `<span title="Cliquer pour libérer" style="cursor:pointer" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" style="display:inline-block;transition:transform 0.15s" onclick="showUnlockConfirm(${d.id})">🔒</span>`
+                ? `<span title="Cliquer pour libérer" style="cursor:pointer;display:inline-block;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" onclick="showUnlockConfirm(${d.id})">🔒</span>`
                 : '<span title="Verrouillé" style="cursor:default">🔒</span>')
             : '<span title="Non verrouillé" style="cursor:default;opacity:0.3">🔓</span>'
           }
