@@ -10,19 +10,8 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; color: #1a1a2e; }
-
-  /* LOGIN */
-  #login-screen {
-    display: flex; align-items: center; justify-content: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #1a1a2e 0%, #2d1b3d 50%, #1a1a2e 100%);
-    position: relative; overflow: hidden;
-  }
-  #login-screen::before {
-    content: ''; position: absolute; inset: 0;
-    background: radial-gradient(ellipse at 30% 50%, rgba(231,28,124,0.15) 0%, transparent 60%),
-                radial-gradient(ellipse at 70% 50%, rgba(231,28,124,0.1) 0%, transparent 60%);
-  }
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1a1a2e 0%, #2d1b3d 50%, #1a1a2e 100%); position: relative; overflow: hidden; }
+  #login-screen::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 50%, rgba(231,28,124,0.15) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(231,28,124,0.1) 0%, transparent 60%); }
   .login-box { background: white; border-radius: 20px; padding: 44px 40px; width: 400px; box-shadow: 0 30px 80px rgba(0,0,0,0.4); position: relative; z-index: 1; }
   .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
   .login-logo-text { font-size: 22px; font-weight: 800; color: #1a1a2e; letter-spacing: -0.5px; }
@@ -36,45 +25,27 @@
   .login-box button:hover { transform: translateY(-1px); box-shadow: 0 6px 25px rgba(231,28,124,0.45); }
   .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: #bbb; }
   .login-error { color: #e74c3c; text-align: center; font-size: 13px; margin-top: 10px; display: none; background: #fff5f5; padding: 8px; border-radius: 8px; }
-
-  /* APP */
   #app-screen { display: none; }
-
-  /* HEADER — fond blanc sobre (maquette) */
-  header {
-    background: white; color: #1a1a2e;
-    padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
-    height: 54px; border-bottom: 1px solid #e8e8e8;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    position: sticky; top: 0; z-index: 100;
-  }
+  header { background: white; color: #1a1a2e; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 54px; border-bottom: 1px solid #e8e8e8; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 100; }
   .header-left { display: flex; align-items: center; gap: 8px; }
   .header-title { font-size: 15px; font-weight: 700; color: #1a1a2e; }
   .header-right { display: flex; align-items: center; gap: 4px; font-size: 13px; }
   .header-username { font-weight: 600; color: #1a1a2e; margin-right: 2px; }
   .header-role-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #f0f2f5; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 6px; }
-  .header-sep { color: #ddd; margin: 0 2px; }
+  .header-sep { color: #ddd; margin: 0 4px; }
   .btn-header { background: none; border: none; color: #777; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
   .btn-header:hover { background: #f5f5f5; color: #1a1a2e; }
   .btn-header-danger { color: #e74c3c; }
   .btn-header-danger:hover { background: #fff5f5; }
-
-  /* TABS — onglet actif souligné rose (maquette) */
   .tabs { display: flex; padding: 0 20px; background: white; border-bottom: 1px solid #e8e8e8; overflow-x: auto; }
   .tab { padding: 14px 16px; cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 500; color: #999; border-bottom: 3px solid transparent; transition: all 0.2s; }
   .tab.active { color: #E71C7C; border-bottom-color: #E71C7C; font-weight: 700; }
   .tab:hover:not(.active) { color: #1a1a2e; background: #fafafa; }
-
-  /* CONTENT */
   .content { padding: 20px 24px; }
-
-  /* STATS */
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .stat-card { background: white; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border: 1px solid #eeeeee; }
   .stat-card .number { font-size: 28px; font-weight: 700; color: #1a1a2e; }
   .stat-card .label { font-size: 12px; color: #999; margin-top: 3px; }
-
-  /* TABLE */
   .table-container { background: white; border-radius: 10px; border: 1px solid #eeeeee; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
   .table-toolbar { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; gap: 10px; }
   .table-toolbar h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; }
@@ -89,10 +60,8 @@
   td { padding: 11px 14px; border-bottom: 1px solid #f5f5f5; color: #1a1a2e; }
   tr:hover td { background: #fafbff; }
   tr:last-child td { border-bottom: none; }
-
-  /* BADGES avec point coloré (maquette) */
   .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-  .badge::before { content: '●'; font-size: 7px; }
+  .badge::before { content: '2'; font-size: 10px; }
   .badge-nonattribue { background: #f5f5f5; color: #888; }
   .badge-nonattribue::before { color: #ccc; }
   .badge-attribue { background: #eaf4ff; color: #1a6bbf; }
@@ -105,8 +74,6 @@
   .badge-traite2::before { color: #27ae60; }
   .badge-nontraite { background: #fff8e6; color: #b07800; }
   .badge-nontraite::before { color: #f0a500; }
-
-  /* BOUTONS */
   .btn { padding: 8px 14px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
   .btn-primary { background: #1e3a5f; color: white; }
   .btn-primary:hover { background: #2d5a8e; }
@@ -118,42 +85,17 @@
   .btn-danger:hover { background: #c0392b; }
   .btn-secondary { background: #f0f2f5; color: #555; border: 1px solid #e0e0e0; }
   .btn-secondary:hover { background: #e5e8ec; }
-
-  /* DISPATCHER — rose vif uppercase (maquette) */
   .btn-dispatch { padding: 10px 22px; background: linear-gradient(135deg, #E71C7C, #c4156a); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 12px rgba(231,28,124,0.4); transition: all 0.2s; letter-spacing: 1px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
   .btn-dispatch:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(231,28,124,0.5); }
   .btn-dispatch:active { transform: translateY(0); }
   .btn-dispatch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  /* COPY BTN */
   .btn-copy { background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 5px; padding: 3px 7px; cursor: pointer; font-size: 11px; color: #999; transition: all 0.15s; margin-left: 4px; }
   .btn-copy:hover { background: #ececec; color: #555; }
   .btn-copy.copied { background: #eafaf1; border-color: #27ae60; color: #1e8449; }
-
-  /* CHECKBOXES */
   .row-check { width: 15px; height: 15px; cursor: pointer; accent-color: #E71C7C; }
   .traite-checkbox { width: 15px; height: 15px; cursor: pointer; accent-color: #27ae60; }
   .traite-checkbox:disabled { cursor: not-allowed; opacity: 0.35; }
   select.assign-select { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; background: white; cursor: pointer; min-width: 155px; }
-
-  /* BANDEAU COMPTEURS (maquette) */
-  .filter-bandeau { background: white; border-radius: 10px; padding: 10px 16px; margin-bottom: 12px; border: 1px solid #eeeeee; display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; }
-  .filter-bandeau-group { display: flex; align-items: center; gap: 6px; padding: 4px 16px 4px 0; margin-right: 16px; border-right: 1px solid #eee; flex-wrap: wrap; }
-  .filter-bandeau-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
-  .filter-bandeau-label { font-size: 10px; font-weight: 800; color: #bbb; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; margin-right: 2px; }
-  .filter-pill { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-
-  /* MODALS */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
-  .modal { background: white; border-radius: 14px; padding: 28px; width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
-  .modal h2 { color: #1a1a2e; margin-bottom: 18px; font-size: 18px; }
-  .modal label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 5px; margin-top: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .modal input, .modal select { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s; }
-  .modal input:focus, .modal select:focus { border-color: #E71C7C; }
-  .modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
-  .modal-error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
-
-  /* DISPATCH MODAL */
   .dispatch-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(3px); }
   .dispatch-modal { background: white; border-radius: 16px; padding: 36px; width: 420px; box-shadow: 0 30px 80px rgba(0,0,0,0.25); text-align: center; }
   .dispatch-modal .icon { font-size: 48px; margin-bottom: 14px; }
@@ -162,16 +104,20 @@
   .dispatch-modal .count { font-size: 40px; font-weight: 900; color: #E71C7C; margin: 14px 0; }
   .dispatch-modal .count small { font-size: 13px; color: #999; font-weight: 400; display: block; }
   .dispatch-actions { display: flex; gap: 10px; margin-top: 24px; justify-content: center; }
-
-  /* UPLOAD */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
+  .modal { background: white; border-radius: 14px; padding: 28px; width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+  .modal h2 { color: #1a1a2e; margin-bottom: 18px; font-size: 18px; }
+  .modal label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 5px; margin-top: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .modal input, .modal select { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s; }
+  .modal input:focus, .modal select:focus { border-color: #E71C7C; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+  .modal-error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
   .upload-zone { border: 2px dashed #d0dcea; border-radius: 12px; padding: 48px; text-align: center; background: white; margin-bottom: 20px; transition: all 0.2s; cursor: pointer; }
   .upload-zone:hover { border-color: #E71C7C; background: #fff5f9; }
   .upload-zone .icon { font-size: 44px; margin-bottom: 10px; }
   .upload-zone h3 { color: #1e3a5f; margin-bottom: 6px; font-size: 15px; }
   .upload-zone p { color: #aaa; font-size: 13px; }
   #file-input { display: none; }
-
-  /* ÉQUIPE */
   .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
   .user-card { background: white; border-radius: 10px; padding: 16px 18px; border: 1px solid #eeeeee; box-shadow: 0 1px 4px rgba(0,0,0,0.04); display: flex; align-items: center; gap: 14px; transition: box-shadow 0.15s; }
   .user-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09); }
@@ -185,8 +131,6 @@
   .role-admin { background: #e8f0fb; color: #1a5276; }
   .role-manager { background: #f3eaf9; color: #7d3c98; }
   .role-gestionnaire { background: #eafaf1; color: #1e8449; }
-
-  /* FORM */
   .form-card { background: white; border-radius: 10px; padding: 24px; border: 1px solid #eeeeee; max-width: 480px; }
   .form-card h2 { color: #1a1a2e; margin-bottom: 16px; font-size: 16px; }
   .form-group { margin-bottom: 14px; }
@@ -195,15 +139,11 @@
   .form-group input:focus, .form-group select:focus { border-color: #E71C7C; }
   .form-error { color: #e74c3c; font-size: 12px; margin-top: 6px; display: none; }
   .form-success { color: #27ae60; font-size: 12px; margin-top: 6px; display: none; }
-
-  /* NOTIF */
   .notif { position: fixed; bottom: 20px; right: 20px; padding: 12px 18px; border-radius: 9px; color: white; font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: 0 4px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s ease; max-width: 300px; }
   .notif-success { background: #27ae60; }
   .notif-error { background: #e74c3c; }
   .notif-info { background: #2d6a9f; }
   @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-  /* MISC */
   .loading { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
   .empty-state { text-align: center; padding: 50px; color: #ccc; }
   .empty-state .icon { font-size: 44px; margin-bottom: 10px; }
@@ -214,7 +154,6 @@
   .progress-bar-wrap { display: flex; align-items: center; gap: 8px; }
   .progress-bar-bg { background: #eee; border-radius: 10px; height: 7px; width: 80px; overflow: hidden; }
   .progress-bar-fill { background: #27ae60; height: 7px; border-radius: 10px; }
-
   @media (max-width: 768px) {
     .content { padding: 12px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -781,43 +720,35 @@ async function toggleTraite(id, checked, gestionnaire) {
 
 // ===== NOTIF =====
 
-  // ===== TICKET 10 — DEMANDE DOSSIER SUPPLÉMENTAIRE =====
+  // ===== T10 — DEMANDE DOSSIER SUPPLÉMENTAIRE =====
   async function demanderDossierSupp() {
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
-    const nonTraites = mesDossiers.filter(d => !d.traite);
+    const nonTraites = allDossiers.filter(d => d.gestionnaire === monNom && !d.traite);
     if (nonTraites.length > 0) {
       const modal = document.createElement('div');
-      modal.className = 'modal-overlay';
-      modal.id = 'supp-blocked-modal';
+      modal.className = 'modal-overlay'; modal.id = 'supp-blocked-modal';
       const inner = document.createElement('div');
-      inner.className = 'modal';
-      inner.style.cssText = 'text-align:center;max-width:400px';
-      inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">🐌</div>' +
-        '<h2 style="color:#e74c3c">Pas trop vite !</h2>' +
-        '<p style="color:#666;margin:16px 0">Tu as encore <strong>' + nonTraites.length + ' dossier(s) non traité(s)</strong>.<br>Finis d\'abord tes dossiers avant d\'en demander un nouveau !</p>' +
-        '<div style="margin-top:20px"><button class="btn btn-secondary" onclick="closeModal(\'supp-blocked-modal\')" style="width:100%">OK, compris !</button></div>';
-      modal.appendChild(inner);
-      document.body.appendChild(modal);
-      return;
+      inner.className = 'modal'; inner.style.cssText = 'text-align:center;max-width:400px';
+      inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">🐌</div>'
+        + '<h2 style="color:#e74c3c">Pas trop vite !</h2>'
+        + '<p style="color:#666;margin:16px 0">Tu as encore <strong>' + nonTraites.length + ' dossier(s) non traité(s)</strong>.<br>Finis tes dossiers avant d'en demander un nouveau !</p>'
+        + '<div style="margin-top:20px"><button class="btn btn-secondary" onclick="closeModal('supp-blocked-modal')" style="width:100%">OK, compris !</button></div>';
+      modal.appendChild(inner); document.body.appendChild(modal); return;
     }
     const disponibles = allDossiers.filter(d => !d.gestionnaire && !d.verrouille && d.statut === 'nonattribue');
-    if (disponibles.length === 0) { showNotif('Aucun dossier disponible pour le moment.', 'error'); return; }
+    if (disponibles.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
     const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'supp-confirm-modal';
+    modal.className = 'modal-overlay'; modal.id = 'supp-confirm-modal';
     const inner = document.createElement('div');
-    inner.className = 'modal';
-    inner.style.cssText = 'text-align:center;max-width:400px';
-    inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div>' +
-      '<h2 style="color:#1e3a5f">Demander un dossier ?</h2>' +
-      '<p style="color:#666;margin:16px 0">Il reste <strong>' + disponibles.length + ' dossier(s) disponible(s)</strong>.<br>Un dossier va vous être attribué automatiquement.</p>';
+    inner.className = 'modal'; inner.style.cssText = 'text-align:center;max-width:400px';
+    inner.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div>'
+      + '<h2 style="color:#1e3a5f">Demander un dossier ?</h2>'
+      + '<p style="color:#666;margin:16px 0">Il reste <strong>' + disponibles.length + ' dossier(s) disponible(s)</strong>.<br>Un dossier va vous être attribué automatiquement.</p>';
     const btns = document.createElement('div');
     btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
     const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler'; btnC.onclick = () => closeModal('supp-confirm-modal');
     const btnO = document.createElement('button'); btnO.className = 'btn btn-success'; btnO.textContent = 'Confirmer'; btnO.onclick = confirmerDossierSupp;
-    btns.appendChild(btnC); btns.appendChild(btnO);
-    inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
+    btns.appendChild(btnC); btns.appendChild(btnO); inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
   }
 
   async function confirmerDossierSupp() {
@@ -827,11 +758,10 @@ async function toggleTraite(id, checked, gestionnaire) {
     if (disponibles.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
     const { error } = await db.from('dossiers').update({ gestionnaire: monNom, statut: 'attribue', verrouille: true, demande_supp: true }).eq('id', disponibles[0].id);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    showNotif('🎉 Nouveau dossier attribué !', 'success');
-    await loadDossiers();
-    renderMesDossiers();
+    showNotif('Nouveau dossier attribué !', 'success');
+    await loadDossiers(); renderMesDossiers();
   }
-  // ===== FIN TICKET 10 =====
+  // ===== FIN T10 =====
 
 function showNotif(msg, type = 'info') {
   const el = document.createElement('div');
