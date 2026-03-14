@@ -5,175 +5,229 @@
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.5.2">
+  <meta name="version" content="2.5.3">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
+  /* ===== TOKENS ===== */
+  :root {
+    --navy:       #0f1b2d;
+    --navy-light: #1e2d42;
+    --rose:       #e5195e;
+    --rose-light: #fce8ef;
+    --gray-bg:    #f4f5f7;
+    --gray-100:   #f8f9fa;
+    --gray-200:   #eef0f3;
+    --gray-300:   #e0e3e8;
+    --gray-400:   #b0b8c5;
+    --gray-600:   #6b7689;
+    --gray-800:   #2c3547;
+    --white:      #ffffff;
+    --shadow-sm:  0 1px 3px rgba(15,27,45,0.07);
+    --shadow-md:  0 4px 16px rgba(15,27,45,0.10);
+    --radius-sm:  6px;
+    --radius-md:  10px;
+    --radius-lg:  14px;
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; color: #1a1a2e; }
-  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1a1a2e 0%, #2d1b3d 50%, #1a1a2e 100%); position: relative; overflow: hidden; }
-  #login-screen::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 50%, rgba(231,28,124,0.15) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(231,28,124,0.1) 0%, transparent 60%); }
-  .login-box { background: white; border-radius: 20px; padding: 44px 40px; width: 400px; box-shadow: 0 30px 80px rgba(0,0,0,0.4); position: relative; z-index: 1; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray-bg); min-height: 100vh; color: var(--navy); font-size: 14px; }
+
+  /* ===== LOGIN ===== */
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--navy); }
+  .login-box { background: var(--white); border-radius: var(--radius-lg); padding: 44px 40px; width: 400px; box-shadow: var(--shadow-md); }
   .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
-  .login-logo-text { font-size: 22px; font-weight: 800; color: #1a1a2e; }
-  .login-logo-text span { color: #E71C7C; }
-  .login-subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid #f0f0f0; }
-  .login-label { font-size: 12px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
-  .login-field { margin-bottom: 18px; }
-  .login-box input { width: 100%; padding: 13px 16px; border: 2px solid #e8e8e8; border-radius: 10px; font-size: 15px; outline: none; transition: border 0.2s; background: #fafafa; }
-  .login-box input:focus { border-color: #E71C7C; background: white; }
-  .login-box button { width: 100%; padding: 14px; background: linear-gradient(135deg, #E71C7C, #c4156a); color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; font-weight: 700; transition: all 0.2s; margin-top: 6px; box-shadow: 0 4px 20px rgba(231,28,124,0.35); }
-  .login-box button:hover { transform: translateY(-1px); }
-  .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: #bbb; }
-  .login-error { color: #e74c3c; text-align: center; font-size: 13px; margin-top: 10px; display: none; background: #fff5f5; padding: 8px; border-radius: 8px; }
+  .login-logo-text { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.5px; }
+  .login-logo-text span { color: var(--rose); }
+  .login-subtitle { text-align: center; color: var(--gray-600); font-size: 13px; margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--gray-200); }
+  .login-label { font-size: 11px; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; display: block; }
+  .login-field { margin-bottom: 16px; }
+  .login-box input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 14px; outline: none; transition: border 0.2s; background: var(--gray-100); color: var(--navy); }
+  .login-box input:focus { border-color: var(--rose); background: var(--white); }
+  .login-box button { width: 100%; padding: 13px; background: var(--rose); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; font-weight: 700; transition: background 0.2s; margin-top: 4px; letter-spacing: 0.3px; }
+  .login-box button:hover { background: #c9164f; }
+  .login-footer { text-align: center; margin-top: 20px; font-size: 11px; color: var(--gray-400); }
+  .login-error { color: #c0392b; font-size: 12px; margin-top: 8px; display: none; text-align: center; background: #fef2f2; padding: 8px; border-radius: var(--radius-sm); }
   #app-screen { display: none; }
-  header { background: white; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 54px; border-bottom: 1px solid #e8e8e8; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 100; }
-  .header-left { display: flex; align-items: center; gap: 8px; }
-  .header-title { font-size: 15px; font-weight: 700; color: #1a1a2e; }
-  .header-right { display: flex; align-items: center; gap: 4px; font-size: 13px; }
-  .header-username { font-weight: 600; color: #1a1a2e; margin-right: 2px; }
-  .header-role-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #f0f2f5; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 6px; }
-  .header-sep { color: #ddd; margin: 0 4px; }
-  .btn-header { background: none; border: none; color: #777; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
-  .btn-header:hover { background: #f5f5f5; color: #1a1a2e; }
-  .btn-header-danger { color: #e74c3c; }
-  .btn-header-danger:hover { background: #fff5f5; }
-  .tabs { display: flex; padding: 0 20px; background: white; border-bottom: 1px solid #e8e8e8; overflow-x: auto; }
-  .tab { padding: 14px 16px; cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 500; color: #999; border-bottom: 3px solid transparent; transition: all 0.2s; }
-  .tab.active { color: #E71C7C; border-bottom-color: #E71C7C; font-weight: 700; }
-  .tab:hover:not(.active) { color: #1a1a2e; background: #fafafa; }
-  .content { padding: 20px 24px; }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .stat-card { background: white; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border: 1px solid #eeeeee; }
-  .stat-card .number { font-size: 28px; font-weight: 700; color: #1a1a2e; }
-  .stat-card .label { font-size: 12px; color: #999; margin-top: 3px; }
-  .table-container { background: white; border-radius: 10px; border: 1px solid #eeeeee; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
-  .table-toolbar { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; gap: 10px; }
-  .table-toolbar h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; }
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 18px; background: #fafafa; border-bottom: 1px solid #f0f0f0; align-items: center; }
-  .search-bar { padding: 7px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; outline: none; width: 210px; transition: border 0.2s; }
-  .search-bar:focus { border-color: #E71C7C; }
-  .filter-select { padding: 7px 10px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; outline: none; background: white; cursor: pointer; }
-  .filter-select:focus { border-color: #E71C7C; }
+
+  /* ===== HEADER ===== */
+  header { background: var(--navy); padding: 0 28px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-title { font-size: 14px; font-weight: 700; color: var(--white); letter-spacing: 0.1px; }
+  .header-right { display: flex; align-items: center; gap: 6px; }
+  .header-username { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
+  .header-role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; margin-right: 4px; }
+  .header-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 6px; }
+  .btn-header { background: none; border: none; color: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .btn-header:hover { background: rgba(255,255,255,0.1); color: white; }
+  .btn-header-danger { color: rgba(255,150,150,0.85); }
+  .btn-header-danger:hover { background: rgba(229,25,94,0.2); color: #ff8fab; }
+
+  /* ===== TABS ===== */
+  .tabs { display: flex; padding: 0 28px; background: var(--white); border-bottom: 1px solid var(--gray-200); overflow-x: auto; }
+  .tab { padding: 13px 16px; cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; transition: all 0.18s; display: flex; align-items: center; gap: 6px; }
+  .tab.active { color: var(--rose); border-bottom-color: var(--rose); font-weight: 600; }
+  .tab:hover:not(.active) { color: var(--navy); background: var(--gray-100); }
+
+  /* ===== CONTENT ===== */
+  .content { padding: 20px 28px; }
+
+  /* ===== STAT CARDS ===== */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .stat-card { background: var(--white); border-radius: var(--radius-md); padding: 16px 18px; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-200); }
+  .stat-card .number { font-size: 26px; font-weight: 800; color: var(--navy); line-height: 1; }
+  .stat-card .label { font-size: 11px; color: var(--gray-600); margin-top: 4px; font-weight: 500; }
+
+  /* ===== BANDEAU COMPTEURS ===== */
+  .filter-bandeau { background: var(--white); border-radius: var(--radius-md); padding: 10px 20px; margin-bottom: 12px; border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 0; overflow-x: auto; flex-wrap: nowrap; }
+  .filter-bandeau-group { display: inline-flex; align-items: center; gap: 6px; padding: 3px 20px 3px 0; margin-right: 16px; border-right: 1px solid var(--gray-200); flex-shrink: 0; }
+  .filter-bandeau-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+  .filter-bandeau-label { font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.7px; white-space: nowrap; flex-shrink: 0; }
+  .filter-pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: opacity 0.15s; border: 1px solid var(--gray-300); background: var(--gray-100); color: var(--gray-800); }
+  .filter-pill:hover { opacity: 0.75; }
+
+  /* ===== TABLE CONTAINER ===== */
+  .table-container { background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .table-toolbar { padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-200); flex-wrap: wrap; gap: 8px; background: var(--white); }
+  .table-toolbar h2 { font-size: 13px; font-weight: 700; color: var(--navy); }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 18px; background: var(--gray-100); border-bottom: 1px solid var(--gray-200); align-items: center; }
+  .search-bar { padding: 7px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; width: 200px; transition: border 0.2s; background: var(--white); }
+  .search-bar:focus { border-color: var(--rose); }
+  .filter-select { padding: 7px 10px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--white); cursor: pointer; color: var(--navy); }
+  .filter-select:focus { border-color: var(--rose); }
+
+  /* ===== TABLE ===== */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  thead { background: #fafafa; }
-  th { padding: 10px 14px; text-align: left; font-weight: 600; color: #999; border-bottom: 1px solid #eeeeee; white-space: nowrap; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
-  td { padding: 11px 14px; border-bottom: 1px solid #f5f5f5; color: #1a1a2e; }
+  thead { background: var(--gray-100); }
+  th { padding: 9px 14px; text-align: left; font-weight: 600; color: var(--gray-600); border-bottom: 1px solid var(--gray-200); white-space: nowrap; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--gray-200); color: var(--navy); vertical-align: middle; }
   tr:hover td { background: #fafbff; }
   tr:last-child td { border-bottom: none; }
-  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-  .badge-nonattribue { background: #f5f5f5; color: #888; }
-  .badge-nonattribue::before { content: '•'; font-size: 10px; color: #ccc; }
-  .badge-attribue { background: #eaf4ff; color: #1a6bbf; }
-  .badge-attribue::before { content: '•'; font-size: 10px; color: #4a9de0; }
-  .badge-encours { background: #fff8e6; color: #b07800; }
-  .badge-encours::before { content: '•'; font-size: 10px; color: #f0a500; }
-  .badge-ouvert { background: #fff0f0; color: #c0392b; }
-  .badge-ouvert::before { content: '•'; font-size: 10px; color: #e74c3c; }
-  .badge-traite2 { background: #eafaf1; color: #1e8449; }
-  .badge-traite2::before { content: '•'; font-size: 10px; color: #27ae60; }
-  .badge-nontraite { background: #fff8e6; color: #b07800; }
-  .badge-nontraite::before { content: '•'; font-size: 10px; color: #f0a500; }
-  .btn { padding: 8px 14px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
-  .btn-primary { background: #1e3a5f; color: white; }
-  .btn-primary:hover { background: #2d5a8e; }
-  .btn-success { background: #27ae60; color: white; }
-  .btn-success:hover { background: #219a52; }
-  .btn-warning { background: #f39c12; color: white; }
-  .btn-warning:hover { background: #d68910; }
-  .btn-danger { background: #e74c3c; color: white; }
-  .btn-danger:hover { background: #c0392b; }
-  .btn-secondary { background: #f0f2f5; color: #555; border: 1px solid #e0e0e0; }
-  .btn-secondary:hover { background: #e5e8ec; }
-  .btn-dispatch { padding: 10px 22px; background: linear-gradient(135deg, #E71C7C, #c4156a); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 12px rgba(231,28,124,0.4); transition: all 0.2s; letter-spacing: 1px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
-  .btn-dispatch:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(231,28,124,0.5); }
-  .btn-dispatch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .btn-copy { background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 5px; padding: 3px 7px; cursor: pointer; font-size: 11px; color: #999; transition: all 0.15s; margin-left: 4px; }
-  .btn-copy:hover { background: #ececec; color: #555; }
-  .btn-copy.copied { background: #eafaf1; border-color: #27ae60; color: #1e8449; }
-  .btn-edit-user { background: none; border: 1px solid #e0e0e0; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; color: #888; transition: all 0.15s; margin-left: auto; flex-shrink: 0; }
-  .btn-edit-user:hover { background: #f5f5f5; color: #1a1a2e; border-color: #bbb; }
-  .row-check { width: 15px; height: 15px; cursor: pointer; accent-color: #E71C7C; }
-  .traite-checkbox { width: 15px; height: 15px; cursor: pointer; accent-color: #27ae60; }
-  .traite-checkbox:disabled { cursor: not-allowed; opacity: 0.35; }
-  select.assign-select { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; background: white; cursor: pointer; min-width: 155px; }
-  .dispatch-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(3px); }
-  .dispatch-modal { background: white; border-radius: 16px; padding: 36px; width: 420px; box-shadow: 0 30px 80px rgba(0,0,0,0.25); text-align: center; }
-  .dispatch-modal .icon { font-size: 48px; margin-bottom: 14px; }
-  .dispatch-modal h2 { color: #1a1a2e; font-size: 20px; margin-bottom: 8px; }
-  .dispatch-modal p { color: #777; font-size: 14px; margin-bottom: 6px; }
-  .dispatch-modal .count { font-size: 40px; font-weight: 900; color: #E71C7C; margin: 14px 0; }
-  .dispatch-modal .count small { font-size: 13px; color: #999; font-weight: 400; display: block; }
-  .dispatch-actions { display: flex; gap: 10px; margin-top: 24px; justify-content: center; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
-  .modal { background: white; border-radius: 14px; padding: 28px; width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
-  .modal h2 { color: #1a1a2e; margin-bottom: 18px; font-size: 18px; }
-  .modal label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 5px; margin-top: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .modal input, .modal select { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s; }
-  .modal input:focus, .modal select:focus { border-color: #E71C7C; }
+
+  /* ===== BADGES ===== */
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge-nonattribue { background: var(--gray-200); color: var(--gray-600); }
+  .badge-nonattribue::before { content: '•'; font-size: 8px; color: var(--gray-400); }
+  .badge-attribue { background: #e8f0fd; color: #1a56c4; }
+  .badge-attribue::before { content: '•'; font-size: 8px; color: #4a7de0; }
+  .badge-encours { background: #fef3e2; color: #92540a; }
+  .badge-encours::before { content: '•'; font-size: 8px; color: #f59e0b; }
+  .badge-ouvert { background: #feeaea; color: #991b1b; }
+  .badge-ouvert::before { content: '•'; font-size: 8px; color: #ef4444; }
+  .badge-traite2 { background: #dcfce7; color: #166534; }
+  .badge-traite2::before { content: '•'; font-size: 8px; color: #22c55e; }
+  .badge-nontraite { background: #fef3e2; color: #92540a; }
+  .badge-nontraite::before { content: '•'; font-size: 8px; color: #f59e0b; }
+  .badge-verrouille { background: #f0e6ff; color: #6b21a8; font-size: 11px; }
+
+  /* ===== BOUTONS ===== */
+  .btn { padding: 7px 14px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: var(--navy); color: white; }
+  .btn-primary:hover { background: var(--navy-light); }
+  .btn-success { background: #16a34a; color: white; }
+  .btn-success:hover { background: #15803d; }
+  .btn-warning { background: #d97706; color: white; }
+  .btn-warning:hover { background: #b45309; }
+  .btn-danger { background: #dc2626; color: white; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-secondary { background: var(--white); color: var(--gray-800); border: 1.5px solid var(--gray-300); }
+  .btn-secondary:hover { background: var(--gray-100); border-color: var(--gray-400); }
+  .btn-dispatch { padding: 9px 22px; background: var(--rose); color: white; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; letter-spacing: 0.8px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-dispatch:hover { background: #c9164f; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(229,25,94,0.35); }
+  .btn-dispatch:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-copy { background: var(--gray-100); border: 1px solid var(--gray-300); border-radius: 4px; padding: 3px 7px; cursor: pointer; font-size: 11px; color: var(--gray-600); transition: all 0.15s; margin-left: 4px; }
+  .btn-copy:hover { background: var(--gray-200); color: var(--navy); }
+  .btn-copy.copied { background: #dcfce7; border-color: #22c55e; color: #166534; }
+  .btn-edit-user { background: none; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); padding: 4px 8px; cursor: pointer; font-size: 12px; color: var(--gray-600); transition: all 0.15s; margin-left: auto; flex-shrink: 0; }
+  .btn-edit-user:hover { background: var(--gray-100); color: var(--navy); border-color: var(--gray-400); }
+  .btn-demander-supp { padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-demander-supp:hover { background: #15803d; }
+  .btn-demander-supp:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* ===== CHECKBOXES ===== */
+  .row-check { width: 15px; height: 15px; cursor: pointer; accent-color: var(--rose); }
+  .traite-checkbox { width: 15px; height: 15px; cursor: pointer; accent-color: #16a34a; }
+  .traite-checkbox:disabled { cursor: not-allowed; opacity: 0.3; }
+  select.assign-select { padding: 6px 10px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; background: var(--white); cursor: pointer; min-width: 160px; color: var(--navy); }
+
+  /* ===== MODALS ===== */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,27,45,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
+  .modal { background: var(--white); border-radius: var(--radius-lg); padding: 28px; width: 420px; box-shadow: var(--shadow-md); max-height: 90vh; overflow-y: auto; }
+  .modal h2 { color: var(--navy); margin-bottom: 18px; font-size: 17px; font-weight: 700; }
+  .modal label { display: block; font-size: 11px; font-weight: 700; color: var(--gray-600); margin-bottom: 5px; margin-top: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .modal input, .modal select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; transition: border 0.2s; }
+  .modal input:focus, .modal select:focus { border-color: var(--rose); }
   .modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
-  .modal-error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
-  .upload-zone { border: 2px dashed #d0dcea; border-radius: 12px; padding: 48px; text-align: center; background: white; margin-bottom: 20px; transition: all 0.2s; cursor: pointer; }
-  .upload-zone:hover { border-color: #E71C7C; background: #fff5f9; }
-  .upload-zone .icon { font-size: 44px; margin-bottom: 10px; }
-  .upload-zone h3 { color: #1e3a5f; margin-bottom: 6px; font-size: 15px; }
-  .upload-zone p { color: #aaa; font-size: 13px; }
+  .modal-error { color: #dc2626; font-size: 12px; margin-top: 8px; display: none; }
+  .dispatch-modal-overlay { position: fixed; inset: 0; background: rgba(15,27,45,0.55); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(3px); }
+  .dispatch-modal { background: var(--white); border-radius: var(--radius-lg); padding: 36px; width: 420px; box-shadow: var(--shadow-md); text-align: center; }
+  .dispatch-modal .icon { font-size: 44px; margin-bottom: 12px; }
+  .dispatch-modal h2 { color: var(--navy); font-size: 19px; margin-bottom: 8px; font-weight: 700; }
+  .dispatch-modal p { color: var(--gray-600); font-size: 13px; margin-bottom: 6px; }
+  .dispatch-modal .count { font-size: 38px; font-weight: 900; color: var(--rose); margin: 14px 0; }
+  .dispatch-modal .count small { font-size: 12px; color: var(--gray-600); font-weight: 400; display: block; }
+  .dispatch-actions { display: flex; gap: 10px; margin-top: 22px; justify-content: center; }
+
+  /* ===== UPLOAD ===== */
+  .upload-zone { border: 2px dashed var(--gray-300); border-radius: var(--radius-md); padding: 48px; text-align: center; background: var(--white); margin-bottom: 18px; transition: all 0.2s; cursor: pointer; }
+  .upload-zone:hover { border-color: var(--rose); background: var(--rose-light); }
+  .upload-zone .icon { font-size: 42px; margin-bottom: 10px; }
+  .upload-zone h3 { color: var(--navy); margin-bottom: 6px; font-size: 15px; font-weight: 600; }
+  .upload-zone p { color: var(--gray-600); font-size: 13px; }
   #file-input { display: none; }
-  .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
-  .user-card { background: white; border-radius: 10px; padding: 16px 18px; border: 1px solid #eeeeee; box-shadow: 0 1px 4px rgba(0,0,0,0.04); display: flex; align-items: center; gap: 14px; transition: box-shadow 0.15s; }
-  .user-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09); }
-  .user-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: white; flex-shrink: 0; }
-  .avatar-admin { background: linear-gradient(135deg, #1e3a5f, #2d6a9f); }
-  .avatar-manager { background: linear-gradient(135deg, #7d3c98, #a569bd); }
-  .avatar-gestionnaire { background: linear-gradient(135deg, #27ae60, #52be80); }
-  .user-info h4 { font-size: 14px; color: #1a1a2e; font-weight: 600; }
-  .user-info p { font-size: 12px; color: #999; margin-top: 1px; }
-  .user-role-badge { padding: 2px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-top: 5px; display: inline-block; }
-  .role-admin { background: #e8f0fb; color: #1a5276; }
-  .role-manager { background: #f3eaf9; color: #7d3c98; }
-  .role-gestionnaire { background: #eafaf1; color: #1e8449; }
-  .form-card { background: white; border-radius: 10px; padding: 24px; border: 1px solid #eeeeee; max-width: 480px; }
-  .form-card h2 { color: #1a1a2e; margin-bottom: 16px; font-size: 16px; }
-  .form-group { margin-bottom: 14px; }
-  .form-group label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 14px; outline: none; transition: border 0.2s; }
-  .form-group input:focus, .form-group select:focus { border-color: #E71C7C; }
-  .form-error { color: #e74c3c; font-size: 12px; margin-top: 6px; display: none; }
-  .form-success { color: #27ae60; font-size: 12px; margin-top: 6px; display: none; }
-  .notif { position: fixed; bottom: 20px; right: 20px; padding: 12px 18px; border-radius: 9px; color: white; font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: 0 4px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s ease; max-width: 300px; }
-  .notif-success { background: #27ae60; }
-  .notif-error { background: #e74c3c; }
-  .notif-info { background: #2d6a9f; }
-  @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-  .loading { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
-  .empty-state { text-align: center; padding: 50px; color: #ccc; }
-  .empty-state .icon { font-size: 44px; margin-bottom: 10px; }
-  .star-supp { color: #f39c12; font-size: 14px; margin-left: 3px; }
-  .btn-demander-supp { padding: 9px 18px; background: linear-gradient(135deg, #27ae60, #1e8449); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; }
-  .btn-demander-supp:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(39,174,96,0.4); }
-  .btn-demander-supp:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ===== ÉQUIPE ===== */
+  .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+  .user-card { background: var(--white); border-radius: var(--radius-md); padding: 14px 16px; border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 12px; transition: box-shadow 0.15s; }
+  .user-card:hover { box-shadow: var(--shadow-md); }
+  .user-avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; color: white; flex-shrink: 0; }
+  .avatar-admin { background: var(--navy); }
+  .avatar-manager { background: #6b21a8; }
+  .avatar-gestionnaire { background: #16a34a; }
+  .user-info h4 { font-size: 13px; color: var(--navy); font-weight: 600; }
+  .user-info p { font-size: 11px; color: var(--gray-600); margin-top: 1px; }
+  .user-role-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-top: 4px; display: inline-block; text-transform: uppercase; letter-spacing: 0.4px; }
+  .role-admin { background: #e8f0fd; color: #1a3c8f; }
+  .role-manager { background: #f0e6ff; color: #6b21a8; }
+  .role-gestionnaire { background: #dcfce7; color: #166534; }
+
+  /* ===== FORMS ===== */
+  .form-card { background: var(--white); border-radius: var(--radius-md); padding: 22px; border: 1px solid var(--gray-200); max-width: 480px; }
+  .form-card h2 { color: var(--navy); margin-bottom: 14px; font-size: 15px; font-weight: 700; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--gray-600); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; transition: border 0.2s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--rose); }
+  .form-error { color: #dc2626; font-size: 12px; margin-top: 4px; display: none; }
+  .form-success { color: #16a34a; font-size: 12px; margin-top: 4px; display: none; }
+
+  /* ===== NOTIFS ===== */
+  .notif { position: fixed; bottom: 20px; right: 20px; padding: 11px 16px; border-radius: var(--radius-md); color: white; font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: var(--shadow-md); animation: slideIn 0.25s ease; max-width: 310px; }
+  .notif-success { background: #16a34a; }
+  .notif-error { background: #dc2626; }
+  .notif-info { background: var(--navy); }
+  @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ===== MISC ===== */
+  .loading { text-align: center; padding: 40px; color: var(--gray-400); font-size: 13px; }
+  .empty-state { text-align: center; padding: 50px; color: var(--gray-400); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+  .star-supp { color: #d97706; font-size: 13px; margin-left: 3px; }
   .progress-bar-wrap { display: flex; align-items: center; gap: 8px; }
-  .progress-bar-bg { background: #eee; border-radius: 10px; height: 7px; width: 80px; overflow: hidden; }
-  .progress-bar-fill { background: #27ae60; height: 7px; border-radius: 10px; }
-  .filter-bandeau { background: white; border-radius: 12px; padding: 10px 20px; margin-bottom: 14px; border: 1px solid #eeeeee; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 0; overflow-x: auto; flex-wrap: nowrap; white-space: nowrap; }
-  .filter-bandeau-group { display: inline-flex; align-items: center; gap: 7px; padding: 4px 20px 4px 0; margin-right: 16px; border-right: 1px solid #eee; flex-shrink: 0; }
-  .filter-bandeau-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
-  .filter-bandeau-label { font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; }
-  .filter-pill { padding: 5px 13px; border-radius: 20px; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: opacity 0.15s; display: inline-block; }
-  .filter-pill:hover { opacity: 0.75; }
+  .progress-bar-bg { background: var(--gray-200); border-radius: 10px; height: 6px; width: 80px; overflow: hidden; }
+  .progress-bar-fill { background: #16a34a; height: 6px; border-radius: 10px; }
+
   @media (max-width: 768px) {
     .content { padding: 12px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    table { font-size: 11px; }
+    table { font-size: 12px; }
     th, td { padding: 8px 10px; }
     .modal { width: 95vw; padding: 20px; }
-    header { padding: 0 12px; }
-    .header-title { font-size: 13px; }
+    header { padding: 0 14px; }
   }
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.2';
+    const APP_VERSION = '2.5.3';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -406,7 +460,7 @@ async function doReleaseManager(nom) {
   const dossiers = allDossiers.filter(d => d.gestionnaire === nom && !d.traite);
   let ok = 0;
   for (const d of dossiers) {
-    const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'non_attribue' }).eq('id', d.id);
+    const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'nonattribue' }).eq('id', d.id);
     if (!error) ok++;
   }
   showNotif('🔓 ' + ok + ' dossier(s) libéré(s) pour ' + nom, 'success');
@@ -697,18 +751,18 @@ async function executeAutoAssign(selections, dossiers) {
   for (const sel of selections) {
     const batch = dossiers.slice(idx, idx + sel.nb);
     for (const d of batch) {
-      await db.from('dossiers').update({ gestionnaire: sel.nom }).eq('id', d.id);
+      await db.from('dossiers').update({ gestionnaire: sel.nom, verrouille: true }).eq('id', d.id);
     }
     idx += sel.nb;
   }
   closeModal('auto-assign-modal');
-  showNotif(`✅ ${idx} dossiers attribués automatiquement !`, 'success');
+  showNotif(`✅ ${idx} dossiers attribués et verrouillés !`, 'success');
   await loadDossiers();
   showTab('attribution');
 }
 
 function showDispatch() {
-  const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'en_cours' && d.statut !== 'ouvert' && d.statut !== 'traite');
+  const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'encours' && d.statut !== 'ouvert' && d.statut !== 'traite');
   if (!verrouilles.length) { showNotif('Aucun dossier verrouillé à dispatcher.', 'error'); return; }
   const modal = document.createElement('div');
   modal.className = 'dispatch-modal-overlay';
@@ -730,29 +784,32 @@ function showDispatch() {
 
 async function doDispatch(count) {
   closeModal('dispatch-modal');
-  const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'en_cours' && d.statut !== 'ouvert' && d.statut !== 'traite');
+  const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'encours' && d.statut !== 'ouvert' && d.statut !== 'traite');
   const ids = verrouilles.map(d => d.id);
   for (const id of ids) {
     await db.from('dossiers').update({ statut: 'attribue' }).eq('id', id);
   }
   showNotif(`🚀 ${count} dossiers dispatchés avec succès !`, 'success');
+  window._fPortefeuille = ''; window._fType = ''; window._fNature = '';
+  window._fStatut = ''; window._fGestionnaire = ''; window._fNonAttribue = false;
+  searchQuery = '';
   await loadDossiers();
   renderAttribution();
 }
 
 // ===== COPIER REFERENCE =====
 async function copyRef(ref, dossierstatut, id, btn) {
-  // Si un dossier est "en_cours", le passer en "ouvert"
-  if (dossierstatut === 'en_cours') {
-    const enCours = allDossiers.find(d => d.statut === 'en_cours' && d.id !== id);
+  // Si un dossier est "encours", le passer en "ouvert"
+  if (dossierstatut === 'encours') {
+    const enCours = allDossiers.find(d => d.statut === 'encours' && d.id !== id);
     if (enCours) {
       await db.from('dossiers').update({ statut: 'ouvert' }).eq('id', enCours.id);
       allDossiers = allDossiers.map(d => d.id === enCours.id ? {...d, statut: 'ouvert'} : d);
     }
   }
-  // Passer ce dossier en "en_cours"
-  await db.from('dossiers').update({ statut: 'en_cours' }).eq('id', id);
-  allDossiers = allDossiers.map(d => d.id === id ? {...d, statut: 'en_cours'} : d);
+  // Passer ce dossier en "encours"
+  await db.from('dossiers').update({ statut: 'encours' }).eq('id', id);
+  allDossiers = allDossiers.map(d => d.id === id ? {...d, statut: 'encours'} : d);
   // Copier dans le presse-papiers
   navigator.clipboard.writeText(ref).then(() => {
     btn.textContent = '✅'; btn.classList.add('copied');
@@ -760,15 +817,17 @@ async function copyRef(ref, dossierstatut, id, btn) {
   });
 }
 
-function statutBadge(statut) {
+function statutBadge(statut, verrouille) {
+  if (verrouille && statut === 'nonattribue') return '<span class="badge badge-verrouille">🔒 Verrouillé</span>';
   const map = {
-    'non_attribue': ['badge-non_attribue', '⚪ Non attribué'],
-    'attribue':    ['badge-attribue',    '🔵 Attribué'],
-    'en_cours':    ['badge-en_cours',    '🟠 En cours'],
-    'ouvert':      ['badge-ouvert',      '🔴 Ouvert'],
-    'traite':      ['badge-traite2',     '✅ Traité'],
+    'nonattribue': ['badge-nonattribue', 'Non attribué'],
+    'attribue':    ['badge-attribue',    'Attribué'],
+    'encours':     ['badge-encours',     'En cours'],
+    'ouvert':      ['badge-ouvert',      'Ouvert'],
+    'traite':      ['badge-traite2',     'Traité'],
+    'verrouille':  ['badge-verrouille',  '🔒 Verrouillé'],
   };
-  const [cls, label] = map[statut] || map['non_attribue'];
+  const [cls, label] = map[statut] || map['nonattribue'];
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
@@ -855,7 +914,7 @@ async function renderAttribution() {
     </select>
     <select class="filter-select" onchange="window._fStatut=this.value;renderAttribution()">
       <option value="">Tous les statuts</option>
-      <option value="non_attribue" ${window._fStatut==='non_attribue'?'selected':''}>Non attribué</option>
+      <option value="nonattribue" ${window._fStatut==='nonattribue'?'selected':''}>Non attribué</option>
       <option value="attribue" ${window._fStatut==='attribue'?'selected':''}>Attribué</option>
       <option value="encours" ${window._fStatut==='encours'?'selected':''}>En cours</option>
       <option value="ouvert" ${window._fStatut==='ouvert'?'selected':''}>Ouvert</option>
@@ -916,14 +975,14 @@ async function renderAttribution() {
     html += `<tr><td colspan="10" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>`;
   } else {
     filtered.forEach(d => {
-      const statut = d.statut || 'non_attribue';
+      const statut = d.statut || 'nonattribue';
       const monNom = `${currentUserData.prenom} ${currentUserData.nom}`;
       const isManager = ['admin','manager'].includes(role);
       const isMyDossier = d.gestionnaire === monNom;
       const canCheckTraite = isManager || (isMyDossier && !d.traite);
       const canUncheckTraite = isManager;
       const canAdmin = isManager;
-      const canReassign = isManager || statut === 'non_attribue';
+      const canReassign = isManager || statut === 'nonattribue';
 
       html += `<tr>
         <td><input type="checkbox" class="row-check" data-id="${d.id}"
@@ -949,7 +1008,7 @@ async function renderAttribution() {
             : '<span title="Non verrouillé" style="cursor:default;opacity:0.3">🔓</span>'
           }
         </td>
-        <td>${statutBadge(statut)}</td>
+        <td>${statutBadge(d.statut, d.verrouille)}</td>
         <td style="text-align:center">
           <span style="font-size:15px;opacity:${d.traite?'1':'0.2'}" title="${d.traite?'Traité':'Non traité'}">
             ${d.traite ? '✅' : '⬜'}
@@ -983,8 +1042,8 @@ async function renderMesDossiers() {
     html += '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
   } else {
     mesDossiers.forEach(d => {
-      const statut = d.statut || 'non_attribue';
-      const canSee = ['attribue','en_cours','ouvert','traite'].includes(statut);
+      const statut = d.statut || 'nonattribue';
+      const canSee = ['attribue','encours','ouvert','traite'].includes(statut);
       if (!canSee) return;
       html += `<tr>
         <td><strong>${d.ref_sinistre}</strong>
@@ -993,7 +1052,7 @@ async function renderMesDossiers() {
         <td>${d.ref_contrat}</td>
         <td>${d.nature_label || d.nature}</td>
         <td>${d.portefeuille}</td>
-        <td>${statutBadge(statut)}</td>
+        <td>${statutBadge(d.statut, d.verrouille)}</td>
         <td><input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
           onchange="toggleTraite('${d.id}', this.checked, '${d.gestionnaire||''}')"></td>
       </tr>`;
@@ -1229,7 +1288,7 @@ async function unlockSelection() {
 
 async function toggleVerrouille(id, checked) {
   const dossier = allDossiers.find(d => d.id === id);
-  const statut = dossier?.statut || 'non_attribue';
+  const statut = dossier?.statut || 'nonattribue';
   const isDispatched = ['attribue','encours','ouvert','traite'].includes(statut);
 
   // Si on veut déverrouiller un dossier dispatché → seul manager
@@ -1248,7 +1307,7 @@ async function toggleVerrouille(id, checked) {
   allDossiers = allDossiers.map(d => d.id === id ? {...d, verrouille: checked} : d);
   showNotif(checked ? '🔒 Dossier verrouillé' : '🔓 Dossier déverrouillé', 'info');
   // Mettre à jour le compteur dispatch
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut||'non_attribue')).length;
+  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut||'nonattribue')).length;
   const btn = document.querySelector('.btn-dispatch');
   if (btn) { btn.disabled = nbVerrouilles === 0; btn.textContent = `🚀 DISPATCHER${nbVerrouilles > 0 ? ` (${nbVerrouilles})` : ''}`; }
 }
@@ -1277,7 +1336,7 @@ function showUnlockConfirm(id) {
 
 async function confirmUnlock(id) {
   closeModal('unlock-confirm-modal');
-  const { error } = await db.from('dossiers').update({ verrouille: false, gestionnaire: '', statut: 'non_attribue' }).eq('id', id);
+  const { error } = await db.from('dossiers').update({ verrouille: false, gestionnaire: '', statut: 'nonattribue' }).eq('id', id);
   if (error) { showNotif('Erreur lors du déverrouillage.', 'error'); return; }
   showNotif('🔓 Dossier déverrouillé et désattribué.', 'success');
   await loadDossiers();
