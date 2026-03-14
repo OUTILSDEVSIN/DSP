@@ -5,7 +5,7 @@
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.3.0">
+  <meta name="version" content="2.5.1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -1312,37 +1312,7 @@ async function toggleTraite(id, checked, gestionnaire) {
 }
 
 // ===== RESET =====
-function showReset() {
-  if (!['admin','manager'].includes(currentUserData.role)) {
-    showNotif('Accès refusé.', 'error'); return;
-  }
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'reset-modal';
-  modal.innerHTML = `
-    <div class="modal" style="text-align:center">
-      <div style="font-size:52px;margin-bottom:12px">🗑️</div>
-      <h2 style="color:#e74c3c">Remise à zéro</h2>
-      <p style="color:#666;margin:16px 0">Cette action va <strong>supprimer définitivement tous les dossiers</strong> importés.<br>Cette opération est irréversible.</p>
-      <p style="background:#fff5f5;border-radius:8px;padding:12px;color:#e74c3c;font-weight:600;font-size:13px">
-        ⚠️ Tous les dossiers seront effacés
-      </p>
-      <div class="modal-actions" style="justify-content:center;margin-top:24px">
-        <button class="btn btn-secondary" onclick="closeModal('reset-modal')">Annuler</button>
-        <button class="btn btn-danger" onclick="doReset()">🗑️ Confirmer la remise à zéro</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
 
-async function doReset() {
-  closeModal('reset-modal');
-  const { error } = await db.from('dossiers').delete().neq('id', 0);
-  if (error) { showNotif('Erreur lors de la remise à zéro : ' + error.message, 'error'); return; }
-  allDossiers = [];
-  showNotif('✅ Plateforme remise à zéro avec succès !', 'success');
-  renderDashboard();
-}
 
 // ===== NOTIF =====
 
