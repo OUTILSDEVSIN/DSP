@@ -5,7 +5,7 @@
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.5.3">
+  <meta name="version" content="2.5.4">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -106,17 +106,17 @@
   /* ===== BADGES ===== */
   .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .badge-nonattribue { background: var(--gray-200); color: var(--gray-600); }
-  .badge-nonattribue::before { content: '•'; font-size: 8px; color: var(--gray-400); }
+  
   .badge-attribue { background: #e8f0fd; color: #1a56c4; }
-  .badge-attribue::before { content: '•'; font-size: 8px; color: #4a7de0; }
+  
   .badge-encours { background: #fef3e2; color: #92540a; }
-  .badge-encours::before { content: '•'; font-size: 8px; color: #f59e0b; }
+  
   .badge-ouvert { background: #feeaea; color: #991b1b; }
-  .badge-ouvert::before { content: '•'; font-size: 8px; color: #ef4444; }
+  
   .badge-traite2 { background: #dcfce7; color: #166534; }
-  .badge-traite2::before { content: '•'; font-size: 8px; color: #22c55e; }
+  
   .badge-nontraite { background: #fef3e2; color: #92540a; }
-  .badge-nontraite::before { content: '•'; font-size: 8px; color: #f59e0b; }
+  
   .badge-verrouille { background: #f0e6ff; color: #6b21a8; font-size: 11px; }
 
   /* ===== BOUTONS ===== */
@@ -227,7 +227,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.3';
+    const APP_VERSION = '2.5.4';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -242,8 +242,8 @@
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <div style="font-size:38px;font-weight:900;color:#1a1a2e;letter-spacing:-1px">
-        D<span style="color:#E71C7C">P</span>S
+      <div style="font-size:38px;font-weight:900;color:var(--navy);letter-spacing:-1px">
+        D<span style="color:var(--rose)">P</span>S
       </div>
     </div>
     <p class="login-subtitle">Espace collaborateurs — Distribution des Sinistres</p>
@@ -691,7 +691,7 @@ function showAutoAssignModal(totalImported) {
         ${gestionnaires.map(g => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:normal;margin:0">
-              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" style="width:16px;height:16px;accent-color:#1e3a5f">
+              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" style="width:16px;height:16px;accent-color:var(--rose)">
               <span>${g.prenom} ${g.nom}</span>
               <span class="badge role-${g.role}" style="font-size:10px">${g.role}</span>
             </label>
@@ -881,19 +881,19 @@ async function renderAttribution() {
   <div class="filter-bandeau">
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">📁 Portefeuille</span>
-      ${countsPortefeuille.map(s => `<span class="filter-pill" style="background:${s.bg};color:${s.color}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsPortefeuille.map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">🚗 Type</span>
-      ${countsType.map(s => `<span class="filter-pill" style="background:${s.bg};color:${s.color}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsType.map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">📊 Statut</span>
-      ${countsStatut.filter(s=>s.count>0).map(s => `<span class="filter-pill" style="background:${s.bg};color:${s.color}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsStatut.filter(s=>s.count>0).map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">🏷️ Nature</span>
-      ${countsNature.map(s => `<span class="filter-pill" style="background:${s.bg};color:${s.color}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsNature.map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
   </div>
 
@@ -931,8 +931,8 @@ async function renderAttribution() {
   </div>
 
   <div style="background:white;border-radius:14px;padding:12px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;background:#f0f2f5;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:#1e3a5f;user-select:none">
-      <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:#1e3a5f">
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;background:#f0f2f5;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--navy);user-select:none">
+      <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--rose)">
       Tout sélectionner
     </label>
     <div style="width:1px;height:28px;background:#e0e0e0;flex-shrink:0"></div>
@@ -996,7 +996,7 @@ async function renderAttribution() {
         <td><span class="badge" style="background:${d.type==='Habitation'?'#fef9e7':'#eafaf1'};color:${d.type==='Habitation'?'#d35400':'#1e8449'}">${d.type||'-'}</span></td>
         <td>${d.nature_label||d.nature||'-'}</td>
         <td>
-          <span style="font-size:13px;font-weight:600;color:${d.gestionnaire?'#1e3a5f':'#bbb'}">
+          <span style="font-size:13px;font-weight:600;color:${d.gestionnaire?'var(--navy)':'#bbb'}">
             ${d.gestionnaire || '—'}
           </span>
         </td>
@@ -1067,7 +1067,7 @@ async function renderUtilisateurs() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadAllUsers();
   let html = `<div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-    <h2 style="color:#1e3a5f">Équipe (${allUsers.length} membres)</h2>
+    <h2 style="color:var(--navy)">Équipe (${allUsers.length} membres)</h2>
     <button class="btn btn-success" onclick="showAddUser()">➕ Ajouter un membre</button>
   </div><div class="users-grid">`;
   const isManager = ['admin','manager'].includes(currentUserData.role);
@@ -1098,7 +1098,7 @@ function showEditUser(id, prenom, nom, email, role) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay'; modal.id = 'edit-user-modal';
   const inner = document.createElement('div'); inner.className = 'modal';
-  inner.innerHTML = '<h2 style="color:#1e3a5f;margin-bottom:20px">✏️ Modifier le profil</h2>'
+  inner.innerHTML = '<h2 style="color:var(--navy);margin-bottom:20px">✏️ Modifier le profil</h2>'
     + '<div class="form-group"><label>Prénom</label><input type="text" id="edit-prenom" value="' + prenom + '"></div>'
     + '<div class="form-group"><label>Nom</label><input type="text" id="edit-nom" value="' + nom + '"></div>'
     + '<div class="form-group"><label>Email</label><input type="email" id="edit-email" value="' + email + '"></div>'
@@ -1199,12 +1199,12 @@ function updateSelectionCount() {
 }
 
 function toggleAll(checked) {
-  document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);
+  document.querySelectorAll('.row-check:not([disabled])').forEach(cb => cb.checked = checked);
   updateSelectionCount();
 }
 
 function selectAll() {
-  document.querySelectorAll('.row-check').forEach(cb => cb.checked = true);
+  document.querySelectorAll('.row-check:not([disabled])').forEach(cb => cb.checked = true);
   const all = document.getElementById('check-all');
   if (all) all.checked = true;
   updateSelectionCount();
@@ -1394,7 +1394,7 @@ async function toggleTraite(id, checked, gestionnaire) {
     if (dispo.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
     const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'supp-confirm-modal';
     const bx = document.createElement('div'); bx.className = 'modal'; bx.style.cssText = 'text-align:center;max-width:400px';
-    bx.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div><h2 style="color:#1e3a5f">Demander un dossier ?</h2>'
+    bx.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div><h2 style="color:var(--navy)">Demander un dossier ?</h2>'
       + '<p style="color:#666;margin:16px 0">Il reste <strong>' + dispo.length + ' dossier(s) disponible(s)</strong>.<br>Un dossier va vous &ecirc;tre attribu&eacute; automatiquement.</p>'
       + '<div id="scbtn" style="display:flex;gap:10px;justify-content:center;margin-top:20px"></div>';
     ov.appendChild(bx); document.body.appendChild(ov);
