@@ -5,7 +5,7 @@
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.5.4">
+  <meta name="version" content="2.5.5">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -82,8 +82,9 @@
   .filter-bandeau-group { display: inline-flex; align-items: center; gap: 6px; padding: 3px 20px 3px 0; margin-right: 16px; border-right: 1px solid var(--gray-200); flex-shrink: 0; }
   .filter-bandeau-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
   .filter-bandeau-label { font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.7px; white-space: nowrap; flex-shrink: 0; }
-  .filter-pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: opacity 0.15s; border: 1px solid var(--gray-300); background: var(--gray-100); color: var(--gray-800); }
-  .filter-pill:hover { opacity: 0.75; }
+  .filter-pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: all 0.15s; border: 1px solid var(--gray-300); background: var(--gray-100); color: var(--gray-800); user-select: none; }
+  .filter-pill:hover { background: var(--gray-200); }
+  .filter-pill.active { background: var(--navy); color: white; border-color: var(--navy); }
 
   /* ===== TABLE CONTAINER ===== */
   .table-container { background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); overflow: hidden; }
@@ -227,7 +228,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.4';
+    const APP_VERSION = '2.5.5';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -406,6 +407,12 @@ function buildTabs() {
 }
 
 function showTab(id) {
+  // Reset filtres seulement si on QUITTE attribution
+  if (currentTab === 'attribution' && id !== 'attribution') {
+    searchQuery = '';
+    window._fPortefeuille = ''; window._fType = ''; window._fNature = '';
+    window._fStatut = ''; window._fGestionnaire = ''; window._fNonAttribue = false;
+  }
   currentTab = id;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   const el = document.getElementById('tab-' + id);
@@ -853,8 +860,10 @@ async function renderAttribution() {
 
   let filtered = allDossiers;
   if (searchQuery) filtered = filtered.filter(d =>
-    (d.ref_sinistre||'').toLowerCase().includes(searchQuery) ||
-    (d.ref_contrat||'').toLowerCase().includes(searchQuery)
+    (d.ref_sinistre||d.refsinistre||'').toLowerCase().includes(searchQuery) ||
+    (d.ref_contrat||d.refcontrat||'').toLowerCase().includes(searchQuery) ||
+    (d.gestionnaire||'').toLowerCase().includes(searchQuery) ||
+    (d.nature_label||d.nature||'').toLowerCase().includes(searchQuery)
   );
   if (window._fPortefeuille) filtered = filtered.filter(d => d.portefeuille === window._fPortefeuille);
   if (window._fType) filtered = filtered.filter(d => d.type === window._fType);
@@ -881,19 +890,19 @@ async function renderAttribution() {
   <div class="filter-bandeau">
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">📁 Portefeuille</span>
-      ${countsPortefeuille.map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsPortefeuille.map(s => `<span class="filter-pill ${window._fPortefeuille===s.label?'active':''}" onclick="window._fPortefeuille=(window._fPortefeuille===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">🚗 Type</span>
-      ${countsType.map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsType.map(s => `<span class="filter-pill ${window._fType===s.label?'active':''}" onclick="window._fType=(window._fType===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">📊 Statut</span>
-      ${countsStatut.filter(s=>s.count>0).map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsStatut.filter(s=>s.count>0).map(s => `<span class="filter-pill ${window._fStatut===s.value?'active':''}" onclick="window._fStatut=(window._fStatut===\'${s.value}\'?\'\':\'${s.value}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
     <div class="filter-bandeau-group">
       <span class="filter-bandeau-label">🏷️ Nature</span>
-      ${countsNature.map(s => `<span class="filter-pill">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      ${countsNature.map(s => `<span class="filter-pill ${window._fNature===s.label?'active':''}" onclick="window._fNature=(window._fNature===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
   </div>
 
@@ -991,9 +1000,9 @@ async function renderAttribution() {
         <td><strong>${d.ref_sinistre||''}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
         </td>
-        <td><span class="badge" style="background:#e8f4fd;color:#1a5276">${d.portefeuille||'-'}</span></td>
+        <td><span class="badge badge-attribue">${d.portefeuille||'-'}</span></td>
         <td>${d.ref_contrat||'-'}</td>
-        <td><span class="badge" style="background:${d.type==='Habitation'?'#fef9e7':'#eafaf1'};color:${d.type==='Habitation'?'#d35400':'#1e8449'}">${d.type||'-'}</span></td>
+        <td><span class="badge ${d.type==='Habitation'?'badge-encours':'badge-traite2'}">${d.type||'-'}</span></td>
         <td>${d.nature_label||d.nature||'-'}</td>
         <td>
           <span style="font-size:13px;font-weight:600;color:${d.gestionnaire?'var(--navy)':'#bbb'}">
@@ -1376,8 +1385,9 @@ async function toggleTraite(id, checked, gestionnaire) {
 
   // ===== T10 — DOSSIER SUPPLÉMENTAIRE =====
   async function demanderDossierSupp() {
+    await loadDossiers(); // Reload pour avoir le compte exact
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    const nonTraites = allDossiers.filter(function(d) { return d.gestionnaire === monNom && !d.traite; });
+    const nonTraites = allDossiers.filter(function(d) { return d.gestionnaire === monNom && !d.traite && !d.traite; });
     if (nonTraites.length > 0) {
       const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'supp-blocked-modal';
       const bx = document.createElement('div'); bx.className = 'modal'; bx.style.cssText = 'text-align:center;max-width:400px';
@@ -1390,7 +1400,11 @@ async function toggleTraite(id, checked, gestionnaire) {
       document.getElementById('sbtn').appendChild(bc);
       return;
     }
-    const dispo = allDossiers.filter(function(d) { return !d.gestionnaire && !d.verrouille && (!d.statut || d.statut === 'nonattribue'); });
+    const dispo = allDossiers.filter(function(d) {
+      return (!d.gestionnaire || d.gestionnaire === '') &&
+             !d.verrouille &&
+             (!d.statut || d.statut === 'nonattribue' || d.statut === '');
+    });
     if (dispo.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
     const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'supp-confirm-modal';
     const bx = document.createElement('div'); bx.className = 'modal'; bx.style.cssText = 'text-align:center;max-width:400px';
@@ -1406,7 +1420,11 @@ async function toggleTraite(id, checked, gestionnaire) {
   async function confirmerDossierSupp() {
     closeModal('supp-confirm-modal');
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    const dispo = allDossiers.filter(function(d) { return !d.gestionnaire && !d.verrouille && (!d.statut || d.statut === 'nonattribue'); });
+    const dispo = allDossiers.filter(function(d) {
+      return (!d.gestionnaire || d.gestionnaire === '') &&
+             !d.verrouille &&
+             (!d.statut || d.statut === 'nonattribue' || d.statut === '');
+    });
     if (dispo.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
     const { error } = await db.from('dossiers').update({ gestionnaire: monNom, statut: 'attribue', verrouille: true, demande_supp: true }).eq('id', dispo[0].id);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
