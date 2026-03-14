@@ -5,7 +5,7 @@
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.5.6">
+  <meta name="version" content="2.5.7">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -233,6 +233,9 @@
   .urow-3 { background: var(--white); padding: 10px 18px; }
   .urow-sep { width: 1px; height: 22px; background: var(--gray-300); flex-shrink: 0; margin: 0 4px; }
   .statut-pill { font-size: 12px; }
+  .gest-pill { background: var(--navy-light); color: white; border-color: var(--navy); }
+  .gest-pill:hover { background: var(--navy); }
+  .gest-pill.active { background: var(--rose); border-color: var(--rose); }
   .check-label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--gray-800); user-select: none; white-space: nowrap; }
   .check-all-label { background: var(--gray-100); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 600; color: var(--navy); }
   .selection-badge { font-size: 12px; color: var(--gray-600); font-weight: 600; background: var(--gray-100); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
@@ -241,7 +244,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.6';
+    const APP_VERSION = '2.5.7';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -889,13 +892,20 @@ async function renderAttribution() {
   const countsPortefeuille = portefeuilles.map(v => ({ label: v, count: allDossiers.filter(d => d.portefeuille === v).length, color: '#1a5276', bg: '#e8f4fd' }));
   const countsType = types.map(v => ({ label: v, count: allDossiers.filter(d => d.type === v).length, color: '#1e8449', bg: '#eafaf1' }));
   const countsNature = natures.map(v => ({ label: v, count: allDossiers.filter(d => (d.nature_label||d.nature) === v).length, color: '#d35400', bg: '#fdebd0' }));
+  const _knownStatuts = ['attribue','encours','ouvert','traite'];
+  const _normStatut = d => {
+    const s = (d.statut||'').toLowerCase().replace(/[^a-z]/g,'');
+    if (s === 'attribue' || s === 'attribute') return 'attribue';
+    if (s === 'encours' || s === 'en_cours' || s === 'encour') return 'encours';
+    if (s === 'ouvert') return 'ouvert';
+    if (s === 'traite' || s === 'traité') return 'traite';
+    return 'nonattribue'; // fallback identique à statutBadge
+  };
   const countsStatut = [
     { value: 'nonattribue', label: 'Non attribué' },
-    { value: 'attribue', label: 'Attribué' },
-    { value: 'encours', label: 'En cours' },
-    { value: 'ouvert', label: 'Ouvert' },
-    { value: 'traite', label: 'Traité' }
-  ].map(s => ({ label: s.label, count: allDossiers.filter(d => (d.statut||'nonattribue') === s.value).length, color: '#7d3c98', bg: '#ebdef0' }));
+    { value: 'attribue',    label: 'Attribué' },
+    { value: 'traite',      label: 'Traité' }
+  ].map(s => ({ value: s.value, label: s.label, count: allDossiers.filter(d => _normStatut(d) === s.value).length }));
 
   const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
 
@@ -916,10 +926,8 @@ async function renderAttribution() {
     <div class="urow urow-2">
       ${countsStatut.map(s => `<span class="filter-pill statut-pill ${window._fStatut===s.value?'active':''}" onclick="window._fStatut=(window._fStatut===\'${s.value}\'?\'\':\'${s.value}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
       <div class="urow-sep"></div>
-      <select class="filter-select" onchange="window._fGestionnaire=this.value;renderAttribution()">
-        <option value="">Tous les gestionnaires</option>
-        ${gestionnairesNoms.map(g => `<option value="${g}" ${window._fGestionnaire===g?'selected':''}>${g}</option>`).join('')}
-      </select>
+      <div class="urow-sep"></div>
+      ${gestionnairesNoms.map(g => `<span class="filter-pill gest-pill ${window._fGestionnaire===g?'active':''}" onclick="window._fGestionnaire=(window._fGestionnaire===\'${g}\'?\'\':\'${g}\');renderAttribution()" title="${g}">${g.split(' ')[0]}</span>`).join('')}
       <label class="check-label">
         <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
         Non attribués seulement
@@ -1385,9 +1393,9 @@ async function toggleTraite(id, checked, gestionnaire) {
       return;
     }
     const dispo = allDossiers.filter(function(d) {
-      return (!d.gestionnaire || d.gestionnaire === '') &&
-             !d.verrouille &&
-             (!d.statut || d.statut === 'nonattribue' || d.statut === '');
+      const s = (d.statut||'').toLowerCase().replace(/[^a-z]/g,'');
+      const isLibre = !['attribue','attribute','encours','ouvert','traite'].includes(s);
+      return (!d.gestionnaire || d.gestionnaire === '') && !d.verrouille && isLibre;
     });
     const enAttenteDispatch = allDossiers.filter(function(d) { return d.verrouille && (!d.statut || d.statut === 'nonattribue'); }).length;
     if (dispo.length === 0) {
@@ -1411,9 +1419,9 @@ async function toggleTraite(id, checked, gestionnaire) {
     closeModal('supp-confirm-modal');
     const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
     const dispo = allDossiers.filter(function(d) {
-      return (!d.gestionnaire || d.gestionnaire === '') &&
-             !d.verrouille &&
-             (!d.statut || d.statut === 'nonattribue' || d.statut === '');
+      const s = (d.statut||'').toLowerCase().replace(/[^a-z]/g,'');
+      const isLibre = !['attribue','attribute','encours','ouvert','traite'].includes(s);
+      return (!d.gestionnaire || d.gestionnaire === '') && !d.verrouille && isLibre;
     });
     const enAttenteDispatch = allDossiers.filter(function(d) { return d.verrouille && (!d.statut || d.statut === 'nonattribue'); }).length;
     if (dispo.length === 0) {
