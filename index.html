@@ -5,7 +5,7 @@
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.5.5">
+  <meta name="version" content="2.5.6">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -81,7 +81,6 @@
   .filter-bandeau { background: var(--white); border-radius: var(--radius-md); padding: 10px 20px; margin-bottom: 12px; border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 0; overflow-x: auto; flex-wrap: nowrap; }
   .filter-bandeau-group { display: inline-flex; align-items: center; gap: 6px; padding: 3px 20px 3px 0; margin-right: 16px; border-right: 1px solid var(--gray-200); flex-shrink: 0; }
   .filter-bandeau-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
-  .filter-bandeau-label { font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.7px; white-space: nowrap; flex-shrink: 0; }
   .filter-pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: all 0.15s; border: 1px solid var(--gray-300); background: var(--gray-100); color: var(--gray-800); user-select: none; }
   .filter-pill:hover { background: var(--gray-200); }
   .filter-pill.active { background: var(--navy); color: white; border-color: var(--navy); }
@@ -225,10 +224,24 @@
     .modal { width: 95vw; padding: 20px; }
     header { padding: 0 14px; }
   }
+
+  /* ===== PANNEAU UNIFIÉ ===== */
+  .unified-panel { background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); margin-bottom: 14px; overflow: hidden; }
+  .urow { display: flex; align-items: center; gap: 8px; padding: 10px 18px; flex-wrap: wrap; }
+  .urow-1 { border-bottom: 1px solid var(--gray-200); background: var(--white); }
+  .urow-2 { border-bottom: 1px solid var(--gray-200); background: var(--gray-100); }
+  .urow-3 { background: var(--white); padding: 10px 18px; }
+  .urow-sep { width: 1px; height: 22px; background: var(--gray-300); flex-shrink: 0; margin: 0 4px; }
+  .statut-pill { font-size: 12px; }
+  .check-label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--gray-800); user-select: none; white-space: nowrap; }
+  .check-all-label { background: var(--gray-100); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 600; color: var(--navy); }
+  .selection-badge { font-size: 12px; color: var(--gray-600); font-weight: 600; background: var(--gray-100); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
+  /* Supprimer l'ancien bandeau et les anciens filtres si CSS présent */
+  .filter-bandeau, .filters { display: none !important; }
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.5';
+    const APP_VERSION = '2.5.6';
     const storedVersion = localStorage.getItem('dsp_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       localStorage.setItem('dsp_version', APP_VERSION);
@@ -887,78 +900,49 @@ async function renderAttribution() {
   const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
 
   let html = `
-  <div class="filter-bandeau">
-    <div class="filter-bandeau-group">
-      <span class="filter-bandeau-label">📁 Portefeuille</span>
-      ${countsPortefeuille.map(s => `<span class="filter-pill ${window._fPortefeuille===s.label?'active':''}" onclick="window._fPortefeuille=(window._fPortefeuille===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+  <div <div class="unified-panel">
+    <!-- LIGNE 1 : Recherche + Portefeuille + Type + Nature (pills) -->
+    <div class="urow urow-1">
+      <input class="search-bar" placeholder="🔍 Réf. sinistre / contrat..." value="${searchQuery||''}"
+        oninput="searchQuery=this.value.toLowerCase();renderAttribution()" style="flex-shrink:0;width:220px">
+      <div class="urow-sep"></div>
+      ${countsPortefeuille.map(s => `<span class="filter-pill ${window._fPortefeuille===s.label?'active':''}" onclick="window._fPortefeuille=(window._fPortefeuille===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      <div class="urow-sep"></div>
+      ${countsType.map(s => `<span class="filter-pill ${window._fType===s.label?'active':''}" onclick="window._fType=(window._fType===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      <div class="urow-sep"></div>
+      ${countsNature.map(s => `<span class="filter-pill ${window._fNature===s.label?'active':''}" onclick="window._fNature=(window._fNature===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
     </div>
-    <div class="filter-bandeau-group">
-      <span class="filter-bandeau-label">🚗 Type</span>
-      ${countsType.map(s => `<span class="filter-pill ${window._fType===s.label?'active':''}" onclick="window._fType=(window._fType===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+    <!-- LIGNE 2 : Statut (pills) + Gestionnaire + Non attribués -->
+    <div class="urow urow-2">
+      ${countsStatut.map(s => `<span class="filter-pill statut-pill ${window._fStatut===s.value?'active':''}" onclick="window._fStatut=(window._fStatut===\'${s.value}\'?\'\':\'${s.value}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+      <div class="urow-sep"></div>
+      <select class="filter-select" onchange="window._fGestionnaire=this.value;renderAttribution()">
+        <option value="">Tous les gestionnaires</option>
+        ${gestionnairesNoms.map(g => `<option value="${g}" ${window._fGestionnaire===g?'selected':''}>${g}</option>`).join('')}
+      </select>
+      <label class="check-label">
+        <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
+        Non attribués seulement
+      </label>
     </div>
-    <div class="filter-bandeau-group">
-      <span class="filter-bandeau-label">📊 Statut</span>
-      ${countsStatut.filter(s=>s.count>0).map(s => `<span class="filter-pill ${window._fStatut===s.value?'active':''}" onclick="window._fStatut=(window._fStatut===\'${s.value}\'?\'\':\'${s.value}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
+    <!-- LIGNE 3 : Toolbar dispatch -->
+    <div class="urow urow-3">
+      <label class="check-label check-all-label">
+        <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--rose)">
+        Tout sélectionner
+      </label>
+      <div class="urow-sep"></div>
+      <select id="assign-bulk-select" class="filter-select" style="min-width:190px">
+        <option value="">— Attribuer à —</option>
+        ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}">${g.prenom} ${g.nom} (${g.role})</option>`).join('')}
+      </select>
+      <button class="btn btn-warning" onclick="lockSelection()" style="display:flex;align-items:center;gap:6px">🔒 Verrouiller</button>
+      <button class="btn btn-secondary" onclick="unlockSelection()" style="display:flex;align-items:center;gap:6px">🔓 Déverrouiller</button>
+      <span class="selection-badge" id="selection-count">0 sélectionné(s)</span>
+      <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        🚀 DISPATCHER ${nbVerrouilles > 0 ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:1px 8px">${nbVerrouilles}</span>` : ''}
+      </button>
     </div>
-    <div class="filter-bandeau-group">
-      <span class="filter-bandeau-label">🏷️ Nature</span>
-      ${countsNature.map(s => `<span class="filter-pill ${window._fNature===s.label?'active':''}" onclick="window._fNature=(window._fNature===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="Filtrer : ${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
-    </div>
-  </div>
-
-  <div class="filters" style="flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
-    <input class="search-bar" placeholder="🔍 Réf. sinistre / contrat..." value="${searchQuery||''}"
-      oninput="searchQuery=this.value.toLowerCase();renderAttribution()" style="width:220px">
-    <select class="filter-select" onchange="window._fPortefeuille=this.value;renderAttribution()">
-      <option value="">Tous les portefeuilles</option>
-      ${portefeuilles.map(p => `<option value="${p}" ${window._fPortefeuille===p?'selected':''}>${p}</option>`).join('')}
-    </select>
-    <select class="filter-select" onchange="window._fType=this.value;renderAttribution()">
-      <option value="">Tous les types</option>
-      ${types.map(t => `<option value="${t}" ${window._fType===t?'selected':''}>${t}</option>`).join('')}
-    </select>
-    <select class="filter-select" onchange="window._fNature=this.value;renderAttribution()">
-      <option value="">Toutes les natures</option>
-      ${natures.map(n => `<option value="${n}" ${window._fNature===n?'selected':''}>${n}</option>`).join('')}
-    </select>
-    <select class="filter-select" onchange="window._fStatut=this.value;renderAttribution()">
-      <option value="">Tous les statuts</option>
-      <option value="nonattribue" ${window._fStatut==='nonattribue'?'selected':''}>Non attribué</option>
-      <option value="attribue" ${window._fStatut==='attribue'?'selected':''}>Attribué</option>
-      <option value="encours" ${window._fStatut==='encours'?'selected':''}>En cours</option>
-      <option value="ouvert" ${window._fStatut==='ouvert'?'selected':''}>Ouvert</option>
-      <option value="traite" ${window._fStatut==='traite'?'selected':''}>Traité</option>
-    </select>
-    <select class="filter-select" onchange="window._fGestionnaire=this.value;renderAttribution()">
-      <option value="">Tous les gestionnaires</option>
-      ${gestionnairesNoms.map(g => `<option value="${g}" ${window._fGestionnaire===g?'selected':''}>${g}</option>`).join('')}
-    </select>
-    <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
-      <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
-      Non attribués seulement
-    </label>
-  </div>
-
-  <div style="background:white;border-radius:14px;padding:12px 20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <label style="display:flex;align-items:center;gap:7px;cursor:pointer;background:#f0f2f5;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--navy);user-select:none">
-      <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--rose)">
-      Tout sélectionner
-    </label>
-    <div style="width:1px;height:28px;background:#e0e0e0;flex-shrink:0"></div>
-    <select id="assign-bulk-select" class="filter-select" style="min-width:190px">
-      <option value="">— Attribuer à —</option>
-      ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}">${g.prenom} ${g.nom} (${g.role})</option>`).join('')}
-    </select>
-    <button class="btn btn-warning" onclick="lockSelection()" style="display:flex;align-items:center;gap:6px">
-      🔒 Verrouiller
-    </button>
-    <button class="btn btn-secondary" onclick="unlockSelection()" style="display:flex;align-items:center;gap:6px">
-      🔓 Déverrouiller
-    </button>
-    <span style="font-size:13px;color:#888;font-weight:600;background:#f0f2f5;padding:5px 12px;border-radius:20px" id="selection-count">0 sélectionné(s)</span>
-    <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto;display:flex;align-items:center;gap:8px">
-      🚀 DISPATCHER ${nbVerrouilles > 0 ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:1px 8px">${nbVerrouilles}</span>` : ''}
-    </button>
   </div>
 
   <div class="table-container">
@@ -1405,7 +1389,13 @@ async function toggleTraite(id, checked, gestionnaire) {
              !d.verrouille &&
              (!d.statut || d.statut === 'nonattribue' || d.statut === '');
     });
-    if (dispo.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
+    const enAttenteDispatch = allDossiers.filter(function(d) { return d.verrouille && (!d.statut || d.statut === 'nonattribue'); }).length;
+    if (dispo.length === 0) {
+      const msg = enAttenteDispatch > 0
+        ? 'Aucun dossier libre. ' + enAttenteDispatch + ' dossier(s) sont verrouillés en attente de dispatch.'
+        : 'Aucun dossier disponible. Tous les dossiers ont été distribués.';
+      showNotif(msg, 'error'); return;
+    }
     const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'supp-confirm-modal';
     const bx = document.createElement('div'); bx.className = 'modal'; bx.style.cssText = 'text-align:center;max-width:400px';
     bx.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div><h2 style="color:var(--navy)">Demander un dossier ?</h2>'
@@ -1425,7 +1415,13 @@ async function toggleTraite(id, checked, gestionnaire) {
              !d.verrouille &&
              (!d.statut || d.statut === 'nonattribue' || d.statut === '');
     });
-    if (dispo.length === 0) { showNotif('Aucun dossier disponible.', 'error'); return; }
+    const enAttenteDispatch = allDossiers.filter(function(d) { return d.verrouille && (!d.statut || d.statut === 'nonattribue'); }).length;
+    if (dispo.length === 0) {
+      const msg = enAttenteDispatch > 0
+        ? 'Aucun dossier libre. ' + enAttenteDispatch + ' dossier(s) sont verrouillés en attente de dispatch.'
+        : 'Aucun dossier disponible. Tous les dossiers ont été distribués.';
+      showNotif(msg, 'error'); return;
+    }
     const { error } = await db.from('dossiers').update({ gestionnaire: monNom, statut: 'attribue', verrouille: true, demande_supp: true }).eq('id', dispo[0].id);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
     showNotif('Nouveau dossier attribué !', 'success');
