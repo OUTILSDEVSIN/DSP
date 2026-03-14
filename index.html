@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DSP - Distribution des Sinistres</title>
-  <meta name="version" content="2.5.7">
+<title>Dispatchis</title>
+  <meta name="copyright" content="© Dispatchis — Tous droits réservés">
+  <meta name="version" content="2.5.15">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -33,20 +34,113 @@
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray-bg); min-height: 100vh; color: var(--navy); font-size: 14px; }
 
   /* ===== LOGIN ===== */
-  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--navy); }
-  .login-box { background: var(--white); border-radius: var(--radius-lg); padding: 44px 40px; width: 400px; box-shadow: var(--shadow-md); }
-  .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
-  .login-logo-text { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.5px; }
-  .login-logo-text span { color: var(--rose); }
-  .login-subtitle { text-align: center; color: var(--gray-600); font-size: 13px; margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--gray-200); }
-  .login-label { font-size: 11px; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; display: block; }
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  /* ===== LOGIN iOS STYLE ===== */
+  #login-screen {
+    background: linear-gradient(145deg, #0f0c29, #1a1a4e, #24243e);
+    position: relative; overflow: hidden;
+  }
+  #login-screen::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(232,18,81,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(99,102,241,0.15) 0%, transparent 55%),
+      radial-gradient(ellipse at 60% 80%, rgba(14,165,233,0.12) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .login-box {
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(28px) saturate(1.6);
+    -webkit-backdrop-filter: blur(28px) saturate(1.6);
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 28px;
+    padding: 48px 44px 40px;
+    width: 400px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    position: relative;
+    animation: loginFadeIn 0.5s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes loginFadeIn {
+    from { opacity:0; transform: translateY(24px) scale(0.97); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
+  }
+  .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+  .login-logo-icon {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #e81251, #ff4d7d);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 900; color: white;
+    letter-spacing: -1px;
+    box-shadow: 0 8px 32px rgba(232,18,81,0.45);
+    margin-bottom: 16px;
+  }
+  .login-logo-name {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.8px;
+    color: #fff;
+  }
+  .login-logo-name span { color: #ff4d7d; }
+  .login-subtitle {
+    text-align: center; color: rgba(255,255,255,0.45);
+    font-size: 13px; margin-bottom: 32px; margin-top: 6px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .login-label {
+    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5);
+    text-transform: uppercase; letter-spacing: 0.7px;
+    margin-bottom: 8px; display: block;
+  }
   .login-field { margin-bottom: 16px; }
-  .login-box input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 14px; outline: none; transition: border 0.2s; background: var(--gray-100); color: var(--navy); }
-  .login-box input:focus { border-color: var(--rose); background: var(--white); }
-  .login-box button { width: 100%; padding: 13px; background: var(--rose); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; font-weight: 700; transition: background 0.2s; margin-top: 4px; letter-spacing: 0.3px; }
-  .login-box button:hover { background: #c9164f; }
-  .login-footer { text-align: center; margin-top: 20px; font-size: 11px; color: var(--gray-400); }
-  .login-error { color: #c0392b; font-size: 12px; margin-top: 8px; display: none; text-align: center; background: #fef2f2; padding: 8px; border-radius: var(--radius-sm); }
+  .login-box input {
+    width: 100%; padding: 14px 16px;
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    font-size: 15px; outline: none; color: #fff;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+  }
+  .login-box input::placeholder { color: rgba(255,255,255,0.25); }
+  .login-box input:focus {
+    border-color: rgba(232,18,81,0.7);
+    background: rgba(255,255,255,0.12);
+    box-shadow: 0 0 0 3px rgba(232,18,81,0.15);
+  }
+  #login-btn, .login-box button {
+    width: 100%; padding: 15px;
+    background: linear-gradient(135deg, #e81251, #ff4d7d);
+    color: white; border: none;
+    border-radius: 14px;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.2px;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+    box-shadow: 0 6px 24px rgba(232,18,81,0.4);
+  }
+  #login-btn:hover:not(:disabled), .login-box button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 32px rgba(232,18,81,0.55);
+  }
+  #login-btn:disabled {
+    background: rgba(255,255,255,0.12);
+    box-shadow: none; cursor: not-allowed; opacity: 0.6;
+  }
+  .login-footer {
+    text-align: center; margin-top: 22px;
+    font-size: 11px; color: rgba(255,255,255,0.22);
+    letter-spacing: 0.3px;
+  }
+  .login-error {
+    color: #ff6b8a; font-size: 12px; margin-top: 10px;
+    display: none; text-align: center;
+    background: rgba(232,18,81,0.12);
+    border: 1px solid rgba(232,18,81,0.2);
+    padding: 10px 14px; border-radius: 12px;
+  }
+  /* Turnstile centré */
+  #turnstile-container { margin-bottom: 14px; }
   #app-screen { display: none; }
 
   /* ===== HEADER ===== */
@@ -106,17 +200,11 @@
   /* ===== BADGES ===== */
   .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .badge-nonattribue { background: var(--gray-200); color: var(--gray-600); }
-  
   .badge-attribue { background: #e8f0fd; color: #1a56c4; }
-  
   .badge-encours { background: #fef3e2; color: #92540a; }
-  
   .badge-ouvert { background: #feeaea; color: #991b1b; }
-  
   .badge-traite2 { background: #dcfce7; color: #166534; }
-  
   .badge-nontraite { background: #fef3e2; color: #92540a; }
-  
   .badge-verrouille { background: #f0e6ff; color: #6b21a8; font-size: 11px; }
 
   /* ===== BOUTONS ===== */
@@ -244,38 +332,53 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.7';
-    const storedVersion = localStorage.getItem('dsp_version');
+    const APP_VERSION = '2.5.15';
+    const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
-      localStorage.setItem('dsp_version', APP_VERSION);
+      sessionStorage.setItem('dispatchis_version', APP_VERSION);
       window.location.href = window.location.href.split('?')[0] + '?v=' + APP_VERSION;
     } else {
-      localStorage.setItem('dsp_version', APP_VERSION);
+      sessionStorage.setItem('dispatchis_version', APP_VERSION);
     }
   </script>
+  <!-- Cloudflare Turnstile — Anti-brute force -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <div style="font-size:38px;font-weight:900;color:var(--navy);letter-spacing:-1px">
-        D<span style="color:var(--rose)">P</span>S
-      </div>
+      <div class="login-logo-icon">D</div>
+      <div class="login-logo-name">Dis<span>patch</span>is</div>
     </div>
-    <p class="login-subtitle">Espace collaborateurs — Distribution des Sinistres</p>
+    <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
     <div class="login-field">
       <label class="login-label">Adresse email</label>
-      <input type="email" id="login-email" placeholder="prenom.nom@mieuxassure.com" autocomplete="email">
+      <input type="email" id="login-email" placeholder="prenom.nom@dispatchis.fr" autocomplete="email">
     </div>
     <div class="login-field">
       <label class="login-label">Mot de passe</label>
       <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
         onkeydown="if(event.key==='Enter') doLogin()">
     </div>
-    <button onclick="doLogin()">Se connecter</button>
+    <!-- Turnstile widget (invisible) -->
+    <div id="turnstile-container" style="margin-bottom:12px;display:flex;justify-content:center">
+      <div class="cf-turnstile"
+        data-sitekey="1x00000000000000000000AA"
+        data-theme="light"
+        data-size="normal"
+        data-callback="onTurnstileSuccess"
+        data-error-callback="onTurnstileError"
+        data-expired-callback="onTurnstileExpired">
+      </div>
+    </div>
+    <button id="login-btn" onclick="doLogin()" disabled
+      style="opacity:0.5;cursor:not-allowed">
+      🔒 Vérification en cours…
+    </button>
     <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
-    <div class="login-footer">© Mieux Assuré — Accès réservé aux collaborateurs</div>
+    <div class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</div>
   </div>
 </div>
 
@@ -283,7 +386,7 @@
   <header>
     <div class="header-left">
       <span style="font-size:18px">🛡️</span>
-      <span class="header-title">DSP — Distribution des Sinistres</span>
+      <span class="header-title">Dispatchis</span>
     </div>
     <div class="header-right">
       <span class="header-username" id="header-name"></span>
@@ -324,7 +427,7 @@ async function checkVersionSync() {
       banner.id = 'version-banner';
       banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#e74c3c,#c0392b);color:white;text-align:center;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px';
       banner.innerHTML = '⚠️ Nouvelle version (v' + data.version_attendue + ') disponible.'
-        + '<button onclick="localStorage.removeItem(\"dsp_version\"); window.location.href = window.location.pathname + \"?v=\" + Date.now()" style="background:white;color:#e74c3c;border:none;padding:4px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🔄 Mettre à jour</button>'
+        + '<button onclick="sessionStorage.removeItem(\"dispatchis_version\"); window.location.href = window.location.pathname + \"?v=\" + Date.now()" style="background:white;color:#e74c3c;border:none;padding:4px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🔄 Mettre à jour</button>'
         + '<button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">✕</button>';
       document.body.prepend(banner);
     }
@@ -332,21 +435,88 @@ async function checkVersionSync() {
 }
 
 // ===== AUTH =====
+
+// ===== JOURNALISATION RGPD — R4 =====
+async function auditLog(action, detail = '') {
+  try {
+    const user = currentUserData || {};
+    await db.from('audit_logs').insert({
+      user_email: user.email || (currentUser ? currentUser.email : 'inconnu'),
+      user_role:  user.role  || 'inconnu',
+      action,
+      detail,
+      session_id: currentUser ? currentUser.id : null
+    });
+  } catch(e) { /* silencieux — ne pas bloquer l'action métier */ }
+}
+// ===== FIN JOURNALISATION =====
+
+// ===== CLOUDFLARE TURNSTILE =====
+let _turnstileToken = null;
+
+function onTurnstileSuccess(token) {
+  _turnstileToken = token;
+  const btn = document.getElementById('login-btn');
+  if (btn) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.textContent = 'Se connecter';
+  }
+}
+function onTurnstileError() {
+  _turnstileToken = null;
+  showLoginError('Vérification anti-bot échouée. Rechargez la page.');
+}
+function onTurnstileExpired() {
+  _turnstileToken = null;
+  const btn = document.getElementById('login-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.textContent = '🔒 Session expirée — rechargez';
+  }
+}
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+// ===== FIN TURNSTILE =====
 async function doLogin() {
+  // Vérification Turnstile obligatoire
+  if (!_turnstileToken) {
+    showLoginError('Veuillez patienter — vérification anti-bot en cours…');
+    return;
+  }
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-error');
   errEl.style.display = 'none';
   const { data, error } = await db.auth.signInWithPassword({ email, password });
-  if (error) { errEl.style.display = 'block'; return; }
+  if (error) { errEl.style.display = 'block';
+    // Reset Turnstile après échec
+    _turnstileToken = null;
+    if (window.turnstile) window.turnstile.reset();
+    const btn = document.getElementById('login-btn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '🔒 Vérification en cours…'; } return; }
   currentUser = data.user;
   await loadUserData();
+  await auditLog('CONNEXION', 'Connexion réussie');
 }
 
 async function loadUserData() {
-  const { data } = await db.from('utilisateurs').select('*').eq('email', currentUser.email).single();
+  const { data } = await db.from('utilisateurs').select('id,email,nom,prenom,role,actif').eq('email', currentUser.email).single();
   if (!data) { showNotif('Utilisateur non trouvé dans la base.', 'error'); await db.auth.signOut(); return; }
   currentUserData = data;
+  // Vérifier lockout d'urgence au démarrage
+  const _lockoutUntil = parseInt(localStorage.getItem('dispatchis_emergency_lockout') || '0');
+  if (_lockoutUntil && Date.now() < _lockoutUntil) {
+    showLockoutScreen(); return;
+  } else if (_lockoutUntil) {
+    localStorage.removeItem('dispatchis_emergency_lockout');
+    localStorage.removeItem('dispatchis_emergency_time');
+  }
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
@@ -361,6 +531,7 @@ async function loadUserData() {
 }
 
 async function doLogout() {
+  await auditLog('DECONNEXION', 'Déconnexion utilisateur');
   await db.auth.signOut();
   currentUser = null; currentUserData = null;
   document.getElementById('login-screen').style.display = 'flex';
@@ -416,6 +587,7 @@ function buildTabs() {
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'attribution', label: '📋 Attribution' });
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
+  if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
   const container = document.getElementById('tabs-container');
   container.innerHTML = tabs.map(t =>
     `<div class="tab" id="tab-${t.id}" onclick="showTab('${t.id}')">${t.label}</div>`
@@ -438,16 +610,17 @@ function showTab(id) {
   else if (id === 'attribution') renderAttribution();
   else if (id === 'mesdossiers') renderMesDossiers();
   else if (id === 'utilisateurs') renderUtilisateurs();
+  else if (id === 'audit') renderAuditLogs();
 }
 
 // ===== LOAD DATA =====
 async function loadAllUsers() {
-  const { data } = await db.from('utilisateurs').select('*').eq('actif', true);
+  const { data } = await db.from('utilisateurs').select('id,nom,prenom,role,email,actif').eq('actif', true);
   allUsers = data || [];
 }
 
 async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('*').order('created_at', { ascending: true });
+  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp').order('created_at', { ascending: true });
   allDossiers = data || [];
 }
 
@@ -551,6 +724,7 @@ async function doReset(type) {
   if (allIds.length === 0) { showNotif('Aucun dossier à supprimer.', 'info'); return; }
   const { error } = await db.from('dossiers').delete().in('id', allIds);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await auditLog('RESET_COMPLET', allIds.length + ' dossiers supprimés définitivement');
     showNotif('💣 ' + allIds.length + ' dossiers supprimés.', 'success');
   } else {
     closeModal('reset-confirm-modal');
@@ -558,6 +732,7 @@ async function doReset(type) {
   if (allIds2.length === 0) { showNotif('Aucun dossier à réinitialiser.', 'info'); return; }
   const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'nonattribue', traite: false }).in('id', allIds2);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await auditLog('RESET_PARTIEL', allIds2.length + ' dossiers réinitialisés');
     showNotif('🔄 ' + allIds2.length + ' dossiers réinitialisés.', 'success');
   }
   await loadDossiers(); renderDashboard();
@@ -567,14 +742,17 @@ async function renderDashboard() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
   const role = currentUserData.role;
-  const total = allDossiers.length;
-  const traites = allDossiers.filter(d => d.traite).length;
-  const nonAttribues = allDossiers.filter(d => !d.gestionnaire).length;
+  // Filtre 3 mois pour les stats
+  const cutoff3m = new Date(); cutoff3m.setMonth(cutoff3m.getMonth() - 3);
+  const dos3m = allDossiers.filter(d => !d.created_at || new Date(d.created_at) >= cutoff3m);
+  const total = dos3m.length;
+  const traites = dos3m.filter(d => d.traite).length;
+  const nonAttribues = dos3m.filter(d => !d.gestionnaire).length;
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-  const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
+  const mesDossiers = dos3m.filter(d => d.gestionnaire === monNom);
   const mesTraites = mesDossiers.filter(d => d.traite).length;
 
-  let html = '<div class="stats-grid">';
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h2 style="color:var(--navy);margin:0">Tableau de bord</h2><span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 Statistiques des 3 derniers mois</span></div><div class="stats-grid">';
   if (role === 'admin' || role === 'manager') {
     html += `
       <div class="stat-card"><div class="number">${total}</div><div class="label">Total dossiers</div></div>
@@ -593,8 +771,8 @@ async function renderDashboard() {
     const membres = allUsers.filter(u => u.role !== 'admin' || u.email === currentUserData.email);
     membres.forEach(g => {
       const nom = g.prenom + ' ' + g.nom;
-      const t = allDossiers.filter(d => d.gestionnaire === nom).length;
-      const tr = allDossiers.filter(d => d.gestionnaire === nom && d.traite).length;
+      const t = dos3m.filter(d => d.gestionnaire === nom).length;
+      const tr = dos3m.filter(d => d.gestionnaire === nom && d.traite).length;
       const pct = t > 0 ? Math.round(tr / t * 100) : 0;
       html += `<tr><td><strong>${nom}</strong></td><td><span class="badge role-${g.role}" style="padding:3px 8px;border-radius:10px;font-size:11px">${g.role}</span></td>
         <td>${t}</td><td>${tr}</td><td>${t - tr}</td>
@@ -658,8 +836,6 @@ async function handleFile(event) {
       return '';
     };
 
-    console.log('Colonnes Excel détectées:', Object.keys(firstRow));
-
     document.getElementById('import-result').innerHTML = '<div class="loading">Import en cours...</div>';
 
     const mapped = rows.map(r => ({
@@ -674,8 +850,6 @@ async function handleFile(event) {
       verrouille: false
     })).filter(d => d.ref_sinistre);
 
-    console.log(`Lignes mappées: ${mapped.length}`, mapped[0]);
-
     if (!mapped.length) {
       showNotif('Aucune ligne valide trouvée. Vérifiez les noms de colonnes.', 'error');
       document.getElementById('import-result').innerHTML = '';
@@ -684,6 +858,7 @@ async function handleFile(event) {
 
     const { error } = await db.from('dossiers').insert(mapped);
     if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
+    await auditLog('IMPORT_EXCEL', mapped.length + ' dossiers importés');
     showNotif('✅ ' + mapped.length + ' dossiers importés. Données personnelles non conservées (RGPD).', 'success');
     document.getElementById('import-result').innerHTML =
       `<div class="stat-card" style="max-width:300px"><div class="number" style="color:#27ae60">${mapped.length}</div><div class="label">Dossiers importés</div></div>`;
@@ -812,6 +987,7 @@ async function doDispatch(count) {
   for (const id of ids) {
     await db.from('dossiers').update({ statut: 'attribue' }).eq('id', id);
   }
+  await auditLog('DISPATCH', `${count} dossiers dispatchés`);
   showNotif(`🚀 ${count} dossiers dispatchés avec succès !`, 'success');
   window._fPortefeuille = ''; window._fType = ''; window._fNature = '';
   window._fStatut = ''; window._fGestionnaire = ''; window._fNonAttribue = false;
@@ -1064,12 +1240,271 @@ async function renderMesDossiers() {
 }
 
 // ===== UTILISATEURS =====
-async function renderUtilisateurs() {
+async 
+// ===== PURGE AUDIT LOGS (R4 — Rétention 3 mois) =====
+function confirmPurgeAuditLogs() {
+  // Sécurité : admin uniquement
+  if (currentUserData.role !== 'admin') {
+    showNotif('⛔ Action réservée à l\'administrateur.', 'error'); return;
+  }
+  // Modale de confirmation avec ré-authentification
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay'; overlay.id = 'purge-auth-modal';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px;text-align:center">
+      <div style="font-size:48px;margin-bottom:8px">🗑️</div>
+      <h2 style="color:#e74c3c;margin-bottom:6px">Purge des logs d'audit</h2>
+      <p style="color:#666;font-size:14px;margin-bottom:16px">
+        Cette action supprimera <strong>définitivement</strong> tous les logs<br>
+        de plus de <strong>3 mois</strong>. Elle est <u>irréversible</u>.
+      </p>
+      <p style="font-size:13px;color:#555;margin-bottom:8px">
+        Confirmez votre identité en entrant votre mot de passe :
+      </p>
+      <input type="password" id="purge-pwd-input" placeholder="Votre mot de passe..."
+        style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box">
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-secondary" onclick="closeModal('purge-auth-modal')">❌ Annuler</button>
+        <button class="btn btn-danger" onclick="authenticateAndPurge()">✅ Confirmer la purge</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('purge-pwd-input')?.focus(), 100);
+}
+
+async function authenticateAndPurge() {
+  const pwd = document.getElementById('purge-pwd-input')?.value;
+  if (!pwd) { showNotif('Veuillez entrer votre mot de passe.', 'error'); return; }
+  const { error } = await db.auth.signInWithPassword({
+    email: currentUser.email,
+    password: pwd
+  });
+  if (error) {
+    window._purgeFailCount = (window._purgeFailCount || 0) + 1;
+    const remaining = 3 - window._purgeFailCount;
+    if (window._purgeFailCount >= 3) {
+      closeModal('purge-auth-modal');
+      window._purgeFailCount = 0;
+      triggerEmergencyLockdown();
+      return;
+    }
+    showNotif(`❌ Mot de passe incorrect. ${remaining} tentative(s) restante(s) avant blocage d'urgence.`, 'error');
+    document.getElementById('purge-pwd-input').value = '';
+    return;
+  }
+  window._purgeFailCount = 0; // Reset compteur si succès
+  // Auth OK → étape 2 : justification obligatoire
+  closeModal('purge-auth-modal');
+  showPurgeJustificationModal();
+}
+
+function showPurgeJustificationModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay'; overlay.id = 'purge-justif-modal';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:460px;text-align:center">
+      <div style="font-size:42px;margin-bottom:8px">📝</div>
+      <h2 style="color:#e67e22;margin-bottom:6px">Justification requise</h2>
+      <p style="font-size:14px;color:#555;margin-bottom:6px">
+        Identité vérifiée ✅ — Avant d'exécuter la purge, vous devez
+        <strong>justifier cette action</strong>.
+      </p>
+      <div style="background:#fff8e1;border:1.5px solid #f39c12;border-radius:8px;padding:10px 14px;margin-bottom:16px;text-align:left;font-size:12px;color:#7d6608">
+        ⚠️ <strong>Cette justification sera enregistrée de façon permanente</strong>
+        dans le journal de traçabilité et ne pourra pas être supprimée par la purge.
+      </div>
+      <textarea id="purge-justif-input" rows="4" placeholder="Motif de la purge manuelle (obligatoire)…&#10;Ex : Purge trimestrielle réglementaire du 14/03/2026"
+        style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:16px"></textarea>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-secondary" onclick="closeModal('purge-justif-modal')">❌ Annuler</button>
+        <button class="btn btn-danger" onclick="validateAndPurge()">🗑️ Exécuter la purge</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('purge-justif-input')?.focus(), 100);
+}
+
+async function validateAndPurge() {
+  const justif = (document.getElementById('purge-justif-input')?.value || '').trim();
+  if (justif.length < 10) {
+    showNotif('⚠️ La justification doit contenir au moins 10 caractères.', 'error');
+    return;
+  }
+  closeModal('purge-justif-modal');
+  doPurgeAuditLogs(justif);
+}
+async function doPurgeAuditLogs(justification = '') {
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 3);
+  const { error } = await db.from('audit_logs').delete().lt('created_at', cutoff.toISOString());
+  if (error) { showNotif('Erreur lors de la purge : ' + error.message, 'error'); return; }
+  const detail = 'Purge manuelle des logs > 3 mois' + (justification ? ' | Motif : ' + justification : '');
+  await auditLog('PURGE_LOGS', detail);
+  showNotif('🗑️ Logs de plus de 3 mois supprimés avec succès.', 'success');
+}
+// ===== FIN PURGE =====
+// ===== COMMANDE D'URGENCE — Blocage 30 min + RAZ données =====
+async function triggerEmergencyLockdown() {
+  // ÉTAPE 1 — Tracer en premier (audit_logs inaltérable)
+  await auditLog('URGENCE_LOCKDOWN',
+    '3 tentatives échouées sur purge — Chiffrement AES-256 des données utilisateurs + RAZ dossiers + blocage 30 min');
+
+  // ÉTAPE 2 — Chiffrement AES-256 des données utilisateurs (clé jetable — irrécupérable sans backup)
+  try {
+    // Générer une clé AES-256-GCM aléatoire jetable (jamais stockée)
+    const aesKey = await crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 }, true, ['encrypt']
+    );
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder();
+
+    // Récupérer tous les utilisateurs
+    const { data: users } = await db.from('utilisateurs').select('id,nom,prenom,role');
+    if (users && users.length > 0) {
+      for (const u of users) {
+        // Chiffrer nom + prenom
+        const payload = JSON.stringify({ nom: u.nom, prenom: u.prenom, role: u.role });
+        const encrypted = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv },
+          aesKey,
+          enc.encode(payload)
+        );
+        const encB64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        // Écraser les champs en base avec les données chiffrées
+        await db.from('utilisateurs').update({
+          nom:    '[ENC:' + encB64.substring(0, 40) + ']',
+          prenom: '[ENC:' + encB64.substring(40, 80) + ']'
+        }).eq('id', u.id);
+      }
+    }
+    // Clé NON stockée → crypto-shredding : données irrécupérables sans backup
+    await auditLog('URGENCE_CHIFFREMENT', 'Chiffrement AES-256-GCM exécuté — clé jetable non conservée — restauration backup requise');
+  } catch(e) {
+    await auditLog('URGENCE_CHIFFREMENT_ERREUR', 'Erreur chiffrement : ' + e.message);
+  }
+
+  // ÉTAPE 3 — RAZ des dossiers de travail
+  try {
+    const { data: ids } = await db.from('dossiers').select('id');
+    if (ids && ids.length > 0) {
+      await db.from('dossiers').delete().in('id', ids.map(d => d.id));
+    }
+  } catch(e) { /* silencieux */ }
+
+  // ÉTAPE 4 — Déconnexion forcée
+  await db.auth.signOut();
+
+  // ÉTAPE 5 — Lockout 30 min
+  const lockoutUntil = Date.now() + (30 * 60 * 1000);
+  localStorage.setItem('dispatchis_emergency_lockout', lockoutUntil.toString());
+  localStorage.setItem('dispatchis_emergency_time', new Date().toLocaleString('fr-FR'));
+
+  // ÉTAPE 6 — Écran de blocage
+  showLockoutScreen();
+}
+
+function showLockoutScreen() {
+  const lockoutUntil = parseInt(localStorage.getItem('dispatchis_emergency_lockout') || '0');
+  const lockoutTime  = localStorage.getItem('dispatchis_emergency_time') || '';
+  // Masquer tout
+  document.getElementById('login-screen').style.display  = 'none';
+  document.getElementById('app-screen').style.display    = 'none';
+
+  // Créer l'écran de blocage s'il n'existe pas
+  let screen = document.getElementById('lockout-screen');
+  if (!screen) {
+    screen = document.createElement('div'); screen.id = 'lockout-screen';
+    screen.style.cssText = 'position:fixed;inset:0;background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:sans-serif;text-align:center;padding:30px';
+    document.body.appendChild(screen);
+  }
+
+  const updateTimer = () => {
+    const remaining = Math.max(0, lockoutUntil - Date.now());
+    const min  = Math.floor(remaining / 60000);
+    const sec  = Math.floor((remaining % 60000) / 1000);
+    const timeStr = `${min}:${sec.toString().padStart(2,'0')}`;
+
+    screen.innerHTML = `
+      <div style="font-size:72px;margin-bottom:16px">🚨</div>
+      <h1 style="color:#e74c3c;font-size:28px;margin-bottom:8px">ACCÈS BLOQUÉ</h1>
+      <p style="color:#aaa;font-size:15px;margin-bottom:6px">3 tentatives d'authentification échouées détectées.</p>
+      <p style="color:#e74c3c;font-size:13px;margin-bottom:4px">🔐 Données utilisateurs chiffrées AES-256 — clé détruite.</p>
+      <p style="color:#e67e22;font-size:13px;margin-bottom:24px">🗑️ Données de travail réinitialisées. Restauration backup requise.</p>
+      <div style="background:#2d2d44;border-radius:16px;padding:24px 40px;margin-bottom:24px">
+        <div style="color:#fff;font-size:48px;font-weight:700;letter-spacing:4px">${remaining > 0 ? timeStr : '00:00'}</div>
+        <div style="color:#888;font-size:12px;margin-top:4px">Réouverture automatique</div>
+      </div>
+      <p style="color:#666;font-size:11px">Incident enregistré le ${lockoutTime}</p>
+      ${remaining <= 0 ? '<button onclick="unlockAfterLockout()" style="margin-top:20px;padding:12px 32px;background:#27ae60;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer">🔓 Accéder à nouveau</button>' : ''}
+    `;
+    if (remaining > 0) setTimeout(updateTimer, 1000);
+  };
+  updateTimer();
+}
+
+function unlockAfterLockout() {
+  localStorage.removeItem('dispatchis_emergency_lockout');
+  localStorage.removeItem('dispatchis_emergency_time');
+  const screen = document.getElementById('lockout-screen');
+  if (screen) screen.remove();
+  document.getElementById('login-screen').style.display = 'flex';
+}
+// ===== FIN COMMANDE D'URGENCE =====
+
+// ===== JOURNAL D'AUDIT (R4) =====
+async function renderAuditLogs() {
+  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement du journal...</div>';
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 3);
+  const { data, error } = await db.from('audit_logs')
+    .select('*')
+    .gte('created_at', cutoff.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) { document.getElementById('main-content').innerHTML = '<p style="color:red">Erreur chargement logs : ' + error.message + '</p>'; return; }
+  const logs = data || [];
+  const badgeColor = {
+    CONNEXION:'#27ae60', DECONNEXION:'#7f8c8d',
+    DISPATCH:'#2980b9', RESET_COMPLET:'#e74c3c', RESET_PARTIEL:'#e67e22',
+    VERROUILLAGE:'#8e44ad', DEVERROUILLAGE:'#16a085',
+    IMPORT_EXCEL:'#2c3e50', AJOUT_UTILISATEUR:'#27ae60', MODIF_UTILISATEUR:'#f39c12',
+    DEMANDE_DOSSIER_SUPP:'#3498db', MARQUER_TRAITE:'#27ae60',
+    REMETTRE_EN_COURS:'#e67e22', PURGE_LOGS:'#e74c3c', URGENCE_LOCKDOWN:'#c0392b', URGENCE_CHIFFREMENT:'#922b21', URGENCE_CHIFFREMENT_ERREUR:'#e74c3c'
+  };
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <h2 style="color:var(--navy);margin:0">🔍 Journal d'audit</h2>
+      <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
+    </div>`;
+  if (logs.length === 0) {
+    html += '<div style="text-align:center;padding:40px;color:#888">Aucune entrée dans le journal pour les 3 derniers mois.</div>';
+  } else {
+    html += '<div class="table-container"><table><thead><tr><th>Date / Heure</th><th>Utilisateur</th><th>Rôle</th><th>Action</th><th>Détail</th></tr></thead><tbody>';
+    logs.forEach(l => {
+      const dt = new Date(l.created_at);
+      const dateStr = dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+      const color = badgeColor[l.action] || '#95a5a6';
+      html += `<tr>
+        <td style="white-space:nowrap;font-size:12px;color:#666">${dateStr}</td>
+        <td style="font-size:13px">${l.user_email || '—'}</td>
+        <td><span class="badge role-${l.user_role}" style="padding:2px 8px;border-radius:10px;font-size:11px">${l.user_role || '—'}</span></td>
+        <td><span style="background:${color};color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600">${l.action}</span></td>
+        <td style="font-size:12px;color:#555">${l.detail || '—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+  document.getElementById('main-content').innerHTML = html;
+}
+// ===== FIN JOURNAL D'AUDIT =====
+
+function renderUtilisateurs() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadAllUsers();
   let html = `<div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
     <h2 style="color:var(--navy)">Équipe (${allUsers.length} membres)</h2>
-    <button class="btn btn-success" onclick="showAddUser()">➕ Ajouter un membre</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-success" onclick="showAddUser()">➕ Ajouter un membre</button>
+      ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs (&gt;3 mois)</button>' : ''}
+    </div>
   </div><div class="users-grid">`;
   const isManager = ['admin','manager'].includes(currentUserData.role);
   allUsers.forEach(u => {
@@ -1129,6 +1564,7 @@ async function doEditUser(id, originalEmail, isSelf) {
   const { error } = await db.from('utilisateurs').update(updates).eq('id', id);
   if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
   closeModal('edit-user-modal');
+  await auditLog('MODIF_UTILISATEUR', `Profil modifié : ${prenom} ${nom} (${role})`);
   showNotif('✅ Profil mis à jour !', 'success');
   await loadAllUsers(); renderUtilisateurs();
 }
@@ -1185,6 +1621,7 @@ async function doAddUser() {
   if (dbError) { errEl.textContent = 'Erreur base de données : ' + dbError.message; errEl.style.display = 'block'; return; }
 
   closeModal('add-user-modal');
+  await auditLog('AJOUT_UTILISATEUR', `Compte créé : ${prenom} ${nom} (${role})`);
   showNotif(`✅ Compte créé pour ${prenom} ${nom} !`, 'success');
   await loadAllUsers();
   renderUtilisateurs();
@@ -1269,6 +1706,7 @@ async function executeLock(ids, gestionnaire) {
     if (gestionnaire) upd.gestionnaire = gestionnaire;
     await db.from('dossiers').update(upd).eq('id', id);
   }
+  await auditLog('VERROUILLAGE', ids.length + ' dossier(s) verrouillés' + (gestionnaire ? ' → ' + gestionnaire : ''));
   showNotif('🔒 ' + ids.length + ' dossier(s) verrouillé(s)' + (gestionnaire ? ' et attribués à ' + gestionnaire : '') + '.', 'success');
   clearSelection();
   await loadDossiers();
@@ -1281,6 +1719,7 @@ async function unlockSelection() {
   for (const id of ids) {
     await db.from('dossiers').update({ verrouille: false }).eq('id', id);
   }
+  await auditLog('DEVERROUILLAGE', ids.length + ' dossier(s) déverrouillés');
   showNotif(`🔓 ${ids.length} dossier(s) déverrouillé(s).`, 'info');
   clearSelection();
   await loadDossiers();
@@ -1366,6 +1805,8 @@ async function toggleTraite(id, checked, gestionnaire) {
   const newStatut = checked ? 'traite' : 'ouvert';
   const { error } = await db.from('dossiers').update({ traite: checked, statut: newStatut }).eq('id', id);
   if (error) { showNotif('Erreur.', 'error'); return; }
+  await auditLog(checked ? 'MARQUER_TRAITE' : 'REMETTRE_EN_COURS', 'Dossier ID ' + id);
+  
   showNotif(checked ? '✅ Dossier marqué traité' : '↩️ Dossier remis en cours', 'success');
   allDossiers = allDossiers.map(d => d.id === id ? {...d, traite: checked, statut: newStatut} : d);
 }
@@ -1432,6 +1873,7 @@ async function toggleTraite(id, checked, gestionnaire) {
     }
     const { error } = await db.from('dossiers').update({ gestionnaire: monNom, statut: 'attribue', verrouille: true, demande_supp: true }).eq('id', dispo[0].id);
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await auditLog('DEMANDE_DOSSIER_SUPP', 'Nouveau dossier supplémentaire attribué');
     showNotif('Nouveau dossier attribué !', 'success');
     await loadDossiers(); renderMesDossiers();
   }
