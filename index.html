@@ -332,7 +332,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.15';
+    const APP_VERSION = '2.5.16';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -435,10 +435,32 @@ async function auditLog(action, detail = '') {
 }
 // ===== FIN JOURNALISATION =====
 
-// ===== CLOUDFLARE TURNSTILE =====
+// ===== LOGIN =====
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
 
-    const btn = document.getElementById('login-btn');
-    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '🔒 Vérification en cours…'; } return; }
+  if (!email || !pwd) {
+    errEl.textContent = 'Veuillez remplir tous les champs.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.querySelector('#login-screen button');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '🔒 Connexion en cours…'; }
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pwd });
+
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Se connecter'; }
+
+  if (error) {
+    errEl.textContent = 'Email ou mot de passe incorrect.';
+    errEl.style.display = 'block';
+    return;
+  }
+
   currentUser = data.user;
   await loadUserData();
   await auditLog('CONNEXION', 'Connexion réussie');
@@ -1435,7 +1457,7 @@ async function renderAuditLogs() {
 }
 // ===== FIN JOURNAL D'AUDIT =====
 
-function renderUtilisateurs() {
+async function renderUtilisateurs() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadAllUsers();
   let html = `<div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
