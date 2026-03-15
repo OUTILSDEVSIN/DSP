@@ -1,2026 +1,565 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<link rel="icon" href="data:,">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dispatchis</title>
-  <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.18">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<style>
-  /* ===== TOKENS ===== */
-  :root {
-    --navy:       #0f1b2d;
-    --navy-light: #1e2d42;
-    --rose:       #e5195e;
-    --rose-light: #fce8ef;
-    --gray-bg:    #f4f5f7;
-    --gray-100:   #f8f9fa;
-    --gray-200:   #eef0f3;
-    --gray-300:   #e0e3e8;
-    --gray-400:   #b0b8c5;
-    --gray-600:   #6b7689;
-    --gray-800:
-  // TICKET 2 - BOUTON CRAYON
-  html += ` <button class="btn-edit-user" onclick="editHabilitations('${g.id}', '${g.prenom} ${g.nom}')" title="Modifier habilitations">
-              ✏️
-            </button>`;
-  // FIN BOUTON
-   #2c3547;
-    --white:      #ffffff;
-    --shadow-sm:  0 1px 3px rgba(15,27,45,0.07);
-    --shadow-md:  0 4px 16px rgba(15,27,45,0.10);
-    --radius-sm:  6px;
-    --radius-md:  10px;
-    --radius-lg:  14px;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray-bg); min-height: 100vh; color: var(--navy); font-size: 14px; }
-
-  /* ===== LOGIN PASTEL ===== */
-  #login-screen {
-    display: flex; align-items: center; justify-content: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #f0f4ff 0%, #faf0f6 50%, #f0f7ff 100%);
-    position: relative; overflow: hidden;
-  }
-  #login-screen::before {
-    content: '';
-    position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse at 20% 30%, rgba(180,150,220,0.13) 0%, transparent 55%),
-      radial-gradient(ellipse at 80% 70%, rgba(220,150,180,0.10) 0%, transparent 55%),
-      radial-gradient(ellipse at 50% 90%, rgba(160,190,240,0.08) 0%, transparent 50%);
-    pointer-events: none;
-  }
-  .login-box {
-    background: #ffffff;
-    border-radius: 24px;
-    padding: 48px 44px 40px;
-    width: 420px;
-    box-shadow: 0 8px 40px rgba(150,120,180,0.13), 0 2px 8px rgba(0,0,0,0.04);
-    border: 1px solid rgba(220,200,240,0.4);
-    animation: loginFadeIn 0.5s cubic-bezier(.22,1,.36,1);
-    position: relative; z-index: 1;
-    box-sizing: border-box;
-  }
-  @keyframes loginFadeIn {
-    from { opacity:0; transform: translateY(20px) scale(0.98); }
-    to   { opacity:1; transform: translateY(0) scale(1); }
-  }
-  .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 6px; }
-  .login-logo-brand {
-    font-size: 34px; font-weight: 900;
-    color: #b07ab0;
-    letter-spacing: 5px;
-    text-transform: uppercase;
-  }
-  .login-slogan {
-    font-size: 12.5px; color: #a89ab8; font-style: italic;
-    font-weight: 400; margin-top: 8px; letter-spacing: 0.3px;
-    text-align: center; line-height: 1.4;
-  }
-  .login-divider {
-    width: 44px; height: 3px;
-    background: linear-gradient(90deg, #b07ab0, #8fabda);
-    border-radius: 2px;
-    margin: 20px auto 26px;
-  }
-  .login-label {
-    font-size: 11px; font-weight: 700; color: #9a90ab;
-    text-transform: uppercase; letter-spacing: 0.6px;
-    margin-bottom: 7px; display: block;
-  }
-  .login-field { margin-bottom: 18px; }
-  .login-box input {
-    width: 100%; padding: 13px 16px;
-    border: 1.5px solid #e8e2f0;
-    border-radius: 11px;
-    font-size: 14px; outline: none;
-    background: #faf9fc; color: #3a3050;
-    transition: border 0.2s, box-shadow 0.2s;
-    box-sizing: border-box;
-  }
-  .login-box input::placeholder { color: #c4b8d4; }
-  .login-box input:focus {
-    border-color: #b07ab0;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(176,122,176,0.12);
-  }
-  .login-box button {
-    width: 100%; padding: 14px;
-    background: linear-gradient(135deg, #b07ab0, #8fabda);
-    color: white; border: none;
-    border-radius: 12px;
-    font-size: 15px; font-weight: 700;
-    cursor: pointer; letter-spacing: 0.4px;
-    transition: all 0.2s ease; margin-top: 6px;
-    box-shadow: 0 4px 20px rgba(176,122,176,0.30);
-  }
-  .login-box button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 7px 28px rgba(176,122,176,0.42);
-  }
-  .login-box button:disabled { opacity: 0.55; cursor: not-allowed; }
-  .login-footer {
-    text-align: center; margin-top: 18px;
-    font-size: 11px; color: #c4b8d4; letter-spacing: 0.3px;
-  }
-  .login-rgpd {
-    margin-top: 18px;
-    background: #f7f4fc;
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 11px; color: #a89ab8;
-    text-align: center;
-    border: 1px solid #ede8f5;
-    line-height: 1.6;
-  }
-  .login-rgpd a { color: #b07ab0; text-decoration: none; font-weight: 600; }
-  .login-rgpd a:hover { text-decoration: underline; }
-  .login-error {
-    color: #c0392b; font-size: 12px; margin-top: 10px;
-    display: none; text-align: center;
-    background: #fff5f5;
-    border: 1px solid #fadadd;
-    padding: 9px 12px; border-radius: 10px;
-  }
-  app-screen { display: none; }
-
-  /* ===== HEADER ===== */
-  header { background: var(--navy); padding: 0 28px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
-  .header-left { display: flex; align-items: center; gap: 10px; }
-  .header-title { font-size: 14px; font-weight: 700; color: var(--white); letter-spacing: 0.1px; }
-  .header-right { display: flex; align-items: center; gap: 6px; }
-  .header-username { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
-  .header-role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; margin-right: 4px; }
-  .header-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 6px; }
-  .btn-header { background: none; border: none; color: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
-  .btn-header:hover { background: rgba(255,255,255,0.1); color: white; }
-  .btn-header-danger { color: rgba(255,150,150,0.85); }
-  .btn-header-danger:hover { background: rgba(229,25,94,0.2); color: #ff8fab; }
-
-  /* ===== TABS ===== */
-  .tabs { display: flex; padding: 0 28px; background: var(--white); border-bottom: 1px solid var(--gray-200); overflow-x: auto; }
-  .tab { padding: 13px 16px; cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; transition: all 0.18s; display: flex; align-items: center; gap: 6px; }
-  .tab.active { color: var(--rose); border-bottom-color: var(--rose); font-weight: 600; }
-  .tab:hover:not(.active) { color: var(--navy); background: var(--gray-100); }
-
-  /* ===== CONTENT ===== */
-  .content { padding: 20px 28px; }
-
-  /* ===== STAT CARDS ===== */
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
-  .stat-card { background: var(--white); border-radius: var(--radius-md); padding: 16px 18px; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-200); }
-  .stat-card .number { font-size: 26px; font-weight: 800; color: var(--navy); line-height: 1; }
-  .stat-card .label { font-size: 11px; color: var(--gray-600); margin-top: 4px; font-weight: 500; }
-
-  /* ===== BANDEAU COMPTEURS ===== */
-  .filter-bandeau { background: var(--white); border-radius: var(--radius-md); padding: 10px 20px; margin-bottom: 12px; border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 0; overflow-x: auto; flex-wrap: nowrap; }
-  .filter-bandeau-group { display: inline-flex; align-items: center; gap: 6px; padding: 3px 20px 3px 0; margin-right: 16px; border-right: 1px solid var(--gray-200); flex-shrink: 0; }
-  .filter-bandeau-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
-  .filter-pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: all 0.15s; border: 1px solid var(--gray-300); background: var(--gray-100); color: var(--gray-800); user-select: none; }
-  .filter-pill:hover { background: var(--gray-200); }
-  .filter-pill.active { background: var(--navy); color: white; border-color: var(--navy); }
-
-  /* ===== TABLE CONTAINER ===== */
-  .table-container { background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); overflow: hidden; }
-  .table-toolbar { padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-200); flex-wrap: wrap; gap: 8px; background: var(--white); }
-  .table-toolbar h2 { font-size: 13px; font-weight: 700; color: var(--navy); }
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 18px; background: var(--gray-100); border-bottom: 1px solid var(--gray-200); align-items: center; }
-  .search-bar { padding: 7px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; width: 200px; transition: border 0.2s; background: var(--white); }
-  .search-bar:focus { border-color: var(--rose); }
-  .filter-select { padding: 7px 10px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; background: var(--white); cursor: pointer; color: var(--navy); }
-  .filter-select:focus { border-color: var(--rose); }
-
-  /* ===== TABLE ===== */
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  thead { background: var(--gray-100); }
-  th { padding: 9px 14px; text-align: left; font-weight: 600; color: var(--gray-600); border-bottom: 1px solid var(--gray-200); white-space: nowrap; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-  td { padding: 11px 14px; border-bottom: 1px solid var(--gray-200); color: var(--navy); vertical-align: middle; }
-  tr:hover td { background: #fafbff; }
-  tr:last-child td { border-bottom: none; }
-
-  /* ===== BADGES ===== */
-  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-  .badge-nonattribue { background: var(--gray-200); color: var(--gray-600); }
-  .badge-attribue { background: #e8f0fd; color: #1a56c4; }
-  .badge-encours { background: #fef3e2; color: #92540a; }
-  .badge-ouvert { background: #feeaea; color: #991b1b; }
-  .badge-traite2 { background: #dcfce7; color: #166534; }
-  .badge-nontraite { background: #fef3e2; color: #92540a; }
-  .badge-verrouille { background: #f0e6ff; color: #6b21a8; font-size: 11px; }
-
-  /* ===== BOUTONS ===== */
-  .btn { padding: 7px 14px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
-  .btn-primary { background: var(--navy); color: white; }
-  .btn-primary:hover { background: var(--navy-light); }
-  .btn-success { background: #16a34a; color: white; }
-  .btn-success:hover { background: #15803d; }
-  .btn-warning { background: #d97706; color: white; }
-  .btn-warning:hover { background: #b45309; }
-  .btn-danger { background: #dc2626; color: white; }
-  .btn-danger:hover { background: #b91c1c; }
-  .btn-secondary { background: var(--white); color: var(--gray-800); border: 1.5px solid var(--gray-300); }
-  .btn-secondary:hover { background: var(--gray-100); border-color: var(--gray-400); }
-  .btn-dispatch { padding: 9px 22px; background: var(--rose); color: white; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; letter-spacing: 0.8px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
-  .btn-dispatch:hover { background: #c9164f; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(229,25,94,0.35); }
-  .btn-dispatch:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-  .btn-copy { background: var(--gray-100); border: 1px solid var(--gray-300); border-radius: 4px; padding: 3px 7px; cursor: pointer; font-size: 11px; color: var(--gray-600); transition: all 0.15s; margin-left: 4px; }
-  .btn-copy:hover { background: var(--gray-200); color: var(--navy); }
-  .btn-copy.copied { background: #dcfce7; border-color: #22c55e; color: #166534; }
-  .btn-edit-user { background: none; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); padding: 4px 8px; cursor: pointer; font-size: 12px; color: var(--gray-600); transition: all 0.15s; margin-left: auto; flex-shrink: 0; }
-  .btn-edit-user:hover { background: var(--gray-100); color: var(--navy); border-color: var(--gray-400); }
-  .btn-demander-supp { padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
-  .btn-demander-supp:hover { background: #15803d; }
-  .btn-demander-supp:disabled { opacity: 0.45; cursor: not-allowed; }
-
-  /* ===== CHECKBOXES ===== */
-  .row-check { width: 15px; height: 15px; cursor: pointer; accent-color: var(--rose); }
-  .traite-checkbox { width: 15px; height: 15px; cursor: pointer; accent-color: #16a34a; }
-  .traite-checkbox:disabled { cursor: not-allowed; opacity: 0.3; }
-  select.assign-select { padding: 6px 10px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; background: var(--white); cursor: pointer; min-width: 160px; color: var(--navy); }
-
-  /* ===== MODALS ===== */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(15,27,45,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
-  .modal { background: var(--white); border-radius: var(--radius-lg); padding: 28px; width: 420px; box-shadow: var(--shadow-md); max-height: 90vh; overflow-y: auto; }
-  .modal h2 { color: var(--navy); margin-bottom: 18px; font-size: 17px; font-weight: 700; }
-  .modal label { display: block; font-size: 11px; font-weight: 700; color: var(--gray-600); margin-bottom: 5px; margin-top: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .modal input, .modal select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; transition: border 0.2s; }
-  .modal input:focus, .modal select:focus { border-color: var(--rose); }
-  .modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
-  .modal-error { color: #dc2626; font-size: 12px; margin-top: 8px; display: none; }
-  .dispatch-modal-overlay { position: fixed; inset: 0; background: rgba(15,27,45,0.55); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(3px); }
-  .dispatch-modal { background: var(--white); border-radius: var(--radius-lg); padding: 36px; width: 420px; box-shadow: var(--shadow-md); text-align: center; }
-  .dispatch-modal .icon { font-size: 44px; margin-bottom: 12px; }
-  .dispatch-modal h2 { color: var(--navy); font-size: 19px; margin-bottom: 8px; font-weight: 700; }
-  .dispatch-modal p { color: var(--gray-600); font-size: 13px; margin-bottom: 6px; }
-  .dispatch-modal .count { font-size: 38px; font-weight: 900; color: var(--rose); margin: 14px 0; }
-  .dispatch-modal .count small { font-size: 12px; color: var(--gray-600); font-weight: 400; display: block; }
-  .dispatch-actions { display: flex; gap: 10px; margin-top: 22px; justify-content: center; }
-
-  /* ===== UPLOAD ===== */
-  .upload-zone { border: 2px dashed var(--gray-300); border-radius: var(--radius-md); padding: 48px; text-align: center; background: var(--white); margin-bottom: 18px; transition: all 0.2s; cursor: pointer; }
-  .upload-zone:hover { border-color: var(--rose); background: var(--rose-light); }
-  .upload-zone .icon { font-size: 42px; margin-bottom: 10px; }
-  .upload-zone h3 { color: var(--navy); margin-bottom: 6px; font-size: 15px; font-weight: 600; }
-  .upload-zone p { color: var(--gray-600); font-size: 13px; }
-  #file-input { display: none; }
-
-  /* ===== ÉQUIPE ===== */
-  .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
-  .user-card { background: var(--white); border-radius: var(--radius-md); padding: 14px 16px; border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 12px; transition: box-shadow 0.15s; }
-  .user-card:hover { box-shadow: var(--shadow-md); }
-  .user-avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; color: white; flex-shrink: 0; }
-  .avatar-admin { background: var(--navy); }
-  .avatar-manager { background: #6b21a8; }
-  .avatar-gestionnaire { background: #16a34a; }
-  .user-info h4 { font-size: 13px; color: var(--navy); font-weight: 600; }
-  .user-info p { font-size: 11px; color: var(--gray-600); margin-top: 1px; }
-  .user-role-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-top: 4px; display: inline-block; text-transform: uppercase; letter-spacing: 0.4px; }
-  .role-admin { background: #e8f0fd; color: #1a3c8f; }
-  .role-manager { background: #f0e6ff; color: #6b21a8; }
-  .role-gestionnaire { background: #dcfce7; color: #166534; }
-
-  /* ===== FORMS ===== */
-  .form-card { background: var(--white); border-radius: var(--radius-md); padding: 22px; border: 1px solid var(--gray-200); max-width: 480px; }
-  .form-card h2 { color: var(--navy); margin-bottom: 14px; font-size: 15px; font-weight: 700; }
-  .form-group { margin-bottom: 12px; }
-  .form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--gray-600); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; outline: none; transition: border 0.2s; }
-  .form-group input:focus, .form-group select:focus { border-color: var(--rose); }
-  .form-error { color: #dc2626; font-size: 12px; margin-top: 4px; display: none; }
-  .form-success { color: #16a34a; font-size: 12px; margin-top: 4px; display: none; }
-
-  /* ===== NOTIFS ===== */
-  .notif { position: fixed; bottom: 20px; right: 20px; padding: 11px 16px; border-radius: var(--radius-md); color: white; font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: var(--shadow-md); animation: slideIn 0.25s ease; max-width: 310px; }
-  .notif-success { background: #16a34a; }
-  .notif-error { background: #dc2626; }
-  .notif-info { background: var(--navy); }
-  @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-  /* ===== MISC ===== */
-  .loading { text-align: center; padding: 40px; color: var(--gray-400); font-size: 13px; }
-  .empty-state { text-align: center; padding: 50px; color: var(--gray-400); }
-  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
-  .star-supp { color: #d97706; font-size: 13px; margin-left: 3px; }
-  .progress-bar-wrap { display: flex; align-items: center; gap: 8px; }
-  .progress-bar-bg { background: var(--gray-200); border-radius: 10px; height: 6px; width: 80px; overflow: hidden; }
-  .progress-bar-fill { background: #16a34a; height: 6px; border-radius: 10px; }
-
-  @media (max-width: 768px) {
-    .content { padding: 12px; }
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    table { font-size: 12px; }
-    th, td { padding: 8px 10px; }
-    .modal { width: 95vw; padding: 20px; }
-    header { padding: 0 14px; }
-  }
-
-  /* ===== PANNEAU UNIFIÉ ===== */
-  .unified-panel { background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); margin-bottom: 14px; overflow: hidden; }
-  .urow { display: flex; align-items: center; gap: 8px; padding: 10px 18px; flex-wrap: wrap; }
-  .urow-1 { border-bottom: 1px solid var(--gray-200); background: var(--white); }
-  .urow-2 { border-bottom: 1px solid var(--gray-200); background: var(--gray-100); }
-  .urow-3 { background: var(--white); padding: 10px 18px; }
-  .urow-sep { width: 1px; height: 22px; background: var(--gray-300); flex-shrink: 0; margin: 0 4px; }
-  .statut-pill { font-size: 12px; }
-  .gest-pill { background: var(--navy-light); color: white; border-color: var(--navy); }
-  .gest-pill:hover { background: var(--navy); }
-  .gest-pill.active { background: var(--rose); border-color: var(--rose); }
-  .check-label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--gray-800); user-select: none; white-space: nowrap; }
-  .check-all-label { background: var(--gray-100); padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 600; color: var(--navy); }
-  .selection-badge { font-size: 12px; color: var(--gray-600); font-weight: 600; background: var(--gray-100); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
-  /* Supprimer l'ancien bandeau et les anciens filtres si CSS présent */
-  .filter-bandeau, .filters { display: none !important; }
-
-
-.btn-edit-user {
-  background: none;
-  border: 1.5px solid var(--gray-300);
-  border-radius: var(--radius-sm);
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--gray-600);
-  transition: all 0.15s;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.btn-edit-user:hover {
-  background: var(--gray-100);
-  color: var(--navy);
-  border-color: var(--gray-400);
-}
-
-</style>
-  <script>
-    // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.18';
-    const storedVersion = sessionStorage.getItem('dispatchis_version');
-    if (storedVersion && storedVersion !== APP_VERSION) {
-      sessionStorage.setItem('dispatchis_version', APP_VERSION);
-      window.location.href = window.location.href.split('?')[0] + '?v=' + APP_VERSION;
-    } else {
-      sessionStorage.setItem('dispatchis_version', APP_VERSION);
-    }
-  </script>
-  <!-- Cloudflare Turnstile — Anti-brute force -->
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatchis v2.5.20 - Ticket 1 intégré</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* Styles existants + nouveaux pour Ticket 1 */
+        .proposal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .dossier-card { border: 2px solid #e5e7eb; border-radius: 1rem; transition: all 0.3s; cursor: move; }
+        .dossier-card:hover { border-color: #f59e0b; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .gestionnaire-zone { min-height: 200px; border: 3px dashed #d1d5db; border-radius: 1rem; padding: 1.5rem; transition: all 0.3s; }
+        .gestionnaire-zone.drag-over { border-color: #f59e0b; background-color: #fef3c7; }
+        .btn-dispatch { @apply bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl hover:shadow-2xl text-lg uppercase tracking-wide transform hover:scale-105 transition-all duration-300 w-full lg:w-auto; }
+        .stats-bandeau-item { @apply px-4 py-3 rounded-xl font-bold text-sm shadow-sm; }
+        .drop-zone-empty { @apply text-gray-400 text-sm italic py-8 text-center border-2 border-dashed border-gray-300 rounded-xl; }
+    </style>
 </head>
-<body>
-
-<div id="login-screen">
-  <div class="login-box">
-    <div class="login-logo">
-      <div class="login-logo-brand">Dispatchis</div>
-      <div class="login-slogan">La distribution de sinistres, simplifiée.</div>
-    </div>
-    <div class="login-divider"></div>
-
-    <div class="login-field">
-      <label class="login-label">Adresse e-mail</label>
-      <input type="email" id="login-email" placeholder="prenom.nom@dispatchis.fr" autocomplete="email">
-    </div>
-    <div class="login-field">
-      <label class="login-label">Mot de passe</label>
-      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter') doLogin()">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-rose-50 min-h-screen">
+    <!-- LOADING SCREEN -->
+    <div id="loading" class="fixed inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-rose-900 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="w-24 h-24 border-4 border-white/20 border-t-rose-500 rounded-full animate-spin mx-auto mb-6 shadow-2xl"></div>
+            <h1 class="text-4xl font-black bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent mb-3">Dispatchis</h1>
+            <p class="text-slate-300 text-xl font-semibold mb-2">v2.5.20 - Ticket 1 Distribution</p>
+            <p class="text-slate-400">Sélection + Proposition + Dispatch</p>
+        </div>
     </div>
 
-    <button onclick="doLogin()">Se connecter</button>
-    <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
-
-    <div class="login-rgpd">
-      🔒 Vos données de connexion sont sécurisées. Aucun dossier sinistre n'est conservé au-delà de la journée.<br>
-      <a href="#" onclick="showMentionsLegales(); return false;">Mentions légales &amp; confidentialité</a>
-    </div>
-
-    <div class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</div>
-  </div>
-</div>
-
-<div id="app-screen">
-  <header>
-    <div class="header-left">
-      <span style="font-size:18px">🛡️</span>
-      <span class="header-title">Dispatchis</span>
-    </div>
-    <div class="header-right">
-      <span class="header-username" id="header-name"></span>
-      <span class="header-role-tag" id="header-role"></span>
-      <span class="header-sep">|</span>
-      <button class="btn-header" onclick="showChangePassword()">🔑 Mot de passe</button>
-      <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
-      <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
-    </div>
-  </header>
-  <div class="tabs" id="tabs-container"></div>
-  <div class="content" id="main-content"></div>
-</div>
-
-<script>
-const SUPABASE_URL = 'https://xwiguxvmlqskzamapyzf.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aWd1eHZtbHFza3phbWFweXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODUwMTMsImV4cCI6MjA4ODc2MTAxM30.6on-JPw82PY3LZlUiHDwWlSkOt2l_rmfIsDwGPo137M';
-const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-let currentUser = null;
-let currentUserData = null;
-let currentTab = 'dashboard';
-let allDossiers = [];
-let allUsers = [];
-let searchQuery = '';
-let filterGestionnaire = '';
-let filterStatut = '';
-
-// ── VÉRIFICATION VERSION SUPABASE ────────────────────────
-async function checkVersionSync() {
-  try {
-    const { data, error } = await db.rpc('check_app_version', { version_live: APP_VERSION });
-    if (error || !data) return;
-    if (data.status === 'mismatch') {
-      if (document.getElementById('version-banner')) return;
-      const banner = document.createElement('div');
-      banner.id = 'version-banner';
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#e74c3c,#c0392b);color:white;text-align:center;padding:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px';
-      banner.innerHTML = '⚠️ Nouvelle version (v' + data.version_attendue + ') disponible.'
-        + '<button onclick="sessionStorage.removeItem(\"dispatchis_version\"); window.location.href = window.location.pathname + \"?v=\" + Date.now()" style="background:white;color:#e74c3c;border:none;padding:4px 14px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">🔄 Mettre à jour</button>'
-        + '<button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">✕</button>';
-      document.body.prepend(banner);
-    }
-  } catch(e) { /* silencieux */ }
-}
-
-// ===== AUTH =====
-
-// ===== JOURNALISATION RGPD — R4 =====
-async function auditLog(action, detail = '') {
-  try {
-    const user = currentUserData || {};
-    await db.from('audit_logs').insert({
-      user_email: user.email || (currentUser ? currentUser.email : 'inconnu'),
-      user_role:  user.role  || 'inconnu',
-      action,
-      detail,
-      session_id: currentUser ? currentUser.id : null
-    });
-  } catch(e) { /* silencieux — ne pas bloquer l'action métier */ }
-}
-// ===== FIN JOURNALISATION =====
-
-// ===== CLOUDFLARE TURNSTILE =====
-
-// ===== FIN TURNSTILE =====
-async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  errEl.style.display = 'none';
-  const { data, error } = await db.auth.signInWithPassword({ email, password });
-  if (error) { errEl.style.display = 'block';
-    // Reset Turnstile après échec
-    _turnstileToken = null;
-    if (window.turnstile) window.turnstile.reset();
-    const btn = document.getElementById('login-btn');
-    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '🔒 Vérification en cours…'; } return; }
-  currentUser = data.user;
-  await loadUserData();
-  await auditLog('CONNEXION', 'Connexion réussie');
-}
-
-async function loadUserData() {
-  const { data } = await db.from('utilisateurs').select('id,email,nom,prenom,role,actif').eq('email', currentUser.email).single();
-  if (!data) { showNotif('Utilisateur non trouvé dans la base.', 'error'); await db.auth.signOut(); return; }
-  currentUserData = data;
-  // Vérifier lockout d'urgence au démarrage
-  const _lockoutUntil = parseInt(localStorage.getItem('dispatchis_emergency_lockout') || '0');
-  if (_lockoutUntil && Date.now() < _lockoutUntil) {
-    showLockoutScreen(); return;
-  } else if (_lockoutUntil) {
-    localStorage.removeItem('dispatchis_emergency_lockout');
-    localStorage.removeItem('dispatchis_emergency_time');
-  }
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'block';
-  document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
-  document.getElementById('header-role').textContent = data.role.toUpperCase();
-  checkVersionSync();
-  buildTabs();
-  await loadAllUsers();
-  showTab('dashboard');
-  // Afficher le bouton reset uniquement pour admin/manager
-  const btnReset = document.getElementById('btn-reset-header');
-  if (btnReset) btnReset.style.display = ['admin','manager'].includes(data.role) ? '' : 'none';
-}
-
-async function doLogout() {
-  await auditLog('DECONNEXION', 'Déconnexion utilisateur');
-  await db.auth.signOut();
-  currentUser = null; currentUserData = null;
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('app-screen').style.display = 'none';
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-password').value = '';
-}
-
-// ===== CHANGER MOT DE PASSE =====
-function showChangePassword() {
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'pwd-modal';
-  modal.innerHTML = `
-    <div class="modal">
-      <h2>🔑 Changer mon mot de passe</h2>
-      <label>Nouveau mot de passe</label>
-      <input type="password" id="new-pwd" placeholder="Minimum 6 caractères">
-      <label>Confirmer le mot de passe</label>
-      <input type="password" id="confirm-pwd" placeholder="Répétez le mot de passe">
-      <div class="modal-error" id="pwd-error"></div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeModal('pwd-modal')">Annuler</button>
-        <button class="btn btn-primary" onclick="doChangePassword()">Enregistrer</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-async function doChangePassword() {
-  const newPwd = document.getElementById('new-pwd').value;
-  const confirmPwd = document.getElementById('confirm-pwd').value;
-  const errEl = document.getElementById('pwd-error');
-  errEl.style.display = 'none';
-  if (newPwd.length < 6) { errEl.textContent = 'Le mot de passe doit contenir au moins 6 caractères.'; errEl.style.display = 'block'; return; }
-  if (newPwd !== confirmPwd) { errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.style.display = 'block'; return; }
-  const { error } = await db.auth.updateUser({ password: newPwd });
-  if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
-  closeModal('pwd-modal');
-  showNotif('✅ Mot de passe modifié avec succès !', 'success');
-}
-
-function closeModal(id) {
-  const el = document.getElementById(id);
-  if (el) el.remove();
-}
-
-// ===== TABS =====
-function buildTabs() {
-  const role = currentUserData.role;
-  const tabs = [{ id: 'dashboard', label: '📊 Tableau de bord' }];
-  if (role === 'admin' || role === 'manager') tabs.push({ id: 'import', label: '📂 Importer Excel' });
-  if (role === 'admin' || role === 'manager') tabs.push({ id: 'attribution', label: '📋 Attribution' });
-  tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
-  if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
-  if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
-  const container = document.getElementById('tabs-container');
-  container.innerHTML = tabs.map(t =>
-    `<div class="tab" id="tab-${t.id}" onclick="showTab('${t.id}')">${t.label}</div>`
-  ).join('');
-}
-
-function showTab(id) {
-  // Reset filtres seulement si on QUITTE attribution
-  if (currentTab === 'attribution' && id !== 'attribution') {
-    searchQuery = '';
-    window._fPortefeuille = ''; window._fType = ''; window._fNature = '';
-    window._fStatut = ''; window._fGestionnaire = ''; window._fNonAttribue = false;
-  }
-  currentTab = id;
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const el = document.getElementById('tab-' + id);
-  if (el) el.classList.add('active');
-  if (id === 'dashboard') renderDashboard();
-  else if (id === 'import') renderImport();
-  else if (id === 'attribution') renderAttribution();
-  else if (id === 'mesdossiers') renderMesDossiers();
-  else if (id === 'utilisateurs') renderUtilisateurs();
-  else if (id === 'audit') renderAuditLogs();
-}
-
-// ===== LOAD DATA =====
-async function loadAllUsers() {
-  const { data } = await db.from('utilisateurs').select('id,nom,prenom,role,email,actif').eq('actif', true);
-  allUsers = data || [];
-}
-
-async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp').order('created_at', { ascending: true });
-  allDossiers = data || [];
-}
-
-// ===== DASHBOARD =====
-
-// ── T2 — LIBÉRER UN GESTIONNAIRE ─────────────────────────────────
-function showReleaseManager(nom) {
-  const dossiers = allDossiers.filter(d => d.gestionnaire === nom && !d.traite);
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'release-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.style.cssText = 'text-align:center;max-width:440px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">🔓</div>'
-    + '<h2 style="color:#e74c3c">Libérer ' + nom + ' ?</h2>'
-    + '<p style="color:#666;margin:16px 0">Cette action va libérer <strong>' + dossiers.length + ' dossier(s) non traité(s)</strong> et les remettre disponibles.</p>'
-    + (dossiers.length === 0 ? '<p style="color:#27ae60;font-weight:600">✅ Aucun dossier non traité à libérer.</p>' : '');
-  const btns = document.createElement('div');
-  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
-  const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler';
-  btnC.onclick = () => closeModal('release-modal');
-  btns.appendChild(btnC);
-  if (dossiers.length > 0) {
-    const btnO = document.createElement('button'); btnO.className = 'btn btn-danger';
-    btnO.textContent = '🔓 Confirmer la libération';
-    btnO.onclick = () => doReleaseManager(nom);
-    btns.appendChild(btnO);
-  }
-  inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-async function doReleaseManager(nom) {
-  closeModal('release-modal');
-  const dossiers = allDossiers.filter(d => d.gestionnaire === nom && !d.traite);
-  let ok = 0;
-  for (const d of dossiers) {
-    const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'nonattribue' }).eq('id', d.id);
-    if (!error) ok++;
-  }
-  showNotif('🔓 ' + ok + ' dossier(s) libéré(s) pour ' + nom, 'success');
-  await loadDossiers(); renderDashboard();
-}
-
-
-// ── T4 — RÉINITIALISATION ────────────────────────────────────────
-function showResetMenu() {
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'reset-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.style.cssText = 'text-align:center;max-width:440px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">⚙️</div>'
-    + '<h2 style="color:#e74c3c">Réinitialisation</h2>'
-    + '<p style="color:#666;margin:16px 0">Choisissez le type de réinitialisation :</p>';
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;margin-top:20px';
-  const b1 = document.createElement('button'); b1.className = 'btn btn-warning';
-  b1.innerHTML = '🔄 Réinitialiser les attributions<br><small style="font-weight:400;opacity:0.8">Supprime toutes les attributions, remet les statuts à zéro</small>';
-  b1.onclick = () => showResetConfirm('attributions');
-  const b2 = document.createElement('button'); b2.className = 'btn btn-danger';
-  b2.innerHTML = '💣 Réinitialisation complète<br><small style="font-weight:400;opacity:0.8">Supprime TOUTES les données importées</small>';
-  b2.onclick = () => showResetConfirm('complet');
-  const b3 = document.createElement('button'); b3.className = 'btn btn-secondary';
-  b3.style.marginTop = '4px'; b3.textContent = 'Annuler';
-  b3.onclick = () => closeModal('reset-modal');
-  wrap.appendChild(b1); wrap.appendChild(b2); wrap.appendChild(b3);
-  inner.appendChild(wrap); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-function showResetConfirm(type) {
-  closeModal('reset-modal');
-  const isComplet = type === 'complet';
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'reset-confirm-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.style.cssText = 'text-align:center;max-width:420px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">' + (isComplet ? '💣' : '🔄') + '</div>'
-    + '<h2 style="color:#e74c3c">' + (isComplet ? 'Réinitialisation COMPLÈTE' : 'Réinitialiser les attributions') + '</h2>'
-    + '<p style="color:#666;margin:16px 0">' + (isComplet
-      ? '⚠️ <strong>ATTENTION !</strong> Cette action supprimera <strong>tous les dossiers</strong>. Cette action est <strong>irréversible</strong>.'
-      : 'Toutes les attributions seront supprimées et les statuts remis à zéro.') + '</p>'
-    + (isComplet ? '<p style="color:#e74c3c;font-weight:700;font-size:15px">Tapez CONFIRMER pour valider :</p><input type="text" id="reset-confirm-input" placeholder="CONFIRMER" style="width:100%;padding:10px;border:2px solid #e74c3c;border-radius:8px;font-size:15px;text-align:center;margin-bottom:16px">' : '');
-  const btns = document.createElement('div');
-  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:8px';
-  const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler';
-  btnC.onclick = () => closeModal('reset-confirm-modal');
-  const btnO = document.createElement('button'); btnO.className = 'btn btn-danger';
-  btnO.textContent = isComplet ? '💣 Supprimer tout' : '🔄 Confirmer la réinitialisation';
-  btnO.onclick = () => doReset(type);
-  btns.appendChild(btnC); btns.appendChild(btnO);
-  inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-async function doReset(type) {
-  if (type === 'complet') {
-    const input = document.getElementById('reset-confirm-input');
-    if (!input || input.value.trim() !== 'CONFIRMER') {
-      showNotif('Tapez CONFIRMER pour valider.', 'error'); return;
-    }
-    closeModal('reset-confirm-modal');
-    // Supprimer par batch via IDs réels
-  const allIds = allDossiers.map(d => d.id);
-  if (allIds.length === 0) { showNotif('Aucun dossier à supprimer.', 'info'); return; }
-  const { error } = await db.from('dossiers').delete().in('id', allIds);
-    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    await auditLog('RESET_COMPLET', allIds.length + ' dossiers supprimés définitivement');
-    showNotif('💣 ' + allIds.length + ' dossiers supprimés.', 'success');
-  } else {
-    closeModal('reset-confirm-modal');
-    const allIds2 = allDossiers.map(d => d.id);
-  if (allIds2.length === 0) { showNotif('Aucun dossier à réinitialiser.', 'info'); return; }
-  const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'nonattribue', traite: false }).in('id', allIds2);
-    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    await auditLog('RESET_PARTIEL', allIds2.length + ' dossiers réinitialisés');
-    showNotif('🔄 ' + allIds2.length + ' dossiers réinitialisés.', 'success');
-  }
-  await loadDossiers(); renderDashboard();
-}
-
-async function renderDashboard() {
-  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
-  await loadDossiers();
-  const role = currentUserData.role;
-  // Filtre 3 mois pour les stats
-  const cutoff3m = new Date(); cutoff3m.setMonth(cutoff3m.getMonth() - 3);
-  const dos3m = allDossiers.filter(d => !d.created_at || new Date(d.created_at) >= cutoff3m);
-  const total = dos3m.length;
-  const traites = dos3m.filter(d => d.traite).length;
-  const nonAttribues = dos3m.filter(d => !d.gestionnaire).length;
-  const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-  const mesDossiers = dos3m.filter(d => d.gestionnaire === monNom);
-  const mesTraites = mesDossiers.filter(d => d.traite).length;
-
-  let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h2 style="color:var(--navy);margin:0">Tableau de bord</h2><span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 Statistiques des 3 derniers mois</span></div><div class="stats-grid">';
-  if (role === 'admin' || role === 'manager') {
-    html += `
-      <div class="stat-card"><div class="number">${total}</div><div class="label">Total dossiers</div></div>
-      <div class="stat-card"><div class="number" style="color:#27ae60">${traites}</div><div class="label">Traités</div></div>
-      <div class="stat-card"><div class="number" style="color:#e67e22">${total - traites}</div><div class="label">En cours</div></div>
-      <div class="stat-card"><div class="number" style="color:#e74c3c">${nonAttribues}</div><div class="label">Non attribués</div></div>`;
-  }
-  html += `
-    <div class="stat-card"><div class="number">${mesDossiers.length}</div><div class="label">Mes dossiers</div></div>
-    <div class="stat-card"><div class="number" style="color:#27ae60">${mesTraites}</div><div class="label">Mes dossiers traités</div></div>
-  </div>`;
-
-  if ((role === 'admin' || role === 'manager') && total > 0) {
-    html += `<div class="table-container"><div class="table-toolbar"><h2>Répartition par gestionnaire</h2></div><table>
-      <thead><tr><th>Gestionnaire</th><th>Rôle</th><th>Total</th><th>Traités</th><th>En cours</th><th>Progression</th><th></th></tr></thead><tbody>`;
-    const membres = allUsers.filter(u => u.role !== 'admin' || u.email === currentUserData.email);
-    membres.forEach(g => {
-      const nom = g.prenom + ' ' + g.nom;
-      const t = dos3m.filter(d => d.gestionnaire === nom).length;
-      const tr = dos3m.filter(d => d.gestionnaire === nom && d.traite).length;
-      const pct = t > 0 ? Math.round(tr / t * 100) : 0;
-      html += `<tr><td><strong>${nom}</strong></td><td><span class="badge role-${g.role}" style="padding:3px 8px;border-radius:10px;font-size:11px">${g.role}</span></td>
-        <td>${t}</td><td>${tr}</td><td>${t - tr}</td>
-        <td><div style="display:flex;align-items:center;gap:8px">
-        <div style="background:#eee;border-radius:10px;height:8px;width:80px">
-        <div style="background:#27ae60;height:8px;border-radius:10px;width:${pct}%"></div></div>
-        <small style="color:#888">${pct}%</small></div></td><td><button class="btn btn-warning" style="padding:4px 12px;font-size:12px" onclick="showReleaseManager('${nom}')">🔓 Libérer</button></td></tr>`;
-    });
-    html += '</tbody></table></div>';
-  }
-  document.getElementById('main-content').innerHTML = html;
-}
-
-// ===== IMPORT =====
-function renderImport() {
-  document.getElementById('main-content').innerHTML = `
-    <div class="upload-zone" onclick="document.getElementById('file-input').click()">
-      <div class="icon">📂</div>
-      <h3>Cliquez pour importer un fichier Excel</h3>
-      <p>Formats acceptés : .xlsx, .xls</p>
-    </div>
-    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(event)">
-    <div id="import-result"></div>`;
-}
-
-function detectPortefeuille(refContrat) {
-  const r = (refContrat || '').toUpperCase();
-  if (r.includes('OPTI')) return 'OPTINEO';
-  return 'MIA';
-}
-
-function detectType(refContrat) {
-  const r = (refContrat || '').toUpperCase();
-  if (r.includes('MRH')) return 'Habitation';
-  return 'Auto';
-}
-
-async function handleFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    const workbook = XLSX.read(e.target.result, { type: 'array' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-    if (!rows.length) { showNotif('Fichier vide ou format incorrect.', 'error'); return; }
-
-    // Normalisation des clés : on crée une map clé_normalisée -> clé_originale
-    const firstRow = rows[0];
-    const normalize = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-    const keyMap = {};
-    Object.keys(firstRow).forEach(k => { keyMap[normalize(k)] = k; });
-
-    const get = (r, ...candidates) => {
-      for (const c of candidates) {
-        const norm = normalize(c);
-        if (keyMap[norm] !== undefined && r[keyMap[norm]] !== undefined && r[keyMap[norm]] !== '') {
-          return String(r[keyMap[norm]]).trim();
-        }
-      }
-      return '';
-    };
-
-    document.getElementById('import-result').innerHTML = '<div class="loading">Import en cours...</div>';
-
-    const mapped = rows.map(r => ({
-      ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
-      ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
-      nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
-      nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
-      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
-      portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
-      gestionnaire: '',
-      traite: false,
-      verrouille: false
-    })).filter(d => d.ref_sinistre);
-
-    if (!mapped.length) {
-      showNotif('Aucune ligne valide trouvée. Vérifiez les noms de colonnes.', 'error');
-      document.getElementById('import-result').innerHTML = '';
-      return;
-    }
-
-    const { error } = await db.from('dossiers').insert(mapped);
-    if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
-    await auditLog('IMPORT_EXCEL', mapped.length + ' dossiers importés');
-    showNotif('✅ ' + mapped.length + ' dossiers importés. Données personnelles non conservées (RGPD).', 'success');
-    document.getElementById('import-result').innerHTML =
-      `<div class="stat-card" style="max-width:300px"><div class="number" style="color:#27ae60">${mapped.length}</div><div class="label">Dossiers importés</div></div>`;
-    await loadDossiers();
-    await loadAllUsers();
-    showAutoAssignModal(mapped.length);
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// ===== DISPATCH =====
-// AUTO ASSIGN
-function showAutoAssignModal(totalImported) {
-  const gestionnaires = allUsers.filter(u => ['gestionnaire','manager'].includes(u.role));
-  if (!gestionnaires.length) return;
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'auto-assign-modal';
-  modal.style.zIndex = '3000';
-  modal.innerHTML = `
-    <div class="modal" style="max-width:500px;width:95vw">
-      <div style="font-size:40px;text-align:center;margin-bottom:8px">🎯</div>
-      <h2 style="text-align:center">Attribution automatique</h2>
-      <p style="color:#666;font-size:14px;text-align:center;margin-bottom:20px">
-        <strong>${totalImported}</strong> dossiers importés. Souhaitez-vous les attribuer maintenant ?
-      </p>
-      <div style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:16px">
-        ${gestionnaires.map(g => `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:normal;margin:0">
-              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" style="width:16px;height:16px;accent-color:var(--rose)">
-              <span>${g.prenom} ${g.nom}</span>
-              <span class="badge role-${g.role}" style="font-size:10px">${g.role}</span>
-            </label>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:12px;color:#888">Nb dossiers :</span>
-              <input type="number" class="gest-nb" data-nom="${g.prenom} ${g.nom}" value="10" min="1" max="${totalImported}"
-                style="width:60px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center">
+    <!-- HEADER -->
+    <header class="bg-white/90 backdrop-blur-md shadow-lg border-b border-white/50 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl ring-2 ring-white/30">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-black bg-gradient-to-r from-gray-900 via-slate-800 to-rose-900 bg-clip-text text-transparent">Dispatchis</h1>
+                        <p class="text-sm font-semibold text-gray-600 uppercase tracking-wider">Le bon dossier, au bon gestionnaire</p>
+                    </div>
+                </div>
+                <div id="header-user" class="flex items-center gap-4 hidden">
+                    <div class="text-right">
+                        <div id="header-name" class="font-bold text-lg text-gray-900"></div>
+                        <div id="header-role" class="text-xs bg-gradient-to-r from-rose-100 to-pink-100 text-rose-800 px-3 py-1 rounded-full font-bold uppercase tracking-wide"></div>
+                    </div>
+                    <img id="header-avatar" class="w-12 h-12 rounded-2xl shadow-md ring-2 ring-gray-200" src="">
+                    <button id="logout-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold px-6 py-2 rounded-xl border border-gray-300 transition-all duration-200 shadow-sm">Déconnexion</button>
+                </div>
             </div>
-          </div>`).join('')}
-      </div>
-      <div id="auto-assign-error" style="color:#e74c3c;font-size:13px;background:#fff5f5;padding:10px;border-radius:8px;display:none;margin-bottom:12px"></div>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn btn-secondary" onclick="closeModal('auto-assign-modal')">Passer →</button>
-        <button class="btn btn-primary" onclick="doAutoAssign(${totalImported})">✅ Attribuer automatiquement</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-async function doAutoAssign(totalImported) {
-  const checks = [...document.querySelectorAll('.gest-check:checked')];
-  if (!checks.length) {
-    const err = document.getElementById('auto-assign-error');
-    err.textContent = 'Sélectionnez au moins un gestionnaire.';
-    err.style.display = 'block'; return;
-  }
-  const selections = checks.map(cb => ({
-    nom: cb.dataset.nom,
-    nb: parseInt(document.querySelector(`.gest-nb[data-nom="${cb.dataset.nom}"]`).value) || 10
-  }));
-  const totalDemande = selections.reduce((s, x) => s + x.nb, 0);
-  const dossiersNonAttribues = allDossiers.filter(d => !d.gestionnaire);
-  const disponibles = dossiersNonAttribues.length;
-  if (totalDemande > disponibles) {
-    const parGest = Math.floor(disponibles / selections.length);
-    const err = document.getElementById('auto-assign-error');
-    err.innerHTML = `⚠️ Vous demandez <strong>${totalDemande}</strong> dossiers mais il n'en reste que <strong>${disponibles}</strong> non attribués.<br><br>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
-        <button class="btn btn-secondary" onclick="document.getElementById('auto-assign-error').style.display='none'">✏️ Modifier</button>
-        <button class="btn btn-warning" onclick="doAutoAssignEquitable(${disponibles})">⚖️ Répartir équitablement (${parGest} chacun)</button>
-      </div>`;
-    err.style.display = 'block'; return;
-  }
-  await executeAutoAssign(selections, dossiersNonAttribues);
-}
-
-async function doAutoAssignEquitable(disponibles) {
-  const checks = [...document.querySelectorAll('.gest-check:checked')];
-  const nb = Math.floor(disponibles / checks.length);
-  const selections = checks.map(cb => ({ nom: cb.dataset.nom, nb }));
-  const dossiers = allDossiers.filter(d => !d.gestionnaire);
-  await executeAutoAssign(selections, dossiers);
-}
-
-async function executeAutoAssign(selections, dossiers) {
-  let idx = 0;
-  for (const sel of selections) {
-    const batch = dossiers.slice(idx, idx + sel.nb);
-    for (const d of batch) {
-      await db.from('dossiers').update({ gestionnaire: sel.nom, verrouille: true }).eq('id', d.id);
-    }
-    idx += sel.nb;
-  }
-  closeModal('auto-assign-modal');
-  showNotif(`✅ ${idx} dossiers attribués et verrouillés !`, 'success');
-  await loadDossiers();
-  showTab('attribution');
-}
-
-function showDispatch() {
-  const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'encours' && d.statut !== 'ouvert' && d.statut !== 'traite');
-  if (!verrouilles.length) { showNotif('Aucun dossier verrouillé à dispatcher.', 'error'); return; }
-  const modal = document.createElement('div');
-  modal.className = 'dispatch-modal-overlay';
-  modal.id = 'dispatch-modal';
-  modal.innerHTML = `
-    <div class="dispatch-modal">
-      <div class="icon">🚀</div>
-      <h2>Confirmer l'attribution</h2>
-      <p>Vous êtes sur le point d'envoyer</p>
-      <div class="count">${verrouilles.length}<small>dossiers verrouillés aux gestionnaires</small></div>
-      <p style="font-size:13px;color:#aaa">Les dossiers passeront en statut <strong>Attribué</strong> et seront visibles par les gestionnaires concernés.</p>
-      <div class="dispatch-actions">
-        <button class="btn btn-secondary" style="padding:12px 28px" onclick="closeModal('dispatch-modal')">Annuler</button>
-        <button class="btn-dispatch" onclick="doDispatch(${verrouilles.length})">🚀 DISPATCHER</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-async function doDispatch(count) {
-  closeModal('dispatch-modal');
-  const verrouilles = allDossiers.filter(d => d.verrouille && d.statut !== 'attribue' && d.statut !== 'encours' && d.statut !== 'ouvert' && d.statut !== 'traite');
-  const ids = verrouilles.map(d => d.id);
-  for (const id of ids) {
-    await db.from('dossiers').update({ statut: 'attribue' }).eq('id', id);
-  }
-  await auditLog('DISPATCH', `${count} dossiers dispatchés`);
-  showNotif(`🚀 ${count} dossiers dispatchés avec succès !`, 'success');
-  window._fPortefeuille = ''; window._fType = ''; window._fNature = '';
-  window._fStatut = ''; window._fGestionnaire = ''; window._fNonAttribue = false;
-  searchQuery = '';
-  await loadDossiers();
-  renderAttribution();
-}
-
-// ===== COPIER REFERENCE =====
-async function copyRef(ref, dossierstatut, id, btn) {
-  // Si un dossier est "encours", le passer en "ouvert"
-  if (dossierstatut === 'encours') {
-    const enCours = allDossiers.find(d => d.statut === 'encours' && d.id !== id);
-    if (enCours) {
-      await db.from('dossiers').update({ statut: 'ouvert' }).eq('id', enCours.id);
-      allDossiers = allDossiers.map(d => d.id === enCours.id ? {...d, statut: 'ouvert'} : d);
-    }
-  }
-  // Passer ce dossier en "encours"
-  await db.from('dossiers').update({ statut: 'encours' }).eq('id', id);
-  allDossiers = allDossiers.map(d => d.id === id ? {...d, statut: 'encours'} : d);
-  // Copier dans le presse-papiers
-  navigator.clipboard.writeText(ref).then(() => {
-    btn.textContent = '✅'; btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋'; btn.classList.remove('copied'); }, 2000);
-  });
-}
-
-function statutBadge(statut, verrouille) {
-  if (verrouille && statut === 'nonattribue') return '<span class="badge badge-verrouille">🔒 Verrouillé</span>';
-  const map = {
-    'nonattribue': ['badge-nonattribue', 'Non attribué'],
-    'attribue':    ['badge-attribue',    'Attribué'],
-    'encours':     ['badge-encours',     'En cours'],
-    'ouvert':      ['badge-ouvert',      'Ouvert'],
-    'traite':      ['badge-traite2',     'Traité'],
-    'verrouille':  ['badge-verrouille',  '🔒 Verrouillé'],
-  };
-  const [cls, label] = map[statut] || map['nonattribue'];
-  return `<span class="badge ${cls}">${label}</span>`;
-}
-
-// ===== ATTRIBUTION =====
-async function renderAttribution() {
-  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
-  await loadDossiers();
-
-  const role = currentUserData.role;
-  const gestionnaires = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
-
-  if (window._fPortefeuille === undefined) window._fPortefeuille = '';
-  if (window._fType === undefined) window._fType = '';
-  if (window._fNature === undefined) window._fNature = '';
-  if (window._fStatut === undefined) window._fStatut = '';
-  if (window._fGestionnaire === undefined) window._fGestionnaire = '';
-  if (window._fNonAttribue === undefined) window._fNonAttribue = false;
-
-  const portefeuilles = [...new Set(allDossiers.map(d => d.portefeuille).filter(Boolean))].sort();
-  const types = [...new Set(allDossiers.map(d => d.type).filter(Boolean))].sort();
-  const natures = [...new Set(allDossiers.map(d => d.nature_label || d.nature).filter(Boolean))].sort();
-  const gestionnairesNoms = [...new Set(allDossiers.map(d => d.gestionnaire).filter(Boolean))].sort();
-
-  let filtered = allDossiers;
-  if (searchQuery) filtered = filtered.filter(d =>
-    (d.ref_sinistre||d.refsinistre||'').toLowerCase().includes(searchQuery) ||
-    (d.ref_contrat||d.refcontrat||'').toLowerCase().includes(searchQuery) ||
-    (d.gestionnaire||'').toLowerCase().includes(searchQuery) ||
-    (d.nature_label||d.nature||'').toLowerCase().includes(searchQuery)
-  );
-  if (window._fPortefeuille) filtered = filtered.filter(d => d.portefeuille === window._fPortefeuille);
-  if (window._fType) filtered = filtered.filter(d => d.type === window._fType);
-  if (window._fNature) filtered = filtered.filter(d => (d.nature_label||d.nature) === window._fNature);
-  if (window._fStatut) filtered = filtered.filter(d => (d.statut||'nonattribue') === window._fStatut);
-  if (window._fGestionnaire) filtered = filtered.filter(d => (d.gestionnaire||'') === window._fGestionnaire);
-  if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
-
-  // Bandeau résumé par critères de recherche (hors gestionnaire)
-  const countsPortefeuille = portefeuilles.map(v => ({ label: v, count: allDossiers.filter(d => d.portefeuille === v).length, color: '#1a5276', bg: '#e8f4fd' }));
-  const countsType = types.map(v => ({ label: v, count: allDossiers.filter(d => d.type === v).length, color: '#1e8449', bg: '#eafaf1' }));
-  const countsNature = natures.map(v => ({ label: v, count: allDossiers.filter(d => (d.nature_label||d.nature) === v).length, color: '#d35400', bg: '#fdebd0' }));
-  const _knownStatuts = ['attribue','encours','ouvert','traite'];
-  const _normStatut = d => {
-    const s = (d.statut||'').toLowerCase().replace(/[^a-z]/g,'');
-    if (s === 'attribue' || s === 'attribute') return 'attribue';
-    if (s === 'encours' || s === 'en_cours' || s === 'encour') return 'encours';
-    if (s === 'ouvert') return 'ouvert';
-    if (s === 'traite' || s === 'traité') return 'traite';
-    return 'nonattribue'; // fallback identique à statutBadge
-  };
-  const countsStatut = [
-    { value: 'nonattribue', label: 'Non attribué' },
-    { value: 'attribue',    label: 'Attribué' },
-    { value: 'traite',      label: 'Traité' }
-  ].map(s => ({ value: s.value, label: s.label, count: allDossiers.filter(d => _normStatut(d) === s.value).length }));
-
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
-
-  let html = `
-  <div <div class="unified-panel">
-    <!-- LIGNE 1 : Recherche + Portefeuille + Type + Nature (pills) -->
-    <div class="urow urow-1">
-      <input class="search-bar" placeholder="🔍 Réf. sinistre / contrat..." value="${searchQuery||''}"
-        oninput="searchQuery=this.value.toLowerCase();renderAttribution()" style="flex-shrink:0;width:220px">
-      <div class="urow-sep"></div>
-      ${countsPortefeuille.map(s => `<span class="filter-pill ${window._fPortefeuille===s.label?'active':''}" onclick="window._fPortefeuille=(window._fPortefeuille===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
-      <div class="urow-sep"></div>
-      ${countsType.map(s => `<span class="filter-pill ${window._fType===s.label?'active':''}" onclick="window._fType=(window._fType===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
-      <div class="urow-sep"></div>
-      ${countsNature.map(s => `<span class="filter-pill ${window._fNature===s.label?'active':''}" onclick="window._fNature=(window._fNature===\'${s.label}\'?\'\':\'${s.label}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
-    </div>
-    <!-- LIGNE 2 : Statut (pills) + Gestionnaire + Non attribués -->
-    <div class="urow urow-2">
-      ${countsStatut.map(s => `<span class="filter-pill statut-pill ${window._fStatut===s.value?'active':''}" onclick="window._fStatut=(window._fStatut===\'${s.value}\'?\'\':\'${s.value}\');renderAttribution()" title="${s.label}">${s.label} <strong>${s.count}</strong></span>`).join('')}
-      <div class="urow-sep"></div>
-      <div class="urow-sep"></div>
-      ${gestionnairesNoms.map(g => `<span class="filter-pill gest-pill ${window._fGestionnaire===g?'active':''}" onclick="window._fGestionnaire=(window._fGestionnaire===\'${g}\'?\'\':\'${g}\');renderAttribution()" title="${g}">${g.split(' ')[0]}</span>`).join('')}
-      <label class="check-label">
-        <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
-        Non attribués seulement
-      </label>
-    </div>
-    <!-- LIGNE 3 : Toolbar dispatch -->
-    <div class="urow urow-3">
-      <label class="check-label check-all-label">
-        <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--rose)">
-        Tout sélectionner
-      </label>
-      <div class="urow-sep"></div>
-      <select id="assign-bulk-select" class="filter-select" style="min-width:190px">
-        <option value="">— Attribuer à —</option>
-        ${gestionnaires.map(g => `<option value="${g.prenom} ${g.nom}">${g.prenom} ${g.nom} (${g.role})</option>`).join('')}
-      </select>
-      <button class="btn btn-warning" onclick="lockSelection()" style="display:flex;align-items:center;gap:6px">🔒 Verrouiller</button>
-      <button class="btn btn-secondary" onclick="unlockSelection()" style="display:flex;align-items:center;gap:6px">🔓 Déverrouiller</button>
-      <span class="selection-badge" id="selection-count">0 sélectionné(s)</span>
-      <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        🚀 DISPATCHER ${nbVerrouilles > 0 ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:1px 8px">${nbVerrouilles}</span>` : ''}
-      </button>
-    </div>
-  </div>
-
-  <div class="table-container">
-    <div class="table-toolbar">
-      <h2>Attribution des dossiers <span style="color:#888;font-weight:400;font-size:14px">(${filtered.length})</span></h2>
-    </div>
-    <table>
-      <thead><tr>
-        <th><input type="checkbox" id="check-all" onchange="toggleAll(this.checked)"></th>
-        <th>Réf. Sinistre</th>
-        <th>Portefeuille</th>
-        <th>Réf. Contrat</th>
-        <th>Type</th>
-        <th>Nature</th>
-        <th>Gestionnaire</th>
-        <th>🔒</th>
-        <th>Statut</th>
-        <th>Traité</th>
-      </tr></thead>
-      <tbody>`;
-
-  if (!filtered.length) {
-    html += `<tr><td colspan="10" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>`;
-  } else {
-    filtered.forEach(d => {
-      const statut = d.statut || 'nonattribue';
-      const monNom = `${currentUserData.prenom} ${currentUserData.nom}`;
-      const isManager = ['admin','manager'].includes(role);
-      const isMyDossier = d.gestionnaire === monNom;
-      const canCheckTraite = isManager || (isMyDossier && !d.traite);
-      const canUncheckTraite = isManager;
-      const canAdmin = isManager;
-      const canReassign = isManager || statut === 'nonattribue';
-
-      html += `<tr>
-        <td><input type="checkbox" class="row-check" data-id="${d.id}"
-          ${d.verrouille ? 'disabled title="Dossier verrouillé — libérez-le d\u0027abord"' : ''}
-          onchange="updateSelectionCount()"></td>
-        <td><strong>${d.ref_sinistre||''}</strong>
-          <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
-        </td>
-        <td><span class="badge badge-attribue">${d.portefeuille||'-'}</span></td>
-        <td>${d.ref_contrat||'-'}</td>
-        <td><span class="badge ${d.type==='Habitation'?'badge-encours':'badge-traite2'}">${d.type||'-'}</span></td>
-        <td>${d.nature_label||d.nature||'-'}</td>
-        <td>
-          <span style="font-size:13px;font-weight:600;color:${d.gestionnaire?'var(--navy)':'#bbb'}">
-            ${d.gestionnaire || '—'}
-          </span>
-        </td>
-        <td style="text-align:center;font-size:17px">
-          ${d.verrouille
-            ? (isManager
-                ? `<span title="Cliquer pour libérer" style="cursor:pointer;display:inline-block;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" onclick="showUnlockConfirm(${d.id})">🔒</span>`
-                : '<span title="Verrouillé" style="cursor:default">🔒</span>')
-            : '<span title="Non verrouillé" style="cursor:default;opacity:0.3">🔓</span>'
-          }
-        </td>
-        <td>${statutBadge(d.statut, d.verrouille)}</td>
-        <td style="text-align:center">
-          <span style="font-size:15px;opacity:${d.traite?'1':'0.2'}" title="${d.traite?'Traité':'Non traité'}">
-            ${d.traite ? '✅' : '⬜'}
-          </span>
-        </td>
-      </tr>`;
-    });
-  }
-
-  html += `</tbody></table></div>`;
-  document.getElementById('main-content').innerHTML = html;
-}
-// ===== MES DOSSIERS =====
-async function renderMesDossiers() {
-  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
-  await loadDossiers();
-  const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-  const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
-  let html = `<div class="stats-grid">
-    <div class="stat-card"><div class="number">${mesDossiers.length}</div><div class="label">Mes dossiers</div></div>
-    <div class="stat-card"><div class="number" style="color:#27ae60">${mesDossiers.filter(d=>d.traite).length}</div><div class="label">Traités</div></div>
-    <div class="stat-card"><div class="number" style="color:#e67e22">${mesDossiers.filter(d=>!d.traite).length}</div><div class="label">En cours</div></div>
-  </div>
-  <div class="table-container">
-    <div class="table-toolbar"><h2>Mes dossiers</h2><button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button></div>
-    <table><thead><tr>
-      <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
-    </tr></thead><tbody>`;
-  if (!mesDossiers.length) {
-    html += '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
-  } else {
-    mesDossiers.forEach(d => {
-      const statut = d.statut || 'nonattribue';
-      const canSee = ['attribue','encours','ouvert','traite'].includes(statut);
-      if (!canSee) return;
-      html += `<tr>
-        <td><strong>${d.ref_sinistre}</strong>
-          <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
-        </td>
-        <td>${d.ref_contrat}</td>
-        <td>${d.nature_label || d.nature}</td>
-        <td>${d.portefeuille}</td>
-        <td>${statutBadge(d.statut, d.verrouille)}</td>
-        <td><input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-          onchange="toggleTraite('${d.id}', this.checked, '${d.gestionnaire||''}')"></td>
-      </tr>`;
-    });
-  }
-  html += '</tbody></table></div>';
-  document.getElementById('main-content').innerHTML = html;
-}
-
-// ===== UTILISATEURS =====
-// ===== PURGE AUDIT LOGS (R4 — Rétention 3 mois) =====
-function confirmPurgeAuditLogs() {
-  // Sécurité : admin uniquement
-  if (currentUserData.role !== 'admin') {
-    showNotif('⛔ Action réservée à l\'administrateur.', 'error'); return;
-  }
-  // Modale de confirmation avec ré-authentification
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay'; overlay.id = 'purge-auth-modal';
-  overlay.innerHTML = `
-    <div class="modal" style="max-width:420px;text-align:center">
-      <div style="font-size:48px;margin-bottom:8px">🗑️</div>
-      <h2 style="color:#e74c3c;margin-bottom:6px">Purge des logs d'audit</h2>
-      <p style="color:#666;font-size:14px;margin-bottom:16px">
-        Cette action supprimera <strong>définitivement</strong> tous les logs<br>
-        de plus de <strong>3 mois</strong>. Elle est <u>irréversible</u>.
-      </p>
-      <p style="font-size:13px;color:#555;margin-bottom:8px">
-        Confirmez votre identité en entrant votre mot de passe :
-      </p>
-      <input type="password" id="purge-pwd-input" placeholder="Votre mot de passe..."
-        style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box">
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn btn-secondary" onclick="closeModal('purge-auth-modal')">❌ Annuler</button>
-        <button class="btn btn-danger" onclick="authenticateAndPurge()">✅ Confirmer la purge</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  setTimeout(() => document.getElementById('purge-pwd-input')?.focus(), 100);
-}
-
-async function authenticateAndPurge() {
-  const pwd = document.getElementById('purge-pwd-input')?.value;
-  if (!pwd) { showNotif('Veuillez entrer votre mot de passe.', 'error'); return; }
-  const { error } = await db.auth.signInWithPassword({
-    email: currentUser.email,
-    password: pwd
-  });
-  if (error) {
-    window._purgeFailCount = (window._purgeFailCount || 0) + 1;
-    const remaining = 3 - window._purgeFailCount;
-    if (window._purgeFailCount >= 3) {
-      closeModal('purge-auth-modal');
-      window._purgeFailCount = 0;
-      triggerEmergencyLockdown();
-      return;
-    }
-    showNotif(`❌ Mot de passe incorrect. ${remaining} tentative(s) restante(s) avant blocage d'urgence.`, 'error');
-    document.getElementById('purge-pwd-input').value = '';
-    return;
-  }
-  window._purgeFailCount = 0; // Reset compteur si succès
-  // Auth OK → étape 2 : justification obligatoire
-  closeModal('purge-auth-modal');
-  showPurgeJustificationModal();
-}
-
-function showPurgeJustificationModal() {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay'; overlay.id = 'purge-justif-modal';
-  overlay.innerHTML = `
-    <div class="modal" style="max-width:460px;text-align:center">
-      <div style="font-size:42px;margin-bottom:8px">📝</div>
-      <h2 style="color:#e67e22;margin-bottom:6px">Justification requise</h2>
-      <p style="font-size:14px;color:#555;margin-bottom:6px">
-        Identité vérifiée ✅ — Avant d'exécuter la purge, vous devez
-        <strong>justifier cette action</strong>.
-      </p>
-      <div style="background:#fff8e1;border:1.5px solid #f39c12;border-radius:8px;padding:10px 14px;margin-bottom:16px;text-align:left;font-size:12px;color:#7d6608">
-        ⚠️ <strong>Cette justification sera enregistrée de façon permanente</strong>
-        dans le journal de traçabilité et ne pourra pas être supprimée par la purge.
-      </div>
-      <textarea id="purge-justif-input" rows="4" placeholder="Motif de la purge manuelle (obligatoire)…&#10;Ex : Purge trimestrielle réglementaire du 14/03/2026"
-        style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:16px"></textarea>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn btn-secondary" onclick="closeModal('purge-justif-modal')">❌ Annuler</button>
-        <button class="btn btn-danger" onclick="validateAndPurge()">🗑️ Exécuter la purge</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  setTimeout(() => document.getElementById('purge-justif-input')?.focus(), 100);
-}
-
-async function validateAndPurge() {
-  const justif = (document.getElementById('purge-justif-input')?.value || '').trim();
-  if (justif.length < 10) {
-    showNotif('⚠️ La justification doit contenir au moins 10 caractères.', 'error');
-    return;
-  }
-  closeModal('purge-justif-modal');
-  doPurgeAuditLogs(justif);
-}
-async function doPurgeAuditLogs(justification = '') {
-  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 3);
-  const { error } = await db.from('audit_logs').delete().lt('created_at', cutoff.toISOString());
-  if (error) { showNotif('Erreur lors de la purge : ' + error.message, 'error'); return; }
-  const detail = 'Purge manuelle des logs > 3 mois' + (justification ? ' | Motif : ' + justification : '');
-  await auditLog('PURGE_LOGS', detail);
-  showNotif('🗑️ Logs de plus de 3 mois supprimés avec succès.', 'success');
-}
-// ===== FIN PURGE =====
-// ===== COMMANDE D'URGENCE — Blocage 30 min + RAZ données =====
-async function triggerEmergencyLockdown() {
-  // ÉTAPE 1 — Tracer en premier (audit_logs inaltérable)
-  await auditLog('URGENCE_LOCKDOWN',
-    '3 tentatives échouées sur purge — Chiffrement AES-256 des données utilisateurs + RAZ dossiers + blocage 30 min');
-
-  // ÉTAPE 2 — Chiffrement AES-256 des données utilisateurs (clé jetable — irrécupérable sans backup)
-  try {
-    // Générer une clé AES-256-GCM aléatoire jetable (jamais stockée)
-    const aesKey = await crypto.subtle.generateKey(
-      { name: 'AES-GCM', length: 256 }, true, ['encrypt']
-    );
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const enc = new TextEncoder();
-
-    // Récupérer tous les utilisateurs
-    const { data: users } = await db.from('utilisateurs').select('id,nom,prenom,role');
-    if (users && users.length > 0) {
-      for (const u of users) {
-        // Chiffrer nom + prenom
-        const payload = JSON.stringify({ nom: u.nom, prenom: u.prenom, role: u.role });
-        const encrypted = await crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv },
-          aesKey,
-          enc.encode(payload)
-        );
-        const encB64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
-        // Écraser les champs en base avec les données chiffrées
-        await db.from('utilisateurs').update({
-          nom:    '[ENC:' + encB64.substring(0, 40) + ']',
-          prenom: '[ENC:' + encB64.substring(40, 80) + ']'
-        }).eq('id', u.id);
-      }
-    }
-    // Clé NON stockée → crypto-shredding : données irrécupérables sans backup
-    await auditLog('URGENCE_CHIFFREMENT', 'Chiffrement AES-256-GCM exécuté — clé jetable non conservée — restauration backup requise');
-  } catch(e) {
-    await auditLog('URGENCE_CHIFFREMENT_ERREUR', 'Erreur chiffrement : ' + e.message);
-  }
-
-  // ÉTAPE 3 — RAZ des dossiers de travail
-  try {
-    const { data: ids } = await db.from('dossiers').select('id');
-    if (ids && ids.length > 0) {
-      await db.from('dossiers').delete().in('id', ids.map(d => d.id));
-    }
-  } catch(e) { /* silencieux */ }
-
-  // ÉTAPE 4 — Déconnexion forcée
-  await db.auth.signOut();
-
-  // ÉTAPE 5 — Lockout 30 min
-  const lockoutUntil = Date.now() + (30 * 60 * 1000);
-  localStorage.setItem('dispatchis_emergency_lockout', lockoutUntil.toString());
-  localStorage.setItem('dispatchis_emergency_time', new Date().toLocaleString('fr-FR'));
-
-  // ÉTAPE 6 — Écran de blocage
-  showLockoutScreen();
-}
-
-function showLockoutScreen() {
-  const lockoutUntil = parseInt(localStorage.getItem('dispatchis_emergency_lockout') || '0');
-  const lockoutTime  = localStorage.getItem('dispatchis_emergency_time') || '';
-  // Masquer tout
-  document.getElementById('login-screen').style.display  = 'none';
-  document.getElementById('app-screen').style.display    = 'none';
-
-  // Créer l'écran de blocage s'il n'existe pas
-  let screen = document.getElementById('lockout-screen');
-  if (!screen) {
-    screen = document.createElement('div'); screen.id = 'lockout-screen';
-    screen.style.cssText = 'position:fixed;inset:0;background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:sans-serif;text-align:center;padding:30px';
-    document.body.appendChild(screen);
-  }
-
-  const updateTimer = () => {
-    const remaining = Math.max(0, lockoutUntil - Date.now());
-    const min  = Math.floor(remaining / 60000);
-    const sec  = Math.floor((remaining % 60000) / 1000);
-    const timeStr = `${min}:${sec.toString().padStart(2,'0')}`;
-
-    screen.innerHTML = `
-      <div style="font-size:72px;margin-bottom:16px">🚨</div>
-      <h1 style="color:#e74c3c;font-size:28px;margin-bottom:8px">ACCÈS BLOQUÉ</h1>
-      <p style="color:#aaa;font-size:15px;margin-bottom:6px">3 tentatives d'authentification échouées détectées.</p>
-      <p style="color:#e74c3c;font-size:13px;margin-bottom:4px">🔐 Données utilisateurs chiffrées AES-256 — clé détruite.</p>
-      <p style="color:#e67e22;font-size:13px;margin-bottom:24px">🗑️ Données de travail réinitialisées. Restauration backup requise.</p>
-      <div style="background:#2d2d44;border-radius:16px;padding:24px 40px;margin-bottom:24px">
-        <div style="color:#fff;font-size:48px;font-weight:700;letter-spacing:4px">${remaining > 0 ? timeStr : '00:00'}</div>
-        <div style="color:#888;font-size:12px;margin-top:4px">Réouverture automatique</div>
-      </div>
-      <p style="color:#666;font-size:11px">Incident enregistré le ${lockoutTime}</p>
-      ${remaining <= 0 ? '<button onclick="unlockAfterLockout()" style="margin-top:20px;padding:12px 32px;background:#27ae60;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer">🔓 Accéder à nouveau</button>' : ''}
-    `;
-    if (remaining > 0) setTimeout(updateTimer, 1000);
-  };
-  updateTimer();
-}
-
-function unlockAfterLockout() {
-  localStorage.removeItem('dispatchis_emergency_lockout');
-  localStorage.removeItem('dispatchis_emergency_time');
-  const screen = document.getElementById('lockout-screen');
-  if (screen) screen.remove();
-  document.getElementById('login-screen').style.display = 'flex';
-}
-// ===== FIN COMMANDE D'URGENCE =====
-
-// ===== JOURNAL D'AUDIT (R4) =====
-async function renderAuditLogs() {
-  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement du journal...</div>';
-  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 3);
-  const { data, error } = await db.from('audit_logs')
-    .select('*')
-    .gte('created_at', cutoff.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(500);
-  if (error) { document.getElementById('main-content').innerHTML = '<p style="color:red">Erreur chargement logs : ' + error.message + '</p>'; return; }
-  const logs = data || [];
-  const badgeColor = {
-    CONNEXION:'#27ae60', DECONNEXION:'#7f8c8d',
-    DISPATCH:'#2980b9', RESET_COMPLET:'#e74c3c', RESET_PARTIEL:'#e67e22',
-    VERROUILLAGE:'#8e44ad', DEVERROUILLAGE:'#16a085',
-    IMPORT_EXCEL:'#2c3e50', AJOUT_UTILISATEUR:'#27ae60', MODIF_UTILISATEUR:'#f39c12',
-    DEMANDE_DOSSIER_SUPP:'#3498db', MARQUER_TRAITE:'#27ae60',
-    REMETTRE_EN_COURS:'#e67e22', PURGE_LOGS:'#e74c3c', URGENCE_LOCKDOWN:'#c0392b', URGENCE_CHIFFREMENT:'#922b21', URGENCE_CHIFFREMENT_ERREUR:'#e74c3c'
-  };
-  let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-      <h2 style="color:var(--navy);margin:0">🔍 Journal d'audit</h2>
-      <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
-    </div>`;
-  if (logs.length === 0) {
-    html += '<div style="text-align:center;padding:40px;color:#888">Aucune entrée dans le journal pour les 3 derniers mois.</div>';
-  } else {
-    html += '<div class="table-container"><table><thead><tr><th>Date / Heure</th><th>Utilisateur</th><th>Rôle</th><th>Action</th><th>Détail</th></tr></thead><tbody>';
-    logs.forEach(l => {
-      const dt = new Date(l.created_at);
-      const dateStr = dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
-      const color = badgeColor[l.action] || '#95a5a6';
-      html += `<tr>
-        <td style="white-space:nowrap;font-size:12px;color:#666">${dateStr}</td>
-        <td style="font-size:13px">${l.user_email || '—'}</td>
-        <td><span class="badge role-${l.user_role}" style="padding:2px 8px;border-radius:10px;font-size:11px">${l.user_role || '—'}</span></td>
-        <td><span style="background:${color};color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600">${l.action}</span></td>
-        <td style="font-size:12px;color:#555">${l.detail || '—'}</td>
-      </tr>`;
-    });
-    html += '</tbody></table></div>';
-  }
-  document.getElementById('main-content').innerHTML = html;
-}
-// ===== FIN JOURNAL D'AUDIT =====
-
-async function renderUtilisateurs() {
-  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
-  await loadAllUsers();
-  let html = `<div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-    <h2 style="color:var(--navy)">Équipe (${allUsers.length} membres)</h2>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-success" onclick="showAddUser()">➕ Ajouter un membre</button>
-      ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs (&gt;3 mois)</button>' : ''}
-    </div>
-  </div><div class="users-grid">`;
-  const isManager = ['admin','manager'].includes(currentUserData.role);
-  allUsers.forEach(u => {
-    const ac = u.role==='admin'?'avatar-admin':u.role==='manager'?'avatar-manager':'avatar-gestionnaire';
-    const rc = u.role==='admin'?'role-admin':u.role==='manager'?'role-manager':'role-gestionnaire';
-    const initials = (u.prenom?.[0]||'')+( u.nom?.[0]||'');
-    html += `<div class="user-card" style="position:relative">
-      <div class="user-avatar ${ac}">${initials}</div>
-      <div class="user-info">
-        <h4>${u.prenom} ${u.nom}</h4>
-        <p style="font-size:12px;color:#888">${u.email}</p>
-        <span class="user-role-badge ${rc}">${u.role.toUpperCase()}</span>
-      </div>
-      ${isManager ? `<button class="btn btn-secondary" style="position:absolute;top:12px;right:12px;padding:4px 10px;font-size:12px" onclick="showEditUser('${u.id}','${u.prenom}','${u.nom}','${u.email}','${u.role}')" title="Modifier">✏️</button>` : ''}
-    </div>`;
-  });
-  html += '</div>';
-  document.getElementById('main-content').innerHTML = html;
-}
-
-
-// ── T7/T8 — MODIFIER PROFIL & RÔLE ──────────────────────────────
-function showEditUser(id, prenom, nom, email, role) {
-  const isSelf = currentUserData.email === email;
-  const roles = ['gestionnaire','manager','admin'];
-  const opts = roles.map(r => '<option value="' + r + '"' + (role===r?' selected':'') + '>' + r.charAt(0).toUpperCase()+r.slice(1) + '</option>').join('');
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'edit-user-modal';
-  const inner = document.createElement('div'); inner.className = 'modal';
-  inner.innerHTML = '<h2 style="color:var(--navy);margin-bottom:20px">✏️ Modifier le profil</h2>'
-    + '<div class="form-group"><label>Prénom</label><input type="text" id="edit-prenom" value="' + prenom + '"></div>'
-    + '<div class="form-group"><label>Nom</label><input type="text" id="edit-nom" value="' + nom + '"></div>'
-    + '<div class="form-group"><label>Email</label><input type="email" id="edit-email" value="' + email + '"></div>'
-    + '<div class="form-group"><label>Rôle</label><select id="edit-role"' + (isSelf?' disabled title="Impossible de modifier votre propre rôle"':'') + '>' + opts + '</select>'
-    + (isSelf ? '<small style="color:#e74c3c">Vous ne pouvez pas changer votre propre rôle.</small>' : '') + '</div>'
-    + '<div class="modal-error" id="edit-user-error"></div>'
-    + '';
-  const editBtns = document.createElement('div'); editBtns.className = 'modal-actions';
-  const editBtnC = document.createElement('button'); editBtnC.className = 'btn btn-secondary';
-  editBtnC.textContent = 'Annuler'; editBtnC.onclick = () => closeModal('edit-user-modal');
-  const editBtnO = document.createElement('button'); editBtnO.className = 'btn btn-primary';
-  editBtnO.textContent = 'Enregistrer'; editBtnO.onclick = () => doEditUser(id, email, isSelf);
-  editBtns.appendChild(editBtnC); editBtns.appendChild(editBtnO);
-  inner.appendChild(editBtns); modal.appendChild(inner); document.body.appendChild(modal);
-}
-
-
-async function doEditUser(id, originalEmail, isSelf) {
-  const prenom = document.getElementById('edit-prenom').value.trim();
-  const nom = document.getElementById('edit-nom').value.trim();
-  const email = document.getElementById('edit-email').value.trim();
-  const errEl = document.getElementById('edit-user-error');
-  errEl.style.display = 'none';
-  if (!prenom || !nom || !email) { errEl.textContent = 'Tous les champs sont requis.'; errEl.style.display = 'block'; return; }
-  const updates = { prenom, nom, email };
-  if (!isSelf) updates.role = document.getElementById('edit-role').value;
-  const { error } = await db.from('utilisateurs').update(updates).eq('id', id);
-  if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
-  closeModal('edit-user-modal');
-  await auditLog('MODIF_UTILISATEUR', `Profil modifié : ${prenom} ${nom} (${role})`);
-  showNotif('✅ Profil mis à jour !', 'success');
-  await loadAllUsers(); renderUtilisateurs();
-}
-
-function showAddUser() {
-  const role = currentUserData.role;
-  const roleOptions = role === 'admin'
-    ? '<option value="gestionnaire">Gestionnaire</option><option value="manager">Manager</option><option value="admin">Admin</option>'
-    : '<option value="gestionnaire">Gestionnaire</option>';
-
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'add-user-modal';
-  modal.innerHTML = `
-    <div class="modal">
-      <h2>➕ Ajouter un membre</h2>
-      <label>Prénom</label><input type="text" id="new-prenom" placeholder="Prénom">
-      <label>Nom</label><input type="text" id="new-nom" placeholder="Nom">
-      <label>Email</label><input type="email" id="new-email" placeholder="email@entreprise.fr">
-      <label>Mot de passe provisoire</label><input type="text" id="new-password" placeholder="Minimum 6 caractères">
-      <label>Rôle</label>
-      <select id="new-role">${roleOptions}</select>
-      <div class="modal-error" id="add-user-error"></div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeModal('add-user-modal')">Annuler</button>
-        <button class="btn btn-success" onclick="doAddUser()">Créer le compte</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-async function doAddUser() {
-  const prenom = document.getElementById('new-prenom').value.trim();
-  const nom = document.getElementById('new-nom').value.trim();
-  const email = document.getElementById('new-email').value.trim();
-  const password = document.getElementById('new-password').value;
-  const role = document.getElementById('new-role').value;
-  const errEl = document.getElementById('add-user-error');
-  errEl.style.display = 'none';
-
-  if (!prenom || !nom || !email || !password) {
-    errEl.textContent = 'Veuillez remplir tous les champs.'; errEl.style.display = 'block'; return;
-  }
-  if (password.length < 6) {
-    errEl.textContent = 'Le mot de passe doit contenir au moins 6 caractères.'; errEl.style.display = 'block'; return;
-  }
-
-  // Créer dans Supabase Auth via Admin API (signUp)
-  const { data, error } = await db.auth.signUp({ email, password });
-  if (error) { errEl.textContent = 'Erreur Auth : ' + error.message; errEl.style.display = 'block'; return; }
-
-  // Ajouter dans la table utilisateurs
-  const { error: dbError } = await db.from('utilisateurs').insert({ prenom, nom, email, role, actif: true });
-  if (dbError) { errEl.textContent = 'Erreur base de données : ' + dbError.message; errEl.style.display = 'block'; return; }
-
-  closeModal('add-user-modal');
-  await auditLog('AJOUT_UTILISATEUR', `Compte créé : ${prenom} ${nom} (${role})`);
-  showNotif(`✅ Compte créé pour ${prenom} ${nom} !`, 'success');
-  await loadAllUsers();
-  renderUtilisateurs();
-}
-
-// ===== ACTIONS =====
-
-// ── SÉLECTION & VERROUILLAGE ──────────────────────────────
-function updateSelectionCount() {
-  const n = document.querySelectorAll('.row-check:checked').length;
-  const el = document.getElementById('selection-count');
-  if (el) el.textContent = n + ' sélectionné(s)';
-}
-
-function toggleAll(checked) {
-  document.querySelectorAll('.row-check:not([disabled])').forEach(cb => cb.checked = checked);
-  updateSelectionCount();
-}
-
-function selectAll() {
-  document.querySelectorAll('.row-check:not([disabled])').forEach(cb => cb.checked = true);
-  const all = document.getElementById('check-all');
-  if (all) all.checked = true;
-  updateSelectionCount();
-}
-
-function clearSelection() {
-  document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
-  const all = document.getElementById('check-all');
-  if (all) all.checked = false;
-  updateSelectionCount();
-}
-
-async function lockSelection() {
-  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
-  const gestionnaire = document.getElementById('assign-bulk-select')?.value || '';
-  const sansGest = ids.filter(id => { const d = allDossiers.find(x => x.id === id); return !gestionnaire && !(d && d.gestionnaire); });
-  if (sansGest.length > 0) {
-    const gests = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay'; modal.id = 'lock-warn-modal';
-    // Construire la modale sans guillemets imbriqués
-    const inner = document.createElement('div');
-    inner.className = 'modal';
-    inner.style.cssText = 'text-align:center;max-width:420px';
-    inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">&#9888;&#65039;</div>'
-      + '<h2 style="color:#e74c3c">Gestionnaire manquant</h2>'
-      + '<p style="color:#666;margin:14px 0"><strong>' + sansGest.length + '</strong> dossier(s) sans gestionnaire.<br>Selectionnez-en un avant de verrouiller.</p>';
-    const sel = document.createElement('select');
-    sel.id = 'lock-warn-select'; sel.className = 'filter-select';
-    sel.style.cssText = 'width:100%;margin-bottom:20px';
-    sel.innerHTML = '<option value="">— Choisir un gestionnaire —</option>'
-      + gests.map(g => { const n = g.prenom + ' ' + g.nom; return '<option value="' + n + '">' + n + ' (' + g.role + ')</option>'; }).join('');
-    inner.appendChild(sel);
-    const btns = document.createElement('div');
-    btns.style.cssText = 'display:flex;gap:10px;justify-content:center';
-    const btnCancel = document.createElement('button');
-    btnCancel.className = 'btn btn-secondary'; btnCancel.textContent = 'Annuler';
-    btnCancel.onclick = () => closeModal('lock-warn-modal');
-    const btnOk = document.createElement('button');
-    btnOk.className = 'btn btn-warning'; btnOk.textContent = '🔒 Verrouiller';
-    btnOk.onclick = () => confirmLockWithGest(ids);
-    btns.appendChild(btnCancel); btns.appendChild(btnOk);
-    inner.appendChild(btns);
-    modal.appendChild(inner);
-    document.body.appendChild(modal); return;
-  }
-  await executeLock(ids, gestionnaire);
-}
-
-async function confirmLockWithGest(ids) {
-  const gestionnaire = document.getElementById('lock-warn-select')?.value;
-  if (!gestionnaire) { showNotif('Veuillez sélectionner un gestionnaire.', 'error'); return; }
-  closeModal('lock-warn-modal');
-  await executeLock(ids, gestionnaire);
-}
-
-async function executeLock(ids, gestionnaire) {
-  for (const id of ids) {
-    const upd = { verrouille: true };
-    if (gestionnaire) upd.gestionnaire = gestionnaire;
-    await db.from('dossiers').update(upd).eq('id', id);
-  }
-  await auditLog('VERROUILLAGE', ids.length + ' dossier(s) verrouillés' + (gestionnaire ? ' → ' + gestionnaire : ''));
-  showNotif('🔒 ' + ids.length + ' dossier(s) verrouillé(s)' + (gestionnaire ? ' et attribués à ' + gestionnaire : '') + '.', 'success');
-  clearSelection();
-  await loadDossiers();
-  renderAttribution();
-}
-
-async function unlockSelection() {
-  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
-  for (const id of ids) {
-    await db.from('dossiers').update({ verrouille: false }).eq('id', id);
-  }
-  await auditLog('DEVERROUILLAGE', ids.length + ' dossier(s) déverrouillés');
-  showNotif(`🔓 ${ids.length} dossier(s) déverrouillé(s).`, 'info');
-  clearSelection();
-  await loadDossiers();
-  renderAttribution();
-}
-
-async function toggleVerrouille(id, checked) {
-  const dossier = allDossiers.find(d => d.id === id);
-  const statut = dossier?.statut || 'nonattribue';
-  const isDispatched = ['attribue','encours','ouvert','traite'].includes(statut);
-
-  // Si on veut déverrouiller un dossier dispatché → seul manager
-  if (!checked && isDispatched && !isManager) {
-    showNotif('Seul le manager peut déverrouiller un dossier dispatché.', 'error');
-    renderAttribution(); return;
-  }
-
-  if (!checked && isDispatched && isManager) {
-    showUnlockConfirm(id);
-    renderAttribution(); return;
-  }
-
-  const { error } = await db.from('dossiers').update({ verrouille: checked }).eq('id', id);
-  if (error) { showNotif('Erreur.', 'error'); return; }
-  allDossiers = allDossiers.map(d => d.id === id ? {...d, verrouille: checked} : d);
-  showNotif(checked ? '🔒 Dossier verrouillé' : '🔓 Dossier déverrouillé', 'info');
-  // Mettre à jour le compteur dispatch
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut||'nonattribue')).length;
-  const btn = document.querySelector('.btn-dispatch');
-  if (btn) { btn.disabled = nbVerrouilles === 0; btn.textContent = `🚀 DISPATCHER${nbVerrouilles > 0 ? ` (${nbVerrouilles})` : ''}`; }
-}
-
-function showUnlockConfirm(id) {
-  const existing = document.getElementById('unlock-confirm-modal');
-  if (existing) existing.remove();
-  const d = allDossiers.find(x => x.id === id);
-  const gname = d && d.gestionnaire ? ' (attribué à <strong>' + d.gestionnaire + '</strong>)' : '';
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay'; modal.id = 'unlock-confirm-modal';
-  const inner = document.createElement('div');
-  inner.className = 'modal'; inner.style.cssText = 'text-align:center;max-width:420px';
-  inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">🔓</div>'
-    + '<h2 style="color:#e74c3c">Libérer ce dossier ?</h2>'
-    + '<p style="color:#666;margin:16px 0">Cette action va <strong>désattribuer</strong> le dossier' + gname + ' et remettre son statut à <strong>Non attribué</strong>.</p>';
-  const btns = document.createElement('div');
-  btns.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:20px';
-  const btnC = document.createElement('button'); btnC.className = 'btn btn-secondary'; btnC.textContent = 'Annuler';
-  btnC.onclick = () => closeModal('unlock-confirm-modal');
-  const btnO = document.createElement('button'); btnO.className = 'btn btn-danger'; btnO.textContent = '🔓 Confirmer la libération';
-  btnO.onclick = () => confirmUnlock(id);
-  btns.appendChild(btnC); btns.appendChild(btnO); inner.appendChild(btns); modal.appendChild(inner);
-  document.body.appendChild(modal);
-}
-
-async function confirmUnlock(id) {
-  closeModal('unlock-confirm-modal');
-  const { error } = await db.from('dossiers').update({ verrouille: false, gestionnaire: '', statut: 'nonattribue' }).eq('id', id);
-  if (error) { showNotif('Erreur lors du déverrouillage.', 'error'); return; }
-  showNotif('🔓 Dossier déverrouillé et désattribué.', 'success');
-  await loadDossiers();
-  renderAttribution();
-}
-
-async function assignDossier(id, gestionnaire) {
-  const { error } = await db.from('dossiers').update({ gestionnaire }).eq('id', id);
-  if (error) { showNotif('Erreur lors de l\'attribution.', 'error'); return; }
-  showNotif(gestionnaire ? `Dossier attribué à ${gestionnaire}` : 'Attribution annulée', 'success');
-  allDossiers = allDossiers.map(d => d.id === id ? {...d, gestionnaire} : d);
-}
-
-async function toggleTraite(id, checked, gestionnaire) {
-  const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-  const isManager = ['admin','manager'].includes(currentUserData.role);
-  if (!isManager && gestionnaire !== monNom) {
-    showNotif('Vous ne pouvez cocher que vos propres dossiers.', 'error');
-    renderAttribution(); return;
-  }
-  // TICKET 5 – Gestionnaire ne peut pas décocher Traité
-  if (!checked && !isManager) {
-    showNotif('Seul le manager peut réinitialiser un dossier traité.', 'error');
-    renderAttribution(); return;
-  }
-  const newStatut = checked ? 'traite' : 'ouvert';
-  const { error } = await db.from('dossiers').update({ traite: checked, statut: newStatut }).eq('id', id);
-  if (error) { showNotif('Erreur.', 'error'); return; }
-  await auditLog(checked ? 'MARQUER_TRAITE' : 'REMETTRE_EN_COURS', 'Dossier ID ' + id);
-  
-  showNotif(checked ? '✅ Dossier marqué traité' : '↩️ Dossier remis en cours', 'success');
-  allDossiers = allDossiers.map(d => d.id === id ? {...d, traite: checked, statut: newStatut} : d);
-}
-
-// ===== RESET =====
-
-
-// ===== NOTIF =====
-
-  // ===== T10 — DOSSIER SUPPLÉMENTAIRE =====
-  async function demanderDossierSupp() {
-    await loadDossiers(); // Reload pour avoir le compte exact
-    const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    const nonTraites = allDossiers.filter(function(d) { return d.gestionnaire === monNom && !d.traite && !d.traite; });
-    if (nonTraites.length > 0) {
-      const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'supp-blocked-modal';
-      const bx = document.createElement('div'); bx.className = 'modal'; bx.style.cssText = 'text-align:center;max-width:400px';
-      bx.innerHTML = '<div style="font-size:52px;margin-bottom:12px">🐌</div><h2 style="color:#e74c3c">Pas trop vite !</h2>'
-        + '<p style="color:#666;margin:16px 0">Tu as encore <strong>' + nonTraites.length + ' dossier(s) non trait&eacute;(s)</strong>.<br>Termine tes dossiers avant d&#39;en demander un nouveau !</p>'
-        + '<div id="sbtn" style="margin-top:20px"></div>';
-      ov.appendChild(bx); document.body.appendChild(ov);
-      const bc = document.createElement('button'); bc.className = 'btn btn-secondary'; bc.textContent = 'OK, compris !'; bc.style.width = '100%';
-      bc.onclick = function() { closeModal('supp-blocked-modal'); };
-      document.getElementById('sbtn').appendChild(bc);
-      return;
-    }
-    const dispo = allDossiers.filter(function(d) {
-      const s = (d.statut||'').toLowerCase().replace(/[^a-z]/g,'');
-      const isLibre = !['attribue','attribute','encours','ouvert','traite'].includes(s);
-      return (!d.gestionnaire || d.gestionnaire === '') && !d.verrouille && isLibre;
-    });
-    const enAttenteDispatch = allDossiers.filter(function(d) { return d.verrouille && (!d.statut || d.statut === 'nonattribue'); }).length;
-    if (dispo.length === 0) {
-      const msg = enAttenteDispatch > 0
-        ? 'Aucun dossier libre. ' + enAttenteDispatch + ' dossier(s) sont verrouillés en attente de dispatch.'
-        : 'Aucun dossier disponible. Tous les dossiers ont été distribués.';
-      showNotif(msg, 'error'); return;
-    }
-    const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'supp-confirm-modal';
-    const bx = document.createElement('div'); bx.className = 'modal'; bx.style.cssText = 'text-align:center;max-width:400px';
-    bx.innerHTML = '<div style="font-size:52px;margin-bottom:12px">📋</div><h2 style="color:var(--navy)">Demander un dossier ?</h2>'
-      + '<p style="color:#666;margin:16px 0">Il reste <strong>' + dispo.length + ' dossier(s) disponible(s)</strong>.<br>Un dossier va vous &ecirc;tre attribu&eacute; automatiquement.</p>'
-      + '<div id="scbtn" style="display:flex;gap:10px;justify-content:center;margin-top:20px"></div>';
-    ov.appendChild(bx); document.body.appendChild(ov);
-    const bA = document.createElement('button'); bA.className = 'btn btn-secondary'; bA.textContent = 'Annuler';
-    bA.onclick = function() { closeModal('supp-confirm-modal'); };
-    const bC = document.createElement('button'); bC.className = 'btn btn-success'; bC.textContent = 'Confirmer'; bC.onclick = confirmerDossierSupp;
-    const d = document.getElementById('scbtn'); d.appendChild(bA); d.appendChild(bC);
-  }
-  async function confirmerDossierSupp() {
-    closeModal('supp-confirm-modal');
-    const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    const dispo = allDossiers.filter(function(d) {
-      const s = (d.statut||'').toLowerCase().replace(/[^a-z]/g,'');
-      const isLibre = !['attribue','attribute','encours','ouvert','traite'].includes(s);
-      return (!d.gestionnaire || d.gestionnaire === '') && !d.verrouille && isLibre;
-    });
-    const enAttenteDispatch = allDossiers.filter(function(d) { return d.verrouille && (!d.statut || d.statut === 'nonattribue'); }).length;
-    if (dispo.length === 0) {
-      const msg = enAttenteDispatch > 0
-        ? 'Aucun dossier libre. ' + enAttenteDispatch + ' dossier(s) sont verrouillés en attente de dispatch.'
-        : 'Aucun dossier disponible. Tous les dossiers ont été distribués.';
-      showNotif(msg, 'error'); return;
-    }
-    const { error } = await db.from('dossiers').update({ gestionnaire: monNom, statut: 'attribue', verrouille: true, demande_supp: true }).eq('id', dispo[0].id);
-    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-    await auditLog('DEMANDE_DOSSIER_SUPP', 'Nouveau dossier supplémentaire attribué');
-    showNotif('Nouveau dossier attribué !', 'success');
-    await loadDossiers(); renderMesDossiers();
-  }
-  // ===== FIN T10 =====
-function showNotif(msg, type = 'info') {
-  const el = document.createElement('div');
-  el.className = `notif notif-${type}`;
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3500);
-}
-
-// ===== INIT =====
-db.auth.getSession().then(({ data }) => {
-  if (data.session) { currentUser = data.session.user; loadUserData(); }
-});
-
-  // ===== MENTIONS LÉGALES RGPD =====
-  function showMentionsLegales() {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'mentions-modal';
-    modal.innerHTML = `
-      <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
-        <h2 style="color:var(--navy);margin-bottom:6px;">📄 Mentions légales & Confidentialité</h2>
-        <p style="font-size:12px;color:#999;margin-bottom:20px;">Dispatchis v2.5.18 — Application de gestion interne</p>
-
-        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Éditeur</h3>
-        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
-          Application <strong>Dispatchis</strong> — Outil interne de distribution des sinistres.<br>
-          Accès réservé aux collaborateurs habilités.
-        </p>
-
-        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Données traitées</h3>
-        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
-          Dans le cadre de l'utilisation de cette application, les données suivantes sont traitées :<br>
-          — Adresse e-mail et identité des collaborateurs (prénom, nom, rôle)<br>
-          — Références de sinistres et de contrats (sans données assurés nominatives)<br>
-          — Journaux de connexion et d'actions à des fins de traçabilité interne (conservés 3 mois)
-        </p>
-
-        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Finalité (RGPD art. 5)</h3>
-        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
-          Les données sont utilisées exclusivement pour la <strong>gestion et distribution interne des dossiers sinistres</strong>. 
-          Aucune donnée n'est transmise à des tiers ni utilisée à des fins commerciales.
-        </p>
-
-        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Conservation</h3>
-        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
-          Les dossiers de travail sont réinitialisés quotidiennement.<br>
-          Les journaux d'audit sont conservés <strong>3 mois maximum</strong>, puis purgés conformément à la politique interne.
-        </p>
-
-        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Vos droits (RGPD)</h3>
-        <p style="font-size:13px;color:#3a3050;margin-bottom:20px;">
-          Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et d'effacement de vos données. 
-          Pour exercer ces droits, contactez votre administrateur système.
-        </p>
-
-        <div style="display:flex;justify-content:center;">
-          <button class="btn btn-primary" onclick="closeModal('mentions-modal')">Fermer</button>
         </div>
-      </div>`;
-    document.body.appendChild(modal);
-  }
-  // ===== FIN MENTIONS LÉGALES =====
+    </header>
 
-
-// ===== TICKET 2 - HABILITATIONS =====
-async function loadHabilitations(userId) {
-  const { data } = await db.from('habilitation_gestionnaires')
-    .select('portefeuille, type, nature')
-    .eq('user_id', userId).single();
-  return data || { portefeuille: [], type: [], nature: [] };
-}
-
-async function saveHabilitations(userId, habilitations) {
-  const { error } = await db.from('habilitation_gestionnaires').upsert({
-    user_id: userId, ...habilitations
-  });
-  if (error) throw error;
-  showNotif('Habilitations mises à jour !', 'success');
-}
-
-async function editHabilitations(userId, nomComplet) {
-  const habilitations = await loadHabilitations(userId);
-
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = `hab-modal-${userId}`;
-  modal.innerHTML = `
-    <div class="modal" style="max-width:520px;">
-      <h2>✏️ Habilitations — ${nomComplet}</h2>
-
-      <div class="form-group">
-        <label>Portefeuille</label>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
-          ${['MIA', 'OPTINEO', 'AUTRE'].map(opt => `
-            <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:20px;background:#f8f9fa;border:1px solid #e2e8f0;cursor:pointer;">
-              <input type="checkbox" value="${opt}" data-cat="portefeuille" ${habilitations.portefeuille?.includes(opt) ? 'checked' : ''}>
-              ${opt}
-            </label>
-          `).join('')}
+    <!-- MAIN APP -->
+    <div class="max-w-7xl mx-auto px-6 py-12">
+        <!-- AUTH MODAL -->
+        <div id="auth-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-8 hidden">
+            <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-white/20 max-h-[90vh] overflow-hidden">
+                <div class="p-10 text-center bg-gradient-to-b from-white to-slate-50">
+                    <div class="w-24 h-24 bg-gradient-to-br from-rose-500 via-pink-500 to-rose-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl ring-4 ring-white/30">
+                        <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-3xl font-black text-gray-900 mb-4">Dispatchis</h2>
+                    <p class="text-xl text-gray-600 font-semibold mb-2">Le bon dossier, au bon gestionnaire</p>
+                    <p class="text-gray-500">Connectez-vous pour commencer</p>
+                </div>
+                <div class="p-8">
+                    <form id="login-form">
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-3">Email professionnel</label>
+                                <input type="email" id="login-email" required placeholder="manager@entreprise.fr" class="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-rose-500/20 focus:border-rose-500 transition-all duration-300 shadow-sm hover:shadow-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-3">Mot de passe</label>
+                                <input type="password" id="login-password" required placeholder="••••••••" class="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-rose-500/20 focus:border-rose-500 transition-all duration-300 shadow-sm hover:shadow-md">
+                            </div>
+                            <button type="submit" class="w-full bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-bold py-5 px-8 rounded-2xl shadow-2xl hover:shadow-3xl text-lg uppercase tracking-wide transform hover:scale-[1.02] transition-all duration-300">
+                                <span class="flex items-center justify-center">
+                                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+                                    </svg>
+                                    Accéder au tableau de bord
+                                </span>
+                            </button>
+                        </div>
+                    </form>
+                    <div id="login-error" class="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl hidden">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div>
+                                <p class="font-semibold text-red-800 mb-1">Erreur de connexion</p>
+                                <p id="login-error-text" class="text-red-700 text-sm"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label>Type</label>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
-          ${['AUTO', 'MRH', 'HAB', 'AUTRE'].map(opt => `
-            <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:20px;background:#f8f9fa;border:1px solid #e2e8f0;cursor:pointer;">
-              <input type="checkbox" value="${opt}" data-cat="type" ${habilitations.type?.includes(opt) ? 'checked' : ''}>
-              ${opt}
-            </label>
-          `).join('')}
+        <!-- APP PRINCIPALE -->
+        <div id="main-app" class="hidden">
+            <!-- NAVIGATION -->
+            <nav class="flex bg-white/80 backdrop-blur-md shadow-lg border-b border-gray-200/50 sticky top-0 z-30">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="flex space-x-1">
+                        <button class="tab-btn px-8 py-5 text-sm font-bold text-gray-600 border-b-4 border-transparent hover:text-rose-600 hover:border-rose-500 transition-all duration-200 whitespace-nowrap" data-tab="dashboard">
+                            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                            Dashboard
+                        </button>
+                        <button class="tab-btn px-8 py-5 text-sm font-bold text-gray-600 border-b-4 border-transparent hover:text-rose-600 hover:border-rose-500 transition-all duration-200 whitespace-nowrap" data-tab="attribution">
+                            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l3 3m0 0l3-3m-3 3V10m-4 6l4 4 4-4"/></svg>
+                            Attribution
+                        </button>
+                        <button class="tab-btn px-8 py-5 text-sm font-bold text-gray-600 border-b-4 border-transparent hover:text-rose-600 hover:border-rose-500 transition-all duration-200 whitespace-nowrap" data-tab="equipe">
+                            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            Équipe
+                        </button>
+                        <button class="tab-btn px-8 py-5 text-sm font-bold text-gray-600 border-b-4 border-transparent hover:text-rose-600 hover:border-rose-500 transition-all duration-200 whitespace-nowrap" data-tab="mes-dossiers">
+                            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Mes dossiers
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- TABS CONTENT -->
+            <div id="tab-content">
+                <!-- DASHBOARD -->
+                <div id="dashboard-tab" class="tab-panel">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
+                        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 hover:shadow-2xl transition-all duration-500">
+                            <div class="flex items-center">
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-500 shadow-lg">
+                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-6">
+                                    <p class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Dossiers disponibles</p>
+                                    <p id="stats-dispo" class="text-4xl font-black text-gray-900 mt-2">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 hover:shadow-2xl transition-all duration-500">
+                            <div class="flex items-center">
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-500 shadow-lg">
+                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-6">
+                                    <p class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Gestionnaires actifs</p>
+                                    <p id="stats-gestionnaires" class="text-4xl font-black text-gray-900 mt-2">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 hover:shadow-2xl transition-all duration-500">
+                            <div class="flex items-center">
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg">
+                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-6">
+                                    <p class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Taux traitement</p>
+                                    <p id="stats-taux" class="text-4xl font-black text-emerald-600 mt-2">0%</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 hover:shadow-2xl transition-all duration-500">
+                            <div class="flex items-center">
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-500 shadow-lg">
+                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-6">
+                                    <p class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Dossiers traités</p>
+                                    <p id="stats-traites" class="text-4xl font-black text-orange-600 mt-2">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- EXPORT BAR MANAGER -->
+                    <div id="export-bar" class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-100/50 rounded-3xl p-8 mb-12 backdrop-blur-sm shadow-xl hidden">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                            <div>
+                                <h3 class="text-2xl font-black text-gray-900 mb-2 flex items-center">
+                                    <svg class="w-8 h-8 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                    </svg>
+                                    Export des dossiers par gestionnaire
+                                </h3>
+                                <p class="text-lg text-gray-600 font-semibold" id="export-count-text">0 gestionnaires actifs</p>
+                            </div>
+                            <div class="flex flex-wrap gap-4">
+                                <button id="export-all-single-pdf" class="bg-white hover:bg-blue-50 border-2 border-blue-200 text-blue-700 font-bold px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 whitespace-nowrap">
+                                    📑 Tous en 1 PDF
+                                </button>
+                                <div id="export-individual" class="flex flex-wrap gap-3">
+                                    <!-- Boutons individuels générés -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONNAIRES CARDS -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <div id="gestionnaires-dashboard">
+                            <!-- Cards générées par JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ATTRIBUTION TAB (TICKET 1) -->
+                <div id="attribution-tab" class="tab-panel hidden">
+                    <!-- UPLOAD EXCEL + SÉLECTION GESTIONNAIRES -->
+                    <div class="bg-white/80 backdrop-blur-md rounded-3xl shadow-2xl border border-white/30 p-10 mb-12">
+                        <div class="text-center mb-12">
+                            <div class="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl ring-4 ring-white/30">
+                                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l3 3m0 0l3-3m-3 3V10m-4 6l4 4 4-4"/>
+                                </svg>
+                            </div>
+                            <h2 class="text-4xl font-black text-gray-900 mb-4">Nouvelle distribution</h2>
+                            <p class="text-xl text-gray-600 font-semibold max-w-2xl mx-auto">Importez votre fichier Excel et sélectionnez les gestionnaires qui recevront des dossiers aujourd'hui</p>
+                        </div>
+
+                        <!-- UPLOAD ZONE -->
+                        <div id="upload-zone" class="border-4 border-dashed border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 rounded-3xl p-16 text-center cursor-pointer transition-all duration-300 group">
+                            <svg class="w-24 h-24 text-gray-400 mx-auto mb-8 group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2 group-hover:text-emerald-700">Glisser-déposer votre Excel</h3>
+                            <p class="text-lg text-gray-600 mb-8">ou cliquer pour parcourir (.xlsx, .xls)</p>
+                            <p class="text-sm text-gray-500 mb-8">✅ Données personnelles supprimées automatiquement (RGPD)</p>
+                            <input type="file" id="excel-upload" accept=".xlsx,.xls" class="hidden">
+                            <div id="upload-progress" class="hidden">
+                                <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                                    <div id="progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-3 rounded-full transition-all" style="width: 0%"></div>
+                                </div>
+                                <p id="progress-text" class="text-sm text-gray-600 font-medium">0%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONNAIRES SÉLECTION (TICKET 1) -->
+                    <div id="gestionnaires-selection" class="bg-white/80 backdrop-blur-md rounded-3xl shadow-2xl border border-white/30 p-10 mb-12 hidden">
+                        <div class="flex items-center justify-between mb-8">
+                            <h3 class="text-3xl font-black text-gray-900">Gestionnaires actifs aujourd'hui</h3>
+                            <button id="continue-to-attribution" class="btn-primary px-10 py-4 text-xl font-bold rounded-2xl shadow-2xl">
+                                Continuer vers attribution automatique
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <!-- Cases à cocher gestionnaires générées par JS -->
+                        </div>
+                    </div>
+
+                    <!-- PROPOSITION D'ATTRIBUTION (TICKET 1) -->
+                    <div id="attribution-proposal" class="bg-white/80 backdrop-blur-md rounded-3xl shadow-2xl border border-white/30 p-10 hidden">
+                        <div class="flex items-center justify-between mb-12">
+                            <div>
+                                <h3 class="text-3xl font-black text-gray-900 mb-2">Proposition d'attribution</h3>
+                                <p class="text-xl text-gray-600 font-semibold">Vérifiez et ajustez avant validation finale</p>
+                            </div>
+                            <div class="flex gap-4">
+                                <button id="back-to-selection" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-8 py-4 rounded-2xl shadow-lg transition-all">← Modifier sélection</button>
+                                <button id="dispatch-btn" class="btn-dispatch shadow-2xl">
+                                    ✅ DISPATCH FINAL
+                                </button>
+                            </div>
+                        </div>
+                        <div class="proposal-grid" id="proposal-grid">
+                            <!-- Zones de gestionnaires avec dossiers drag & drop -->
+                        </div>
+                    </div>
+
+                    <!-- FILTRES ET LISTE DOSSIERS -->
+                    <div id="filters-section" class="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 mb-12 hidden">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-6">Filtres de recherche</h3>
+                        <!-- Filtres existants + stats bandeau -->
+                    </div>
+                </div>
+
+                <!-- ÉQUIPE TAB -->
+                <div id="equipe-tab" class="tab-panel hidden">
+                    <h2 class="text-4xl font-black text-gray-900 mb-8">Gestion de l'équipe</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="equipe-profiles">
+                        <!-- Profils avec crayon habilitations -->
+                    </div>
+                </div>
+
+                <!-- MES DOSSIERS -->
+                <div id="mes-dossiers-tab" class="tab-panel hidden">
+                    <h2 class="text-4xl font-black text-gray-900 mb-8">Mes dossiers</h2>
+                    <div class="bg-white rounded-3xl shadow-2xl border p-8">
+                        <div class="flex justify-between items-center mb-8">
+                            <h3 class="text-2xl font-bold text-gray-900">Dossiers en cours (12)</h3>
+                            <button id="ask-more-dossiers" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-8 py-4 rounded-2xl shadow-xl hover:shadow-2xl transition-all">
+                                ➕ Demander dossier supplémentaire
+                            </button>
+                        </div>
+                        <!-- Tableau mes dossiers -->
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-
-      <div class="form-group">
-        <label>Nature</label>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;">
-          ${['MAT', 'BDG', 'VIT', 'AUTRE'].map(opt => `
-            <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:20px;background:#f8f9fa;border:1px solid #e2e8f0;cursor:pointer;">
-              <input type="checkbox" value="${opt}" data-cat="nature" ${habilitations.nature?.includes(opt) ? 'checked' : ''}>
-              ${opt}
-            </label>
-          `).join('')}
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeModal('hab-modal-${userId}')">Annuler</button>
-        <button class="btn btn-primary" onclick="saveUserHabilitations('${userId}')">Enregistrer</button>
-      </div>
     </div>
-  `;
-  document.body.appendChild(modal);
-}
 
-async function saveUserHabilitations(userId) {
-  const modalId = `hab-modal-${userId}`;
-  const modal = document.getElementById(modalId);
-  const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+    <script>
+        // SUPABASE
+        const supabase = Supabase.createClient('YOUR_SUPABASE_URL', 'YOUR_ANON_KEY');
 
-  const habilitations = {
-    portefeuille: [],
-    type: [],
-    nature: []
-  };
+        // ÉTAT APP
+        let currentUser = null;
+        let dossiers = [];
+        let gestionnaires = [];
+        let selectedGestionnaires = [];
+        let attributionProposal = {};
 
-  checkboxes.forEach(cb => {
-    const cat = cb.dataset.cat;
-    if (habilitations[cat]) {
-      habilitations[cat].push(cb.value);
-    }
-  });
+        // CRITÈRES HABITATIONS (Ticket 2)
+        const habilitationCriteria = {
+            portefeuille: ['MIA', 'OPTINEO'],
+            type: ['AUTO', 'MRH'],
+            nature: ['MAT', 'BDG', 'VOL', 'DDE', 'AUTRE']
+        };
 
-  await saveHabilitations(userId, habilitations);
-  closeModal(modalId);
-}
+        // INIT
+        async function initApp() {
+            hideLoading();
+            await authCheck();
+            await loadAllData();
+            setupListeners();
+            showTab('dashboard');
+        }
 
-// ===== FIN TICKET 2 =====
-</script>
+        // TICKET 1 - UPLOAD + SÉLECTION GESTIONNAIRES
+        document.getElementById('excel-upload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showProgress(0);
+            const data = await fileToArray(file);
+
+            // Nettoyage RGPD
+            const cleanData = data.map(row => ({
+                ref_sinistre: row[0],
+                ref_contrat: row[1],
+                portefeuille: detectPortefeuille(row[1]),
+                type: detectType(row[1]),
+                nature: row[2] || 'AUTRE',
+                statut: 'non_attribue',
+                gestionnaire_id: null,
+                created_at: new Date().toISOString()
+            }));
+
+            await supabase.from('dossiers').upsert(cleanData);
+            dossiers = cleanData;
+
+            showGestionnairesSelection();
+            showProgress(100, 'Import terminé !');
+        });
+
+        function showGestionnairesSelection() {
+            document.getElementById('gestionnaires-selection').classList.remove('hidden');
+            document.getElementById('upload-zone').classList.add('hidden');
+
+            const container = document.querySelector('#gestionnaires-selection .grid');
+            container.innerHTML = gestionnaires.map(g => `
+                <label class="flex items-center p-6 border-2 border-gray-200 rounded-2xl hover:border-rose-400 hover:bg-rose-50 cursor-pointer transition-all group">
+                    <input type="checkbox" value="${g.id}" class="w-5 h-5 text-rose-600 rounded border-gray-300 focus:ring-rose-500">
+                    <div class="ml-4">
+                        <div class="font-bold text-gray-900">${g.prenom} ${g.nom}</div>
+                        <div class="text-sm text-gray-500">${g.email}</div>
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        // TICKET 1 - ATTRIBUTION AUTOMATIQUE
+        document.getElementById('continue-to-attribution').onclick = async () => {
+            selectedGestionnaires = Array.from(document.querySelectorAll('#gestionnaires-selection input:checked')).map(cb => cb.value);
+
+            if (selectedGestionnaires.length === 0) {
+                alert('Sélectionnez au moins un gestionnaire');
+                return;
+            }
+
+            // Popup nombre dossiers
+            const nb = prompt('Nombre de dossiers par gestionnaire (défaut 10) :', '10');
+            const dossiersParGestionnaire = parseInt(nb) || 10;
+
+            // Génération proposition
+            generateAttributionProposal(selectedGestionnaires, dossiersParGestionnaire);
+        };
+
+        function generateAttributionProposal(gestionnairesIds, nbDossiers) {
+            const disponibles = dossiers.filter(d => d.statut === 'non_attribue');
+
+            attributionProposal = {};
+            gestionnairesIds.forEach(gId => {
+                attributionProposal[gId] = disponibles.splice(0, nbDossiers);
+            });
+
+            renderAttributionProposal();
+            document.getElementById('attribution-proposal').classList.remove('hidden');
+            document.getElementById('gestionnaires-selection').classList.add('hidden');
+        }
+
+        function renderAttributionProposal() {
+            const container = document.getElementById('proposal-grid');
+            container.innerHTML = Object.entries(attributionProposal).map(([gId, dossiersG]) => {
+                const g = gestionnaires.find(gg => gg.id === gId);
+                return `
+                    <div class="gestionnaire-zone" data-gestionnaire="${gId}">
+                        <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                            <div>
+                                <h4 class="text-2xl font-bold text-gray-900">${g.prenom} ${g.nom}</h4>
+                                <p class="text-sm text-gray-500">${dossiersG.length} dossiers</p>
+                            </div>
+                            <span class="text-3xl font-bold text-gray-400">${dossiersG.length}/${10}</span>
+                        </div>
+                        <div class="space-y-3 min-h-[200px]">
+                            ${dossiersG.map(d => renderDossierDraggable(d)).join('')}
+                            ${dossiersG.length === 0 ? '<div class="drop-zone-empty">Glissez des dossiers ici</div>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            setupDragAndDrop();
+        }
+
+        function renderDossierDraggable(dossier) {
+            return `
+                <div class="dossier-card p-4 border-l-4 border-blue-500 bg-white hover:shadow-lg group" draggable="true" data-dossier="${dossier.id}">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="font-mono text-sm text-gray-900 font-bold">${dossier.ref_sinistre}</div>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="badge bg-gray-100">${dossier.portefeuille}</span>
+                                <span class="badge ${dossier.type === 'MRH' ? 'badge-orange' : 'badge-blue'}">${dossier.type}</span>
+                                <span class="badge bg-gray-100">${dossier.nature}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="removeDossier('${dossier.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // DISPATCH FINAL (TICKET 1)
+        document.getElementById('dispatch-btn').onclick = async () => {
+            if (!confirm('Confirmer le dispatch final ? Les dossiers seront attribués et verrouillés.')) return;
+
+            // Application définitive
+            for (const [gId, dossiersG] of Object.entries(attributionProposal)) {
+                for (const dossier of dossiersG) {
+                    await supabase
+                        .from('dossiers')
+                        .update({ 
+                            gestionnaire_id: gId, 
+                            statut: 'attribue',
+                            verrouille: true 
+                        })
+                        .eq('id', dossier.id);
+                }
+            }
+
+            showNotification('✅ Dispatch effectué ! Dossiers attribués et verrouillés.', 'success');
+            document.getElementById('attribution-proposal').classList.add('hidden');
+            await loadDossiers();
+            showTab('dashboard');
+        };
+
+        // DRAG & DROP
+        function setupDragAndDrop() {
+            const dossiers = document.querySelectorAll('.dossier-card');
+            const zones = document.querySelectorAll('.gestionnaire-zone');
+
+            dossiers.forEach(dossier => {
+                dossier.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', dossier.dataset.dossier);
+                    dossier.classList.add('opacity-50');
+                });
+
+                dossier.addEventListener('dragend', () => dossier.classList.remove('opacity-50'));
+            });
+
+            zones.forEach(zone => {
+                zone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    zone.classList.add('drag-over');
+                });
+
+                zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+
+                zone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    zone.classList.remove('drag-over');
+                    const dossierId = e.dataTransfer.getData('text/plain');
+                    // Logique de déplacement
+                    console.log('Déplacé vers', zone.dataset.gestionnaire, dossierId);
+                });
+            });
+        }
+
+        // Autres fonctions (simplifiées)
+        async function loadAllData() {
+            await Promise.all([loadDossiers(), loadGestionnaires()]);
+            renderAll();
+        }
+
+        function renderAll() {
+            renderGestionnairesDashboard();
+            renderEquipe();
+            renderDossiers();
+        }
+
+        // ÉVÉNEMENTS GLOBAUX
+        function setupListeners() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => showTab(btn.dataset.tab));
+            });
+
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await login();
+            });
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            document.querySelector(`#${tab}-tab`).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('border-b-4', 'border-rose-500', 'text-rose-600'));
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('border-b-4', 'border-rose-500', 'text-rose-600');
+        }
+
+        // INIT
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
 </body>
 </html>
