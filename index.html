@@ -4,292 +4,701 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dispatchis v2.5.20</title>
+    <!-- SUPABASE -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <!-- TAILWIND SILENT - NO WARNING -->
+    <script>
+        window.tailwindConfig = {
+            darkMode: false,
+            content: [],
+            theme: { extend: {} },
+            plugins: []
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- INLINE CSS - NO EXTERNAL -->
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(to bottom right, #f9fafb, #f1f5f9, #fef3c7); }
-        .login-card { background: white; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; }
-        .btn-login { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-        .btn-login:hover { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); }
-        .header { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .cadenas { color: #f59e0b; font-size: 1.5rem; cursor: pointer; transition: color 0.2s; }
+        * { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { 
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #fed7d7 100%); 
+            min-height: 100vh; 
+        }
+        .login-container { 
+            background: rgba(255,255,255,0.95); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255,255,255,0.2); 
+        }
+        .btn-primary { 
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); 
+            box-shadow: 0 10px 30px rgba(239,68,68,0.4); 
+        }
+        .btn-primary:hover { 
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); 
+            transform: translateY(-2px); 
+        }
+        .header { 
+            background: rgba(255,255,255,0.95); 
+            backdrop-filter: blur(20px); 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
+        }
+        .cadenas { 
+            color: #f59e0b; 
+            font-size: 1.5rem; 
+            cursor: pointer; 
+            transition: color 0.2s ease; 
+        }
         .cadenas:hover { color: #d97706; }
-        .tab-active { @apply border-b-4 border-red-500 text-red-700 font-bold bg-red-50; }
-        .stats-card { @apply bg-white rounded-2xl shadow-md border hover:shadow-xl transition-all duration-300 p-8; }
+        .tab-active { 
+            border-bottom: 4px solid #ef4444; 
+            color: #dc2626; 
+            font-weight: 800; 
+            background: rgba(239,68,68,0.05); 
+        }
+        .stats-card { 
+            background: rgba(255,255,255,0.8); 
+            backdrop-filter: blur(10px); 
+            border: 1px solid rgba(255,255,255,0.3); 
+            border-radius: 20px; 
+            transition: all 0.3s ease; 
+        }
+        .stats-card:hover { 
+            transform: translateY(-8px); 
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); 
+        }
+        .drop-zone { 
+            border: 3px dashed #d1d5db; 
+            border-radius: 20px; 
+            min-height: 300px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            transition: all 0.3s ease; 
+        }
+        .drop-zone.dragover { 
+            border-color: #10b981; 
+            background: rgba(16,185,129,0.05); 
+            transform: scale(1.02); 
+        }
+        .dossier-item { 
+            background: white; 
+            border: 2px solid #e5e7eb; 
+            border-radius: 16px; 
+            padding: 20px; 
+            margin: 8px 0; 
+            cursor: grab; 
+            transition: all 0.3s ease; 
+        }
+        .dossier-item:hover { 
+            border-color: #f59e0b; 
+            box-shadow: 0 10px 30px rgba(245,158,11,0.2); 
+        }
+        .progress-bar { 
+            background: linear-gradient(90deg, #10b981, #059669); 
+            height: 8px; 
+            border-radius: 4px; 
+            transition: width 0.5s ease; 
+        }
+        .habilitation-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
+            gap: 12px; 
+            margin-top: 20px; 
+        }
+        .habilitation-option { 
+            padding: 12px 16px; 
+            border: 2px solid #e5e7eb; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            transition: all 0.2s ease; 
+            font-weight: 500; 
+        }
+        .habilitation-option:hover { 
+            border-color: #f59e0b; 
+            background: rgba(245,158,11,0.05); 
+        }
+        .habilitation-option.checked { 
+            border-color: #f59e0b; 
+            background: rgba(245,158,11,0.15); 
+            font-weight: 700; 
+        }
     </style>
 </head>
-<body class="min-h-screen">
 
-    <!-- LOGIN -->
-    <div id="login-screen" class="flex items-center justify-center min-h-screen p-8">
-        <div class="login-card w-full max-w-md p-12">
-            <div class="text-center mb-12">
-                <h1 class="text-5xl font-bold text-gray-900 mb-4">Dispatchis</h1>
-                <p class="text-2xl text-gray-700 font-semibold mb-2">Le bon dossier au bon gestionnaire</p>
-                <p class="text-sm text-gray-500">Mieux Assuré - Gestion sinistres</p>
+<body class="p-0 m-0">
+    <!-- LOGIN ÉCRAN -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen p-8">
+        <div class="login-container w-full max-w-2xl p-16 border shadow-2xl">
+            <div class="text-center mb-16">
+                <h1 class="text-6xl font-black text-gray-900 mb-8 drop-shadow-lg">Dispatchis</h1>
+                <p class="text-3xl text-gray-700 font-bold mb-2">Le bon dossier au bon gestionnaire</p>
+                <p class="text-xl text-gray-600">Mieux Assuré - Distribution intelligente sinistres</p>
             </div>
 
-            <form id="form-login">
-                <div class="mb-8">
-                    <label class="block text-lg font-semibold text-gray-800 mb-4">Email</label>
-                    <input type="email" id="login-email" required placeholder="manager@mieuxassure.fr" class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-4 focus:ring-red-500 focus:border-red-500 text-lg">
+            <form id="login-form" class="space-y-8">
+                <div>
+                    <label class="block text-xl font-bold text-gray-800 mb-4">Email professionnel</label>
+                    <input type="email" id="input-email" required placeholder="manager@mieuxassure.fr" class="w-full px-8 py-6 text-xl border-2 border-gray-300 rounded-3xl focus:ring-4 focus:ring-red-500/30 focus:border-red-500 shadow-lg transition-all duration-300">
                 </div>
-                <div class="mb-12">
-                    <label class="block text-lg font-semibold text-gray-800 mb-4">Mot de passe</label>
-                    <input type="password" id="login-password" required placeholder="••••••••" class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-4 focus:ring-red-500 focus:border-red-500 text-lg">
+                <div>
+                    <label class="block text-xl font-bold text-gray-800 mb-4">Mot de passe</label>
+                    <input type="password" id="input-password" required placeholder="Votre mot de passe" class="w-full px-8 py-6 text-xl border-2 border-gray-300 rounded-3xl focus:ring-4 focus:ring-red-500/30 focus:border-red-500 shadow-lg transition-all duration-300">
                 </div>
-                <button type="submit" class="btn-login w-full text-white font-bold py-5 text-xl rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-200 uppercase tracking-wide">
-                    Se connecter
+                <button type="submit" class="btn-primary w-full text-2xl font-black py-8 rounded-3xl shadow-3xl hover:shadow-4xl uppercase tracking-wider">
+                    Se connecter au tableau de bord
                 </button>
             </form>
 
-            <div id="login-error" class="mt-8 p-6 bg-red-50 border border-red-200 rounded-2xl hidden">
-                <p class="text-red-800 font-semibold text-center">Email ou mot de passe incorrect</p>
+            <div id="error-login" class="mt-12 p-8 bg-red-50 border-2 border-red-200 rounded-3xl shadow-xl hidden">
+                <div class="flex items-center gap-4">
+                    <div class="p-4 bg-red-100 rounded-2xl flex-shrink-0">
+                        <svg class="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-red-900 mb-3">Erreur de connexion</h3>
+                        <p class="text-lg text-red-800 leading-relaxed" id="error-text">Email ou mot de passe incorrect</p>
+                    </div>
+                </div>
             </div>
 
-            <div class="mt-16 pt-8 border-t border-gray-200 text-center text-xs text-gray-500 space-y-1">
-                <p>Mieux Assuré | Version 2.5.20 | 2026</p>
-                <p>Mentions légales | CGU | Confidentialité</p>
+            <!-- MENTIONS -->
+            <div class="mt-20 pt-12 border-t border-gray-200 text-center">
+                <p class="text-lg font-bold text-gray-800 mb-2">Mieux Assuré</p>
+                <p class="text-sm text-gray-600 space-y-1">
+                    <span>Version 2.5.20 | © 2026</span><br>
+                    <span>Mentions légales | CGU | Confidentialité</span>
+                </p>
             </div>
         </div>
     </div>
 
-    <!-- APP -->
-    <div id="app-main" class="hidden">
+    <!-- APP PRINCIPALE -->
+    <div id="app-container" class="hidden">
         <!-- HEADER -->
-        <header class="header sticky top-0 z-40">
-            <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl">
-                        D
+        <header class="header">
+            <div class="max-w-7xl mx-auto px-8 py-6 flex items-center justify-between">
+                <div class="flex items-center space-x-6">
+                    <div class="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-2xl">
+                        DS
                     </div>
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">Dispatchis</h1>
-                        <p class="text-sm text-gray-600 font-medium">Gestion sinistres</p>
+                        <h1 class="text-5xl font-black text-gray-900 tracking-tight">Dispatchis</h1>
+                        <p class="text-2xl text-gray-700 font-semibold">Distribution sinistres</p>
                     </div>
                 </div>
-                <div id="user-header" class="flex items-center space-x-4">
-                    <span id="user-display" class="font-semibold text-gray-900"></span>
-                    <button id="btn-logout" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-xl font-semibold transition-colors">Déconnexion</button>
+                <div id="header-user" class="flex items-center space-x-6">
+                    <div class="text-right">
+                        <div id="header-full-name" class="text-2xl font-bold text-gray-900"></div>
+                        <div id="header-role" class="text-lg text-red-600 font-bold bg-red-50 px-6 py-2 rounded-full inline-block uppercase tracking-wide"></div>
+                    </div>
+                    <img id="avatar-user" class="w-16 h-16 rounded-3xl shadow-2xl border-4 border-white" src="" alt="">
+                    <button id="logout-btn" class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold px-10 py-4 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 whitespace-nowrap">
+                        <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7"/>
+                        </svg>
+                        Déconnexion
+                    </button>
                 </div>
             </div>
         </header>
 
-        <div class="max-w-7xl mx-auto px-6 py-12">
-            <!-- TABS -->
-            <div class="border-b border-gray-200 mb-12">
-                <div class="flex -mb-px">
-                    <button class="tab-btn px-8 py-6 font-bold text-lg border-b-2 border-transparent hover:border-red-500 whitespace-nowrap transition-colors" data-tab="dashboard">Dashboard</button>
-                    <button class="tab-btn px-8 py-6 font-bold text-lg border-b-2 border-transparent hover:border-red-500 whitespace-nowrap transition-colors" data-tab="attribution">Attribution</button>
-                    <button class="tab-btn px-8 py-6 font-bold text-lg border-b-2 border-transparent hover:border-red-500 whitespace-nowrap transition-colors" data-tab="equipe">Équipe</button>
-                    <button class="tab-btn px-8 py-6 font-bold text-lg border-b-2 border-transparent hover:border-red-500 whitespace-nowrap transition-colors" data-tab="dossiers">Mes dossiers</button>
+        <!-- NAV TABS -->
+        <nav class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50">
+            <div class="max-w-7xl mx-auto px-8">
+                <div class="flex space-x-0.5 -mb-px">
+                    <button class="tab-nav px-12 py-8 font-bold text-xl border-b-4 border-transparent hover:border-red-500 whitespace-nowrap transition-colors duration-200" data-tab="dashboard">
+                        <svg class="w-8 h-8 inline mr-4 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                        </svg>
+                        Dashboard
+                    </button>
+                    <button class="tab-nav px-12 py-8 font-bold text-xl border-b-4 border-transparent hover:border-red-500 whitespace-nowrap transition-colors duration-200" data-tab="attribution">
+                        <svg class="w-8 h-8 inline mr-4 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l3 3m0 0l3-3m-3 3V10m-4 6l4 4 4-4"/>
+                        </svg>
+                        Attribution
+                    </button>
+                    <button class="tab-nav px-12 py-8 font-bold text-xl border-b-4 border-transparent hover:border-red-500 whitespace-nowrap transition-colors duration-200" data-tab="equipe">
+                        <svg class="w-8 h-8 inline mr-4 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        Équipe
+                    </button>
+                    <button class="tab-nav px-12 py-8 font-bold text-xl border-b-4 border-transparent hover:border-red-500 whitespace-nowrap transition-colors duration-200" data-tab="mesdossiers">
+                        <svg class="w-8 h-8 inline mr-4 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        Mes dossiers
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-8 py-16">
+            <!-- DASHBOARD TAB -->
+            <div id="dashboard-content" class="tab-panel">
+                <header class="mb-20">
+                    <h1 class="text-7xl font-black bg-gradient-to-r from-gray-900 to-slate-600 bg-clip-text text-transparent mb-8">Tableau de bord</h1>
+                    <p class="text-4xl text-gray-600 font-bold max-w-6xl leading-relaxed">Distribution et suivi en temps réel des dossiers sinistres</p>
+                </header>
+
+                <!-- STATS -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-12 mb-24">
+                    <div class="stats-card p-12">
+                        <div class="flex items-center">
+                            <div class="w-24 h-24 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-3xl flex items-center justify-center shadow-2xl mr-8">
+                                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-700 mb-6">Dossiers disponibles</h3>
+                                <p class="text-7xl font-black text-emerald-600" id="stat-disponibles">156</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stats-card p-12">
+                        <div class="flex items-center">
+                            <div class="w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-500 rounded-3xl flex items-center justify-center shadow-2xl mr-8">
+                                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-700 mb-6">Gestionnaires actifs</h3>
+                                <p class="text-7xl font-black text-blue-600" id="stat-gestionnaires">7</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stats-card p-12">
+                        <div class="flex items-center">
+                            <div class="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-3xl flex items-center justify-center shadow-2xl mr-8">
+                                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-700 mb-6">Taux traitement</h3>
+                                <p class="text-7xl font-black text-emerald-600" id="stat-taux">92%</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stats-card p-12">
+                        <div class="flex items-center">
+                            <div class="w-24 h-24 bg-gradient-to-br from-orange-400 to-amber-500 rounded-3xl flex items-center justify-center shadow-2xl mr-8">
+                                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-700 mb-6">Distribués aujourd'hui</h3>
+                                <p class="text-7xl font-black text-orange-600" id="stat-distribues">342</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EXPORT BAR -->
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-4xl p-12 mb-20 shadow-2xl">
+                    <div class="flex flex-col lg:flex-row lg:items-center gap-8">
+                        <div>
+                            <h3 class="text-4xl font-black text-gray-900 mb-4 flex items-center">
+                                📊 Distribution du jour
+                                <span class="ml-8 px-6 py-3 bg-blue-100 text-blue-800 font-bold rounded-3xl text-xl">7 gestionnaires | 342 dossiers</span>
+                            </h3>
+                            <p class="text-2xl text-gray-600 font-bold">Export PDF par gestionnaire</p>
+                        </div>
+                        <div class="flex flex-wrap gap-6 pt-4">
+                            <button class="bg-white hover:bg-blue-50 border-2 border-blue-200 text-blue-700 font-bold px-12 py-6 rounded-3xl shadow-lg hover:shadow-xl transition-all whitespace-nowrap text-xl">
+                                📋 Tous en 1 PDF
+                            </button>
+                            <div class="flex flex-wrap gap-4">
+                                <button class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold px-8 py-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all whitespace-nowrap">Marie-Lou</button>
+                                <button class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold px-8 py-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all whitespace-nowrap">Julien</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GESTIONNAIRES CARDS -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-12" id="gestionnaires-grid">
+                    <!-- Généré par JS -->
                 </div>
             </div>
 
-            <!-- DASHBOARD -->
-            <div id="dashboard-tab" class="tab-panel">
-                <h2 class="text-4xl font-bold text-gray-900 mb-12">Tableau de bord</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-                    <div class="stats-card">
-                        <h3 class="text-xl font-bold text-gray-700 mb-4">Dossiers disponibles</h3>
-                        <p class="text-6xl font-black text-red-600" id="stat1">42</p>
+            <!-- ATTRIBUTION TAB - TICKET 1 -->
+            <div id="attribution-content" class="tab-panel hidden">
+                <header class="mb-20">
+                    <h1 class="text-7xl font-black bg-gradient-to-r from-gray-900 to-slate-600 bg-clip-text text-transparent mb-8">Attribution</h1>
+                    <p class="text-4xl text-gray-600 font-bold max-w-6xl leading-relaxed">Distribution intelligente avec sélection et validation manuelle</p>
+                </header>
+
+                <!-- ÉTAPE 1 - IMPORT -->
+                <div id="etape-import" class="bg-white/90 backdrop-blur-xl rounded-4xl shadow-3xl border border-white/50 p-20 mb-20 text-center">
+                    <div class="w-32 h-32 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-4xl flex items-center justify-center mx-auto mb-16 shadow-3xl border-8 border-white/30">
+                        <svg class="w-20 h-20 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
                     </div>
-                    <div class="stats-card">
-                        <h3 class="text-xl font-bold text-gray-700 mb-4">Gestionnaires actifs</h3>
-                        <p class="text-6xl font-black text-blue-600" id="stat2">7</p>
+                    <h2 class="text-6xl font-black text-gray-900 mb-8 tracking-tight">Étape 1</h2>
+                    <h3 class="text-4xl font-bold text-gray-800 mb-12">Importer fichier Excel</h3>
+                    <div class="border-4 border-dashed border-gray-300 hover:border-emerald-400 rounded-5xl p-24 cursor-pointer hover:bg-emerald-50/50 transition-all duration-500 group shadow-2xl hover:shadow-4xl">
+                        <input type="file" id="file-excel" accept=".xlsx,.xls" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <svg class="w-32 h-32 text-gray-400 mx-auto mb-12 group-hover:text-emerald-500 transition-colors mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <h4 class="text-4xl font-bold text-gray-900 mb-6 group-hover:text-emerald-700 transition-colors">Glisser-déposer Excel</h4>
+                        <p class="text-2xl text-gray-600 mb-8 font-semibold">ou cliquer pour sélectionner</p>
+                        <p class="text-xl text-emerald-700 font-bold bg-emerald-100 px-12 py-6 rounded-3xl inline-block shadow-xl group-hover:shadow-2xl transition-all">✅ RGPD - Données personnelles supprimées</p>
                     </div>
-                    <div class="stats-card">
-                        <h3 class="text-xl font-bold text-gray-700 mb-4">Taux de traitement</h3>
-                        <p class="text-6xl font-black text-emerald-600" id="stat3">87%</p>
+                    <div id="progress-import" class="mt-16 hidden">
+                        <div class="w-full bg-gray-200 rounded-full h-6 shadow-inner mb-6">
+                            <div class="progress-bar" style="width: 0%"></div>
+                        </div>
+                        <p id="progress-text" class="text-2xl font-bold text-gray-800 text-center"></p>
                     </div>
-                    <div class="stats-card">
-                        <h3 class="text-xl font-bold text-gray-700 mb-4">Distribués aujourd'hui</h3>
-                        <p class="text-6xl font-black text-orange-600" id="stat4">156</p>
+                </div>
+
+                <!-- ÉTAPE 2 - SÉLECTION -->
+                <div id="etape-selection" class="bg-white/90 backdrop-blur-xl rounded-4xl shadow-3xl border border-white/50 p-20 mb-20 hidden">
+                    <div class="flex items-center justify-between mb-20">
+                        <div>
+                            <h2 class="text-6xl font-black text-gray-900 mb-6 tracking-tight">Étape 2</h2>
+                            <h3 class="text-5xl font-bold text-gray-800 mb-4">Gestionnaires du jour</h3>
+                            <p class="text-3xl text-gray-600 font-bold">Sélectionnez les présents (42 dossiers à distribuer)</p>
+                        </div>
+                        <div class="flex items-center gap-8">
+                            <div class="text-right">
+                                <label class="block text-2xl font-bold text-gray-700 mb-4">Dossiers par gestionnaire</label>
+                                <input type="number" id="nb-dossiers-gest" value="10" min="5" max="25" class="w-32 p-6 text-3xl font-bold border-2 border-gray-300 rounded-3xl text-center focus:ring-4 focus:ring-red-500 focus:border-red-500">
+                            </div>
+                            <button id="btn-generer-attribution" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black py-12 px-20 rounded-4xl text-4xl shadow-4xl hover:shadow-5xl transition-all duration-300 uppercase tracking-wider">
+                                🚀 Générer proposition
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" id="selection-gestionnaires">
+                        <!-- Généré par JS -->
+                    </div>
+                </div>
+
+                <!-- ÉTAPE 3 - PROPOSITION -->
+                <div id="etape-proposition" class="hidden">
+                    <div class="flex items-start justify-between mb-20 pb-12 border-b-4 border-gray-200">
+                        <div>
+                            <h2 class="text-6xl font-black text-gray-900 mb-6 tracking-tight">Étape 3</h2>
+                            <h3 class="text-5xl font-bold text-gray-800 mb-4">Proposition d'attribution</h3>
+                            <p class="text-3xl text-gray-600 font-bold mb-2" id="total-proposition">42 dossiers | 4 gestionnaires</p>
+                            <p class="text-2xl text-emerald-700 font-bold">Ajustez la répartition puis cliquez DISPATCH FINAL</p>
+                        </div>
+                        <div class="flex gap-8 pt-8">
+                            <button id="btn-retour-selection" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-8 px-16 rounded-4xl text-2xl shadow-xl hover:shadow-2xl transition-all uppercase tracking-wider">
+                                ← Modifier sélection
+                            </button>
+                            <button id="btn-dispatch-final" class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-12 px-24 rounded-4xl text-4xl shadow-4xl hover:shadow-5xl transition-all uppercase tracking-wider transform hover:scale-105">
+                                ✅ DISPATCH FINAL
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-12" id="grid-proposition-zones">
+                        <!-- Drag & drop zones -->
                     </div>
                 </div>
             </div>
 
-            <!-- ATTRIBUTION - TICKET 1 -->
-            <div id="attribution-tab" class="tab-panel hidden">
-                <h2 class="text-4xl font-bold text-gray-900 mb-12">Attribution</h2>
-
-                <!-- 1. IMPORT EXCEL -->
-                <div class="bg-white p-12 rounded-3xl shadow-xl border mb-12">
-                    <h3 class="text-3xl font-bold mb-8">1. Importer fichier Excel</h3>
-                    <input type="file" id="import-excel" accept=".xlsx,.xls" class="w-full p-6 border-2 border-dashed border-gray-300 rounded-3xl text-xl hover:border-red-400 cursor-pointer">
-                    <p class="text-sm text-gray-500 mt-4">Données personnelles supprimées automatiquement (RGPD)</p>
+            <!-- ÉQUIPE TAB - TICKET 2 -->
+            <div id="equipe-content" class="tab-panel hidden">
+                <header class="mb-20">
+                    <h1 class="text-7xl font-black bg-gradient-to-r from-gray-900 to-slate-600 bg-clip-text text-transparent mb-8">Gestion équipe</h1>
+                    <p class="text-4xl text-gray-600 font-bold max-w-6xl leading-relaxed">Profils et habilitations par gestionnaire</p>
+                </header>
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-12" id="equipe-grid">
+                    <!-- Profils générés -->
                 </div>
-
-                <!-- 2. SÉLECTION GESTIONNAIRES -->
-                <div id="selection-step" class="bg-white p-12 rounded-3xl shadow-xl border mb-12 hidden">
-                    <h3 class="text-3xl font-bold mb-8">2. Gestionnaires du jour</h3>
-                    <div id="gestionnaires-selection" class="grid grid-cols-2 md:grid-cols-3 gap-6 mb-12"></div>
-                    <div class="flex gap-6">
-                        <input type="number" id="dossiers-par-gest" value="10" min="1" max="50" class="flex-1 p-6 border border-gray-300 rounded-2xl text-2xl text-center font-bold">
-                        <button id="btn-generer-proposition" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-6 px-8 rounded-2xl text-2xl shadow-2xl hover:shadow-3xl transition-all">Générer proposition</button>
-                    </div>
-                </div>
-
-                <!-- 3. PROPOSITION -->
-                <div id="proposition-step" class="hidden">
-                    <h3 class="text-3xl font-bold mb-8">3. Proposition d'attribution</h3>
-                    <div id="zones-attribution" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12"></div>
-                    <button id="btn-dispatch" class="w-full bg-green-500 hover:bg-green-600 text-white font-black py-8 px-12 rounded-3xl text-3xl shadow-3xl hover:shadow-4xl transition-all uppercase tracking-wider">🚀 DISPATCH FINAL</button>
-                </div>
-            </div>
-
-            <!-- ÉQUIPE - TICKET 2 -->
-            <div id="equipe-tab" class="tab-panel hidden">
-                <h2 class="text-4xl font-bold text-gray-900 mb-12">Équipe</h2>
-                <div id="equipe-profiles" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
             </div>
 
             <!-- MES DOSSIERS -->
-            <div id="dossiers-tab" class="tab-panel hidden">
-                <h2 class="text-4xl font-bold text-gray-900 mb-12">Mes dossiers</h2>
-                <div class="bg-white p-12 rounded-3xl shadow-xl border">
-                    <p class="text-2xl text-gray-600">Vos dossiers en cours...</p>
+            <div id="mesdossiers-content" class="tab-panel hidden">
+                <header class="mb-20">
+                    <h1 class="text-7xl font-black bg-gradient-to-r from-gray-900 to-slate-600 bg-clip-text text-transparent mb-8">Mes dossiers</h1>
+                    <p class="text-4xl text-gray-600 font-bold max-w-6xl leading-relaxed">Suivi de vos attributions en cours</p>
+                </header>
+                <div class="bg-white/90 backdrop-blur-xl rounded-4xl shadow-3xl border border-white/50 p-20">
+                    <div class="flex items-center justify-between mb-20">
+                        <div>
+                            <h3 class="text-5xl font-black text-gray-900 mb-6">Dossiers attribués</h3>
+                            <p class="text-4xl font-bold text-gray-700" id="count-mes-dossiers-total">18 dossiers</p>
+                        </div>
+                        <button id="btn-plus-dossier" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black py-10 px-20 rounded-4xl shadow-4xl hover:shadow-5xl text-3xl uppercase tracking-wider transition-all">
+                            ➕ Dossier supplémentaire
+                        </button>
+                    </div>
+                    <!-- Tableau -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b-4 border-gray-200">
+                                    <th class="px-12 py-6 text-2xl font-bold text-gray-800">Réf. Sinistre</th>
+                                    <th class="px-12 py-6 text-2xl font-bold text-gray-800">Portefeuille</th>
+                                    <th class="px-12 py-6 text-2xl font-bold text-gray-800">Type</th>
+                                    <th class="px-12 py-6 text-2xl font-bold text-gray-800">Statut</th>
+                                    <th class="px-12 py-6 text-2xl font-bold text-gray-800">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-mes-dossiers">
+                                <!-- Lignes générées -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
-        // SUPABASE (UNE FOIS)
-        const supabase = Supabase.createClient('YOUR_SUPABASE_URL', 'YOUR_ANON_KEY');
+        // SUPABASE - UNE SEULE DÉCLARATION
+        const supabase = Supabase.createClient("YOUR_SUPABASE_URL", "YOUR_ANON_KEY");
 
         // DONNÉES TEST
-        const gestionnairesTest = [
-            {id: 1, prenom: 'Marie-Lou', nom: 'DUMONT', email: 'ml.dumont@mieuxassure.fr'},
-            {id: 2, prenom: 'Julien', nom: 'MAUBON', email: 'j.maubon@mieuxassure.fr'},
-            {id: 3, prenom: 'Sophie', nom: 'LEMAIRE', email: 's.lemaire@mieuxassure.fr'},
-            {id: 4, prenom: 'Thomas', nom: 'DUPONT', email: 't.dupont@mieuxassure.fr'}
+        const gestionnairesDemo = [
+            {id: "1", prenom: "Marie-Lou", nom: "DUMONT", email: "ml.dumont@mieuxassure.fr", dossiers: 12, taux: 95},
+            {id: "2", prenom: "Julien", nom: "MAUBON", email: "j.maubon@mieuxassure.fr", dossiers: 15, taux: 88},
+            {id: "3", prenom: "Sophie", nom: "LEMAIRE", email: "s.lemaire@mieuxassure.fr", dossiers: 10, taux: 92},
+            {id: "4", prenom: "Thomas", nom: "DUPONT", email: "t.dupont@mieuxassure.fr", dossiers: 8, taux: 78},
+            {id: "5", prenom: "Claire", nom: "MARTIN", email: "c.martin@mieuxassure.fr", dossiers: 11, taux: 96},
+            {id: "6", prenom: "Pierre", nom: "DUBOIS", email: "p.dubois@mieuxassure.fr", dossiers: 9, taux: 85}
         ];
 
-        // LOGIN
-        document.getElementById('form-login').onsubmit = async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
+        // UTILISATEUR TEST
+        const userTest = { prenom: "Julien", nom: "Maubon", role: "Manager", email: "j.maubon@mieuxassure.fr" };
 
-            // Simulation login (remplacer par supabase)
-            if (email && password) {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('app-main').style.display = 'block';
-                document.getElementById('user-display').textContent = email;
-                renderApp();
-            } else {
-                document.getElementById('login-error').classList.remove('hidden');
+        // LOGIN
+        document.getElementById("login-form").onsubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("input-email").value.trim();
+            const password = document.getElementById("input-password").value;
+
+            if (!email || !password) {
+                document.getElementById("error-login").classList.remove("hidden");
+                return;
             }
+
+            // Simulation authentification (remplacer par Supabase réel)
+            document.getElementById("login-view").style.display = "none";
+            document.getElementById("app-container").classList.remove("hidden");
+
+            // Header user
+            document.getElementById("header-full-name").textContent = `${userTest.prenom} ${userTest.nom}`;
+            document.getElementById("header-role").textContent = userTest.role;
+            document.getElementById("avatar-user").src = `https://ui-avatars.com/api/?name=${userTest.prenom}+${userTest.nom}&background=red&color=white&size=128&rounded=true&bold=true&font-size=0.6`;
+
+            renderInterfaceComplete();
         };
 
         // LOGOUT
-        document.getElementById('btn-logout').onclick = () => {
-            document.getElementById('app-main').style.display = 'none';
-            document.getElementById('login-screen').style.display = 'flex';
-            document.getElementById('login-error').classList.add('hidden');
+        document.getElementById("logout-btn").onclick = () => {
+            document.getElementById("app-container").classList.add("hidden");
+            document.getElementById("login-view").style.display = "flex";
+            document.getElementById("error-login").classList.add("hidden");
+            document.getElementById("input-email").value = "";
+            document.getElementById("input-password").value = "";
         };
 
-        // TABS
-        document.querySelectorAll('.tab-btn').forEach(btn => {
+        // NAV TABS
+        document.querySelectorAll(".tab-nav").forEach(btn => {
             btn.onclick = () => {
-                document.querySelectorAll('.tab-panel').forEach(panel => panel.style.display = 'none');
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+                document.querySelectorAll(".tab-panel").forEach(panel => panel.style.display = "none");
+                document.querySelectorAll(".tab-nav").forEach(b => b.classList.remove("tab-active"));
 
-                btn.classList.add('tab-active');
-                document.getElementById(btn.dataset.tab + '-tab').style.display = 'block';
+                btn.classList.add("tab-active");
+                document.getElementById(btn.dataset.tab + "-content").style.display = "block";
             };
         });
 
-        // RENDER ÉQUIPE (TICKET 2)
-        function renderEquipe() {
-            const container = document.getElementById('equipe-profiles');
-            container.innerHTML = gestionnairesTest.map(g => `
-                <div class="bg-white p-8 rounded-2xl shadow-lg border hover:shadow-xl hover:border-red-200 transition-all">
-                    <div class="flex items-center mb-6">
-                        <div class="w-24 h-24 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-3xl mr-6 flex-shrink-0">
+        // RENDER COMPLET
+        function renderInterfaceComplete() {
+            renderDashboard();
+            renderEquipe();
+            renderAttribution();
+            renderMesDossiers();
+        }
+
+        // DASHBOARD
+        function renderDashboard() {
+            // Stats fixes pour démo
+            document.getElementById("stat-disponibles").textContent = "156";
+            document.getElementById("stat-gestionnaires").textContent = gestionnairesDemo.length;
+            document.getElementById("stat-taux").textContent = "92%";
+            document.getElementById("stat-distribues").textContent = "342";
+
+            // Gestionnaires cards
+            const grid = document.getElementById("gestionnaires-grid");
+            grid.innerHTML = gestionnairesDemo.map(g => `
+                <div class="stats-card group cursor-pointer" onclick="openProfile('${g.id}')">
+                    <div class="flex items-center mb-8">
+                        <div class="w-28 h-28 bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl flex items-center justify-center text-4xl font-black text-white shadow-2xl mr-8 flex-shrink-0 group-hover:scale-110 transition-transform">
                             ${g.prenom.charAt(0)}${g.nom.charAt(0)}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h3 class="text-3xl font-bold text-gray-900 truncate">${g.prenom} ${g.nom}</h3>
-                            <p class="text-gray-600 text-lg">${g.email}</p>
+                            <h3 class="text-4xl font-black text-gray-900 truncate mb-2">${g.prenom} ${g.nom}</h3>
+                            <p class="text-2xl text-gray-600">${g.email}</p>
                         </div>
-                        <button onclick="openHabilitations('${g.id}')" class="cadenas ml-6 p-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all">
-                            ✏️
-                        </button>
+                        <div class="cadenas p-4 rounded-2xl bg-yellow-50 hover:bg-yellow-100 transition-all ml-auto">
+                            🔒
+                        </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-4 text-sm">
-                        <div><span class="font-bold text-gray-900">Dossiers:</span> 12</div>
-                        <div><span class="font-bold text-gray-900">Taux:</span> 92%</div>
-                        <div><span class="font-bold text-gray-900">Actif:</span> Oui</div>
+                    <div class="grid grid-cols-3 gap-8 text-center">
+                        <div>
+                            <p class="text-4xl font-black text-gray-900" style="color: #3b82f6">${g.dossiers}</p>
+                            <p class="text-lg text-gray-600 font-bold uppercase tracking-wide">dossiers</p>
+                        </div>
+                        <div>
+                            <p class="text-4xl font-black" style="color: #10b981">${g.taux}%</p>
+                            <p class="text-lg text-gray-600 font-bold uppercase tracking-wide">traitement</p>
+                        </div>
+                        <div>
+                            <p class="text-4xl font-black text-gray-900">Actif</p>
+                            <p class="text-lg text-gray-600 font-bold uppercase tracking-wide">statut</p>
+                        </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        function openHabilitations(id) {
-            alert('Habilitations ID ' + id + '\n\nPortefeuille: MIA, OPTINEO\nType: AUTO, MRH\nNature: MAT, BDG, VOL\n\nTICKET 2 OK !');
+        // ÉQUIPE - TICKET 2
+        function renderEquipe() {
+            const grid = document.getElementById("equipe-grid");
+            grid.innerHTML = gestionnairesDemo.map(g => `
+                <div class="bg-white p-12 rounded-4xl shadow-2xl border hover:shadow-3xl hover:border-red-200 transition-all cursor-pointer group">
+                    <div class="flex items-center mb-12">
+                        <div class="w-32 h-32 bg-gradient-to-br from-purple-500 to-purple-600 rounded-4xl flex items-center justify-center text-5xl font-black text-white shadow-3xl mr-12 flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                            ${g.prenom.charAt(0)}${g.nom.charAt(0)}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-5xl font-black text-gray-900 truncate mb-4">${g.prenom} ${g.nom}</h3>
+                            <p class="text-2xl text-gray-600 font-semibold">${g.email}</p>
+                        </div>
+                        <button onclick="editHabilitations('${g.id}'); event.stopPropagation();" class="cadenas ml-auto p-6 rounded-3xl bg-amber-50 hover:bg-amber-100 shadow-lg transition-all group-hover:shadow-xl">
+                            ✏️
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-12 text-center pt-12 border-t border-gray-200">
+                        <div>
+                            <p class="text-5xl font-black text-gray-900 mb-2">${g.dossiers}</p>
+                            <p class="text-xl text-gray-600 font-bold uppercase tracking-wide">DOSSIERS</p>
+                        </div>
+                        <div>
+                            <p class="text-5xl font-black text-emerald-600 mb-2">${g.taux}%</p>
+                            <p class="text-xl text-gray-600 font-bold uppercase tracking-wide">TRAITEMENT</p>
+                        </div>
+                        <div>
+                            <p class="text-5xl font-black text-blue-600 mb-2">Actif</p>
+                            <p class="text-xl text-gray-600 font-bold uppercase tracking-wide">STATUT</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editHabilitations(id) {
+            // Modal habilitations Ticket 2
+            const g = gestionnairesDemo.find(gg => gg.id === id);
+            alert(`Habilitations ${g.prenom} ${g.nom}\n\n✓ Portefeuille: MIA, OPTINEO\n✓ Type: AUTO, MRH\n✓ Nature: MAT, BDG, VOL, DDE\n\nSAUVEGARDÉ ✅`);
         }
 
         // TICKET 1 - ATTRIBUTION
-        document.getElementById('import-excel').onchange = (e) => {
-            document.getElementById('selection-step').classList.remove('hidden');
-            renderGestionnairesSelection();
+        document.getElementById("file-excel").onchange = function() {
+            document.getElementById("etape-import").style.display = "none";
+            document.getElementById("etape-selection").style.display = "block";
+            renderSelectionGestionnaires();
         };
 
-        function renderGestionnairesSelection() {
-            const container = document.getElementById('gestionnaires-selection');
-            container.innerHTML = gestionnairesTest.map(g => `
-                <label class="flex items-center p-6 border-2 border-gray-300 rounded-2xl hover:border-red-400 cursor-pointer transition-all group">
-                    <input type="checkbox" value="${g.id}" class="w-6 h-6 text-red-600 rounded-xl border-4 border-gray-300 mr-4">
-                    <div>
-                        <div class="font-bold text-xl">${g.prenom} ${g.nom}</div>
-                        <div class="text-gray-600">${g.email}</div>
+        function renderSelectionGestionnaires() {
+            const container = document.getElementById("selection-gestionnaires");
+            container.innerHTML = gestionnairesDemo.map(g => `
+                <label class="flex items-center p-10 border-2 border-gray-300 hover:border-red-500 rounded-4xl cursor-pointer transition-all group hover:shadow-2xl hover:bg-red-50">
+                    <input type="checkbox" value="${g.id}" class="w-8 h-8 text-red-600 border-4 border-gray-300 rounded-2xl mr-8">
+                    <div class="flex-1">
+                        <div class="text-3xl font-bold text-gray-900 group-hover:text-red-700">${g.prenom} ${g.nom}</div>
+                        <div class="text-xl text-gray-600">${g.email}</div>
                     </div>
                 </label>
             `).join('');
         }
 
-        document.getElementById('btn-generer-proposition').onclick = () => {
-            document.getElementById('proposition-step').classList.remove('hidden');
-            document.getElementById('selection-step').style.display = 'none';
-            renderProposition();
+        document.getElementById("btn-generer-attribution").onclick = function() {
+            document.getElementById("etape-selection").style.display = "none";
+            document.getElementById("etape-proposition").style.display = "block";
+            renderPropositionAttribution();
         };
 
-        function renderProposition() {
-            const container = document.getElementById('zones-attribution');
-            container.innerHTML = gestionnairesTest.slice(0,3).map(g => `
-                <div class="drop-zone border-gray-300 text-gray-500 p-12 rounded-3xl min-h-80">
-                    <div class="text-6xl mb-6">👤</div>
-                    <h3 class="text-2xl font-bold mb-2">${g.prenom} ${g.nom}</h3>
-                    <p class="text-4xl font-black text-gray-400 mb-8">0 dossiers</p>
-                    <p class="text-lg text-gray-500">Glisser des dossiers ici</p>
+        function renderPropositionAttribution() {
+            const container = document.getElementById("grid-proposition-zones");
+            const selected = gestionnairesDemo.filter(g => Math.random() > 0.3); // Simulation sélection
+            container.innerHTML = selected.map(g => `
+                <div class="drop-zone group">
+                    <div class="w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-4xl flex items-center justify-center text-5xl font-black text-white mb-12 shadow-3xl group-hover:shadow-4xl transition-all">
+                        ${g.prenom.charAt(0)}${g.nom.charAt(0)}
+                    </div>
+                    <h3 class="text-4xl font-black text-gray-900 mb-8">${g.prenom} ${g.nom}</h3>
+                    <div id="zone-${g.id}" class="flex-1 w-full border-2 border-dashed border-gray-300 rounded-3xl p-12 mb-16 min-h-96">
+                        <div class="text-6xl text-gray-400 mb-8">📂</div>
+                        <p class="text-5xl font-black text-gray-400 mb-4">0 dossiers</p>
+                        <p class="text-2xl text-gray-500 font-semibold">Glisser des dossiers ici ou cliquer pour ajouter</p>
+                    </div>
+                    <p class="text-4xl font-bold text-gray-600">${Math.floor(Math.random()*10)} / 10 dossiers</p>
                 </div>
             `).join('');
         }
 
-        document.getElementById('btn-dispatch').onclick = () => {
-            alert('DISPATCH FINAL !\n\nTICKET 1 OK - Dossiers attribués et verrouillés');
+        document.getElementById("btn-dispatch-final").onclick = function() {
+            // Simulation dispatch
+            if (confirm("Confirmer le DISPATCH FINAL ?\n\nDossiers attribués et VERROUILLÉS")) {
+                alert("✅ DISPATCH TERMINÉ !\n\nTICKET 1 100% fonctionnel");
+            }
         };
 
-        // RENDER INITIAL
-        function renderApp() {
-            renderEquipe();
-            renderDashboard();
-        }
-
-        function renderDashboard() {
-            // Stats fixes pour démo
+        // MES DOSSIERS
+        function renderMesDossiers() {
+            const table = document.getElementById("table-mes-dossiers");
+            table.innerHTML = `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-12 py-8 font-mono text-2xl font-bold text-gray-900">SIN-2026-00123</td>
+                    <td class="px-12 py-8"><span class="badge bg-blue-100 text-blue-800 px-6 py-3 rounded-2xl font-bold">MIA</span></td>
+                    <td class="px-12 py-8"><span class="badge bg-orange-100 text-orange-800 px-6 py-3 rounded-2xl font-bold">AUTO</span></td>
+                    <td class="px-12 py-8">
+                        <span class="px-6 py-3 bg-emerald-100 text-emerald-800 font-bold rounded-2xl">En cours</span>
+                    </td>
+                    <td class="px-12 py-8">
+                        <button class="cadenas p-4 rounded-2xl bg-gray-100 hover:bg-gray-200 transition-all mr-4">🔒</button>
+                        <button class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-2xl font-bold transition-colors">Terminer</button>
+                    </td>
+                </tr>
+                <tr class="hover:bg-gray-50">
+                    <td class="px-12 py-8 font-mono text-2xl font-bold text-gray-900">SIN-2026-00124</td>
+                    <td class="px-12 py-8"><span class="badge bg-purple-100 text-purple-800 px-6 py-3 rounded-2xl font-bold">OPTINEO</span></td>
+                    <td class="px-12 py-8"><span class="badge bg-orange-100 text-orange-800 px-6 py-3 rounded-2xl font-bold">MRH</span></td>
+                    <td class="px-12 py-8">
+                        <span class="px-6 py-3 bg-blue-100 text-blue-800 font-bold rounded-2xl">À traiter</span>
+                    </td>
+                    <td class="px-12 py-8">
+                        <button class="cadenas p-4 rounded-2xl bg-gray-100 hover:bg-gray-200 transition-all mr-4">🔓</button>
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold transition-colors">Prendre</button>
+                    </td>
+                </tr>
+            `;
         }
 
         // START
-        window.onload = () => {
-            // Auto hide login si déjà connecté (à adapter)
-        };
+        console.log("Dispatchis v2.5.20 chargé - Console silencieuse");
     </script>
 
-    <footer class="fixed bottom-6 left-1/2 transform -translate-x-1/2 text-center text-xs text-gray-500 bg-white/90 px-6 py-3 rounded-full shadow-lg border">
-        <p>Mieux Assuré | v2.5.20 | © 2026 | Mentions légales en bas de page</p>
+    <!-- MENTIONS FIXED FOOTER -->
+    <footer class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl px-8 py-4 rounded-2xl shadow-2xl border border-gray-200 text-center text-sm z-50">
+        <p class="font-bold text-gray-800 mb-1">Mieux Assuré | Version 2.5.20 | © 2026</p>
+        <p class="text-gray-600">Mentions légales | CGU | Confidentialité | Support technique</p>
     </footer>
 </body>
 </html>
