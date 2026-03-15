@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.17">
+  <meta name="version" content="2.5.18">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -22,7 +22,13 @@
     --gray-300:   #e0e3e8;
     --gray-400:   #b0b8c5;
     --gray-600:   #6b7689;
-    --gray-800:   #2c3547;
+    --gray-800:
+  // TICKET 2 - BOUTON CRAYON
+  html += ` <button class="btn-edit-user" onclick="editHabilitations('${g.id}', '${g.prenom} ${g.nom}')" title="Modifier habilitations">
+              ✏️
+            </button>`;
+  // FIN BOUTON
+   #2c3547;
     --white:      #ffffff;
     --shadow-sm:  0 1px 3px rgba(15,27,45,0.07);
     --shadow-md:  0 4px 16px rgba(15,27,45,0.10);
@@ -329,10 +335,30 @@
   .selection-badge { font-size: 12px; color: var(--gray-600); font-weight: 600; background: var(--gray-100); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
   /* Supprimer l'ancien bandeau et les anciens filtres si CSS présent */
   .filter-bandeau, .filters { display: none !important; }
+
+
+.btn-edit-user {
+  background: none;
+  border: 1.5px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--gray-600);
+  transition: all 0.15s;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.btn-edit-user:hover {
+  background: var(--gray-100);
+  color: var(--navy);
+  border-color: var(--gray-400);
+}
+
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.17';
+    const APP_VERSION = '2.5.18';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1858,7 +1884,7 @@ db.auth.getSession().then(({ data }) => {
     modal.innerHTML = `
       <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
         <h2 style="color:var(--navy);margin-bottom:6px;">📄 Mentions légales & Confidentialité</h2>
-        <p style="font-size:12px;color:#999;margin-bottom:20px;">Dispatchis v2.5.17 — Application de gestion interne</p>
+        <p style="font-size:12px;color:#999;margin-bottom:20px;">Dispatchis v2.5.18 — Application de gestion interne</p>
 
         <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Éditeur</h3>
         <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
@@ -1900,6 +1926,101 @@ db.auth.getSession().then(({ data }) => {
   }
   // ===== FIN MENTIONS LÉGALES =====
 
+
+// ===== TICKET 2 - HABILITATIONS =====
+async function loadHabilitations(userId) {
+  const { data } = await db.from('habilitation_gestionnaires')
+    .select('portefeuille, type, nature')
+    .eq('user_id', userId).single();
+  return data || { portefeuille: [], type: [], nature: [] };
+}
+
+async function saveHabilitations(userId, habilitations) {
+  const { error } = await db.from('habilitation_gestionnaires').upsert({
+    user_id: userId, ...habilitations
+  });
+  if (error) throw error;
+  showNotif('Habilitations mises à jour !', 'success');
+}
+
+async function editHabilitations(userId, nomComplet) {
+  const habilitations = await loadHabilitations(userId);
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = `hab-modal-${userId}`;
+  modal.innerHTML = `
+    <div class="modal" style="max-width:520px;">
+      <h2>✏️ Habilitations — ${nomComplet}</h2>
+
+      <div class="form-group">
+        <label>Portefeuille</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+          ${['MIA', 'OPTINEO', 'AUTRE'].map(opt => `
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:20px;background:#f8f9fa;border:1px solid #e2e8f0;cursor:pointer;">
+              <input type="checkbox" value="${opt}" data-cat="portefeuille" ${habilitations.portefeuille?.includes(opt) ? 'checked' : ''}>
+              ${opt}
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Type</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+          ${['AUTO', 'MRH', 'HAB', 'AUTRE'].map(opt => `
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:20px;background:#f8f9fa;border:1px solid #e2e8f0;cursor:pointer;">
+              <input type="checkbox" value="${opt}" data-cat="type" ${habilitations.type?.includes(opt) ? 'checked' : ''}>
+              ${opt}
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Nature</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;">
+          ${['MAT', 'BDG', 'VIT', 'AUTRE'].map(opt => `
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:20px;background:#f8f9fa;border:1px solid #e2e8f0;cursor:pointer;">
+              <input type="checkbox" value="${opt}" data-cat="nature" ${habilitations.nature?.includes(opt) ? 'checked' : ''}>
+              ${opt}
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('hab-modal-${userId}')">Annuler</button>
+        <button class="btn btn-primary" onclick="saveUserHabilitations('${userId}')">Enregistrer</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function saveUserHabilitations(userId) {
+  const modalId = `hab-modal-${userId}`;
+  const modal = document.getElementById(modalId);
+  const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+
+  const habilitations = {
+    portefeuille: [],
+    type: [],
+    nature: []
+  };
+
+  checkboxes.forEach(cb => {
+    const cat = cb.dataset.cat;
+    if (habilitations[cat]) {
+      habilitations[cat].push(cb.value);
+    }
+  });
+
+  await saveHabilitations(userId, habilitations);
+  closeModal(modalId);
+}
+
+// ===== FIN TICKET 2 =====
 </script>
 </body>
 </html>
