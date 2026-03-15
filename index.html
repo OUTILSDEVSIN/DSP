@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.16">
+  <meta name="version" content="2.5.17">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -33,115 +33,115 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray-bg); min-height: 100vh; color: var(--navy); font-size: 14px; }
 
-  /* ===== LOGIN ===== */
-  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  /* ===== LOGIN iOS STYLE ===== */
+  /* ===== LOGIN PASTEL ===== */
   #login-screen {
-    background: linear-gradient(145deg, #0f0c29, #1a1a4e, #24243e);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f0f4ff 0%, #faf0f6 50%, #f0f7ff 100%);
     position: relative; overflow: hidden;
   }
   #login-screen::before {
     content: '';
     position: absolute; inset: 0;
     background:
-      radial-gradient(ellipse at 20% 50%, rgba(232,18,81,0.18) 0%, transparent 60%),
-      radial-gradient(ellipse at 80% 20%, rgba(99,102,241,0.15) 0%, transparent 55%),
-      radial-gradient(ellipse at 60% 80%, rgba(14,165,233,0.12) 0%, transparent 50%);
+      radial-gradient(ellipse at 20% 30%, rgba(180,150,220,0.13) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 70%, rgba(220,150,180,0.10) 0%, transparent 55%),
+      radial-gradient(ellipse at 50% 90%, rgba(160,190,240,0.08) 0%, transparent 50%);
     pointer-events: none;
   }
   .login-box {
-    background: rgba(255,255,255,0.07);
-    backdrop-filter: blur(28px) saturate(1.6);
-    -webkit-backdrop-filter: blur(28px) saturate(1.6);
-    border: 1px solid rgba(255,255,255,0.13);
-    border-radius: 28px;
+    background: #ffffff;
+    border-radius: 24px;
     padding: 48px 44px 40px;
-    width: 400px;
-    box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset;
-    position: relative;
+    width: 420px;
+    box-shadow: 0 8px 40px rgba(150,120,180,0.13), 0 2px 8px rgba(0,0,0,0.04);
+    border: 1px solid rgba(220,200,240,0.4);
     animation: loginFadeIn 0.5s cubic-bezier(.22,1,.36,1);
-  }
-  @keyframes loginFadeIn {
-    from { opacity:0; transform: translateY(24px) scale(0.97); }
-    to   { opacity:1; transform: translateY(0) scale(1); }
-  }
-  .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
-  .login-logo-icon {
-    width: 72px; height: 72px;
-    background: linear-gradient(135deg, #e81251, #ff4d7d);
-    border-radius: 20px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 32px; font-weight: 900; color: white;
-    letter-spacing: -1px;
-    box-shadow: 0 8px 32px rgba(232,18,81,0.45);
-    margin-bottom: 16px;
-  }
-  .login-logo-name {
-    font-size: 26px; font-weight: 800; letter-spacing: -0.8px;
-    color: #fff;
-  }
-  .login-logo-name span { color: #ff4d7d; }
-  .login-subtitle {
-    text-align: center; color: rgba(255,255,255,0.45);
-    font-size: 13px; margin-bottom: 32px; margin-top: 6px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
-  .login-label {
-    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5);
-    text-transform: uppercase; letter-spacing: 0.7px;
-    margin-bottom: 8px; display: block;
-  }
-  .login-field { margin-bottom: 16px; }
-  .login-box input {
-    width: 100%; padding: 14px 16px;
-    background: rgba(255,255,255,0.08);
-    border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 14px;
-    font-size: 15px; outline: none; color: #fff;
-    transition: all 0.2s ease;
+    position: relative; z-index: 1;
     box-sizing: border-box;
   }
-  .login-box input::placeholder { color: rgba(255,255,255,0.25); }
+  @keyframes loginFadeIn {
+    from { opacity:0; transform: translateY(20px) scale(0.98); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
+  }
+  .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 6px; }
+  .login-logo-brand {
+    font-size: 34px; font-weight: 900;
+    color: #b07ab0;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+  }
+  .login-slogan {
+    font-size: 12.5px; color: #a89ab8; font-style: italic;
+    font-weight: 400; margin-top: 8px; letter-spacing: 0.3px;
+    text-align: center; line-height: 1.4;
+  }
+  .login-divider {
+    width: 44px; height: 3px;
+    background: linear-gradient(90deg, #b07ab0, #8fabda);
+    border-radius: 2px;
+    margin: 20px auto 26px;
+  }
+  .login-label {
+    font-size: 11px; font-weight: 700; color: #9a90ab;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    margin-bottom: 7px; display: block;
+  }
+  .login-field { margin-bottom: 18px; }
+  .login-box input {
+    width: 100%; padding: 13px 16px;
+    border: 1.5px solid #e8e2f0;
+    border-radius: 11px;
+    font-size: 14px; outline: none;
+    background: #faf9fc; color: #3a3050;
+    transition: border 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+  }
+  .login-box input::placeholder { color: #c4b8d4; }
   .login-box input:focus {
-    border-color: rgba(232,18,81,0.7);
-    background: rgba(255,255,255,0.12);
-    box-shadow: 0 0 0 3px rgba(232,18,81,0.15);
+    border-color: #b07ab0;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(176,122,176,0.12);
   }
-  #login-btn, .login-box button {
-    width: 100%; padding: 15px;
-    background: linear-gradient(135deg, #e81251, #ff4d7d);
+  .login-box button {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, #b07ab0, #8fabda);
     color: white; border: none;
-    border-radius: 14px;
+    border-radius: 12px;
     font-size: 15px; font-weight: 700;
-    cursor: pointer; letter-spacing: 0.2px;
-    transition: all 0.2s ease;
-    margin-top: 8px;
-    box-shadow: 0 6px 24px rgba(232,18,81,0.4);
+    cursor: pointer; letter-spacing: 0.4px;
+    transition: all 0.2s ease; margin-top: 6px;
+    box-shadow: 0 4px 20px rgba(176,122,176,0.30);
   }
-  #login-btn:hover:not(:disabled), .login-box button:hover:not(:disabled) {
+  .login-box button:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 10px 32px rgba(232,18,81,0.55);
+    box-shadow: 0 7px 28px rgba(176,122,176,0.42);
   }
-  #login-btn:disabled {
-    background: rgba(255,255,255,0.12);
-    box-shadow: none; cursor: not-allowed; opacity: 0.6;
-  }
+  .login-box button:disabled { opacity: 0.55; cursor: not-allowed; }
   .login-footer {
-    text-align: center; margin-top: 22px;
-    font-size: 11px; color: rgba(255,255,255,0.22);
-    letter-spacing: 0.3px;
+    text-align: center; margin-top: 18px;
+    font-size: 11px; color: #c4b8d4; letter-spacing: 0.3px;
   }
+  .login-rgpd {
+    margin-top: 18px;
+    background: #f7f4fc;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 11px; color: #a89ab8;
+    text-align: center;
+    border: 1px solid #ede8f5;
+    line-height: 1.6;
+  }
+  .login-rgpd a { color: #b07ab0; text-decoration: none; font-weight: 600; }
+  .login-rgpd a:hover { text-decoration: underline; }
   .login-error {
-    color: #ff6b8a; font-size: 12px; margin-top: 10px;
+    color: #c0392b; font-size: 12px; margin-top: 10px;
     display: none; text-align: center;
-    background: rgba(232,18,81,0.12);
-    border: 1px solid rgba(232,18,81,0.2);
-    padding: 10px 14px; border-radius: 12px;
+    background: #fff5f5;
+    border: 1px solid #fadadd;
+    padding: 9px 12px; border-radius: 10px;
   }
-  /* Turnstile centré */
-  
-  #app-screen { display: none; }
+  app-screen { display: none; }
 
   /* ===== HEADER ===== */
   header { background: var(--navy); padding: 0 28px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
@@ -332,7 +332,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.16';
+    const APP_VERSION = '2.5.17';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -341,18 +341,21 @@
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
     }
   </script>
+  <!-- Cloudflare Turnstile — Anti-brute force -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <div class="login-logo-icon">D</div>
-      <div class="login-logo-name">Dis<span>patch</span>is</div>
+      <div class="login-logo-brand">Dispatchis</div>
+      <div class="login-slogan">La distribution de sinistres, simplifiée.</div>
     </div>
-    <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
+    <div class="login-divider"></div>
+
     <div class="login-field">
-      <label class="login-label">Adresse email</label>
+      <label class="login-label">Adresse e-mail</label>
       <input type="email" id="login-email" placeholder="prenom.nom@dispatchis.fr" autocomplete="email">
     </div>
     <div class="login-field">
@@ -360,8 +363,15 @@
       <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
         onkeydown="if(event.key==='Enter') doLogin()">
     </div>
+
     <button onclick="doLogin()">Se connecter</button>
     <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
+
+    <div class="login-rgpd">
+      🔒 Vos données de connexion sont sécurisées. Aucun dossier sinistre n'est conservé au-delà de la journée.<br>
+      <a href="#" onclick="showMentionsLegales(); return false;">Mentions légales &amp; confidentialité</a>
+    </div>
+
     <div class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</div>
   </div>
 </div>
@@ -435,32 +445,22 @@ async function auditLog(action, detail = '') {
 }
 // ===== FIN JOURNALISATION =====
 
-// ===== LOGIN =====
+// ===== CLOUDFLARE TURNSTILE =====
+
+}
+// ===== FIN TURNSTILE =====
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
-  const pwd   = document.getElementById('login-password').value;
+  const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-error');
   errEl.style.display = 'none';
-
-  if (!email || !pwd) {
-    errEl.textContent = 'Veuillez remplir tous les champs.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const btn = document.querySelector('#login-screen button');
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '🔒 Connexion en cours…'; }
-
-  const { data, error } = await db.auth.signInWithPassword({ email, password: pwd });
-
-  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Se connecter'; }
-
-  if (error) {
-    errEl.textContent = 'Email ou mot de passe incorrect.';
-    errEl.style.display = 'block';
-    return;
-  }
-
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error) { errEl.style.display = 'block';
+    // Reset Turnstile après échec
+    _turnstileToken = null;
+    if (window.turnstile) window.turnstile.reset();
+    const btn = document.getElementById('login-btn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '🔒 Vérification en cours…'; } return; }
   currentUser = data.user;
   await loadUserData();
   await auditLog('CONNEXION', 'Connexion réussie');
@@ -1201,7 +1201,6 @@ async function renderMesDossiers() {
 }
 
 // ===== UTILISATEURS =====
-
 // ===== PURGE AUDIT LOGS (R4 — Rétention 3 mois) =====
 function confirmPurgeAuditLogs() {
   // Sécurité : admin uniquement
@@ -1851,6 +1850,57 @@ function showNotif(msg, type = 'info') {
 db.auth.getSession().then(({ data }) => {
   if (data.session) { currentUser = data.session.user; loadUserData(); }
 });
+
+  // ===== MENTIONS LÉGALES RGPD =====
+  function showMentionsLegales() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'mentions-modal';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
+        <h2 style="color:var(--navy);margin-bottom:6px;">📄 Mentions légales & Confidentialité</h2>
+        <p style="font-size:12px;color:#999;margin-bottom:20px;">Dispatchis v2.5.17 — Application de gestion interne</p>
+
+        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Éditeur</h3>
+        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
+          Application <strong>Dispatchis</strong> — Outil interne de distribution des sinistres.<br>
+          Accès réservé aux collaborateurs habilités.
+        </p>
+
+        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Données traitées</h3>
+        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
+          Dans le cadre de l'utilisation de cette application, les données suivantes sont traitées :<br>
+          — Adresse e-mail et identité des collaborateurs (prénom, nom, rôle)<br>
+          — Références de sinistres et de contrats (sans données assurés nominatives)<br>
+          — Journaux de connexion et d'actions à des fins de traçabilité interne (conservés 3 mois)
+        </p>
+
+        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Finalité (RGPD art. 5)</h3>
+        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
+          Les données sont utilisées exclusivement pour la <strong>gestion et distribution interne des dossiers sinistres</strong>. 
+          Aucune donnée n'est transmise à des tiers ni utilisée à des fins commerciales.
+        </p>
+
+        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Conservation</h3>
+        <p style="font-size:13px;color:#3a3050;margin-bottom:16px;">
+          Les dossiers de travail sont réinitialisés quotidiennement.<br>
+          Les journaux d'audit sont conservés <strong>3 mois maximum</strong>, puis purgés conformément à la politique interne.
+        </p>
+
+        <h3 style="font-size:13px;color:#6b7689;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Vos droits (RGPD)</h3>
+        <p style="font-size:13px;color:#3a3050;margin-bottom:20px;">
+          Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et d'effacement de vos données. 
+          Pour exercer ces droits, contactez votre administrateur système.
+        </p>
+
+        <div style="display:flex;justify-content:center;">
+          <button class="btn btn-primary" onclick="closeModal('mentions-modal')">Fermer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  // ===== FIN MENTIONS LÉGALES =====
+
 </script>
 </body>
 </html>
