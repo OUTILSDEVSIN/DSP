@@ -78,9 +78,9 @@
   }
   .login-logo-name {
     font-size: 26px; font-weight: 800; letter-spacing: -0.8px;
-    color: #0f1b2d;
+    color: #fff;
   }
-  .login-logo-name span { color: #e5195e; }
+  .login-logo-name span { color: #ff4d7d; }
   .login-subtitle {
     text-align: center; color: #6b7689;
     font-size: 13px; margin-bottom: 32px; margin-top: 6px;
@@ -98,7 +98,7 @@
     background: #f8f9fa;
     border: 1.5px solid #e0e3e8;
     border-radius: 14px;
-    font-size: 15px; outline: none; color: #0f1b2d;
+    font-size: 15px; outline: none; color: #fff;
     transition: all 0.2s ease;
     box-sizing: border-box;
   }
@@ -133,7 +133,7 @@
     letter-spacing: 0.3px;
   }
   .login-error {
-    color: #dc2626; font-size: 12px; margin-top: 10px;
+    color: #ff6b8a; font-size: 12px; margin-top: 10px;
     display: none; text-align: center;
     background: rgba(232,18,81,0.12);
     border: 1px solid rgba(232,18,81,0.2);
@@ -1432,8 +1432,10 @@ async function renderAuditLogs() {
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <h2 style="color:var(--navy);margin:0">🔍 Journal d'audit</h2>
-      ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px;margin-left:12px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs (&gt;3 mois)</button>' : ''}
-      <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
+        ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs</button>' : ''}
+      </div>
     </div>`;
   if (logs.length === 0) {
     html += '<div style="text-align:center;padding:40px;color:#888">Aucune entrée dans le journal pour les 3 derniers mois.</div>';
@@ -1864,46 +1866,74 @@ function showHabilitationsModal() {
         var habs = res.data || [];
         var habMap = {};
         habs.forEach(function(h) { habMap[h.user_id] = h; });
-        var gests = allUsers.filter(function(u) { return ['gestionnaire','manager'].includes(u.role); });
+        var gests = allUsers.filter(function(u) {
+            return ['gestionnaire','manager'].includes(u.role);
+        });
+
         var modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.id = 'hab-modal';
         modal.style.zIndex = 3000;
-        var rows = '';
+
+        var bodyHTML = '';
         gests.forEach(function(g) {
             var hab = habMap[g.id] || {portefeuille:[],type:[],nature:[]};
-            var catRows = '';
+            var catHTML = '';
             Object.keys(CRITERES_HAB).forEach(function(cat) {
                 var opts = CRITERES_HAB[cat];
-                catRows += '<div style="margin-bottom:10px">'
-                    + '<div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">' + cat.charAt(0).toUpperCase()+cat.slice(1) + '</div>'
-                    + '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+                catHTML += '<div style="margin-bottom:10px">';
+                catHTML += '<div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">' + cat.charAt(0).toUpperCase() + cat.slice(1) + '</div>';
+                catHTML += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
                 opts.forEach(function(opt) {
-                    var checked = (hab[cat]||[]).includes(opt);
-                    catRows += '<label style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px solid '+(checked?'var(--rose)':'#e0e3e8')+';border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;background:'+(checked?'var(--rose-light)':'#f8f9fa')+';transition:all 0.15s">'
-                        + '<input type="checkbox" data-uid="'+g.id+'" data-cat="'+cat+'" value="'+opt+'" '+(checked?'checked':'')+' style="width:13px;height:13px;accent-color:var(--rose)">'
-                        + opt + '</label>';
+                    var isChecked = (hab[cat] || []).includes(opt);
+                    var borderCol = isChecked ? 'var(--rose)' : '#e0e3e8';
+                    var bgCol     = isChecked ? 'var(--rose-light)' : '#f8f9fa';
+                    var chk       = isChecked ? 'checked' : '';
+                    catHTML += '<label style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px solid ' + borderCol + ';border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;background:' + bgCol + ';transition:all 0.15s">';
+                    catHTML += '<input type="checkbox" class="hab-cb" data-uid="' + g.id + '" data-cat="' + cat + '" value="' + opt + '" ' + chk + ' style="width:13px;height:13px;accent-color:var(--rose)">';
+                    catHTML += ' ' + opt + '</label>';
                 });
-                catRows += '</div></div>';
+                catHTML += '</div></div>';
             });
-            rows += '<div style="padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:var(--gray-100)">'
-                + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-                + '<div><strong style="color:var(--navy);font-size:14px">' + g.prenom + ' ' + g.nom + '</strong>'
-                + '<span style="font-size:11px;color:var(--gray-600);margin-left:8px">' + g.role.toUpperCase() + '</span></div>'
-                + '<button onclick="selectAllHabsUser('' + g.id + '')" style="font-size:11px;padding:3px 10px;background:var(--gray-200);border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;color:var(--navy);font-weight:600">Tout sélectionner</button>'
-                + '</div>' + catRows + '</div>';
+
+            bodyHTML += '<div style="padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:var(--gray-100)">';
+            bodyHTML += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
+            bodyHTML += '<div><strong style="color:var(--navy);font-size:14px">' + g.prenom + ' ' + g.nom + '</strong>';
+            bodyHTML += ' <span style="font-size:11px;color:var(--gray-600)">' + g.role.toUpperCase() + '</span></div>';
+            bodyHTML += '<button class="btn-sel-all btn btn-secondary" data-uid="' + g.id + '" style="font-size:11px;padding:3px 10px">Tout sélectionner</button>';
+            bodyHTML += '</div>' + catHTML + '</div>';
         });
-        modal.innerHTML = '<div class="modal" style="max-width:580px;width:95vw;max-height:85vh;overflow-y:auto">'
-            + '<h2 style="display:flex;align-items:center;justify-content:space-between">🔑 Habilitations'
-            + '<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="closeModal('hab-modal')">✕ Fermer</button></h2>'
-            + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les droits. Non coché = pas le droit.</p>'
-            + '<div id="hab-users-list">' + rows + '</div>'
-            + '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;border-top:1px solid var(--gray-200);padding-top:16px">'
-            + '<button class="btn btn-secondary" onclick="closeModal('hab-modal')">Annuler</button>'
-            + '<button class="btn btn-primary" onclick="saveAllHabilitations()">💾 Enregistrer</button>'
-            + '</div></div>';
+
+        modal.innerHTML =
+            '<div class="modal" style="max-width:580px;width:95vw;max-height:85vh;overflow-y:auto">' +
+            '<h2 style="display:flex;align-items:center;justify-content:space-between">🔑 Habilitations' +
+            '<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" id="btn-close-hab">✕ Fermer</button></h2>' +
+            '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les droits de chaque gestionnaire. Non coché = pas le droit.</p>' +
+            '<div id="hab-users-list">' + bodyHTML + '</div>' +
+            '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;border-top:1px solid var(--gray-200);padding-top:16px">' +
+            '<button class="btn btn-secondary" id="btn-cancel-hab">Annuler</button>' +
+            '<button class="btn btn-primary" id="btn-save-hab">💾 Enregistrer</button>' +
+            '</div></div>';
+
         document.body.appendChild(modal);
-        modal.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+
+        document.getElementById('btn-close-hab').onclick  = function() { closeModal('hab-modal'); };
+        document.getElementById('btn-cancel-hab').onclick = function() { closeModal('hab-modal'); };
+        document.getElementById('btn-save-hab').onclick   = saveAllHabilitations;
+
+        modal.querySelectorAll('.btn-sel-all').forEach(function(btn) {
+            btn.onclick = function() {
+                var uid = this.dataset.uid;
+                modal.querySelectorAll('.hab-cb[data-uid="' + uid + '"]').forEach(function(cb) {
+                    cb.checked = true;
+                    var lbl = cb.closest('label');
+                    lbl.style.borderColor = 'var(--rose)';
+                    lbl.style.background  = 'var(--rose-light)';
+                });
+            };
+        });
+
+        modal.querySelectorAll('.hab-cb').forEach(function(cb) {
             cb.addEventListener('change', function() {
                 var lbl = this.closest('label');
                 lbl.style.borderColor = this.checked ? 'var(--rose)' : '#e0e3e8';
@@ -1913,37 +1943,32 @@ function showHabilitationsModal() {
     });
 }
 
-function selectAllHabsUser(uid) {
-    document.querySelectorAll('#hab-modal input[data-uid="' + uid + '"]').forEach(function(cb) {
-        cb.checked = true;
-        var lbl = cb.closest('label');
-        lbl.style.borderColor = 'var(--rose)';
-        lbl.style.background  = 'var(--rose-light)';
-    });
-}
-
 async function saveAllHabilitations() {
-    var gests = allUsers.filter(function(u) { return ['gestionnaire','manager'].includes(u.role); });
+    var gests = allUsers.filter(function(u) {
+        return ['gestionnaire','manager'].includes(u.role);
+    });
     var errors = 0;
     for (var i = 0; i < gests.length; i++) {
         var g = gests[i];
-        var hab = {portefeuille:[], type:[], nature:[]};
-        document.querySelectorAll('#hab-modal input[data-uid="' + g.id + '"]:checked').forEach(function(cb) {
+        var hab = { portefeuille: [], type: [], nature: [] };
+        var modal = document.getElementById('hab-modal');
+        modal.querySelectorAll('.hab-cb[data-uid="' + g.id + '"]:checked').forEach(function(cb) {
             hab[cb.dataset.cat].push(cb.value);
         });
-        var res = await db.from('habilitation_gestionnaires')
+        var result = await db.from('habilitation_gestionnaires')
             .upsert({ user_id: g.id, portefeuille: hab.portefeuille, type: hab.type, nature: hab.nature, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-        if (res.error) errors++;
+        if (result.error) errors++;
     }
     closeModal('hab-modal');
     if (errors === 0) {
-        showNotif('Habilitations enregistrées !', 'success');
-        await auditLog('HAB_UPDATE', 'Habilitations modifiées pour ' + gests.length + ' gestionnaire(s)');
+        showNotif('Habilitations enregistrees !', 'success');
+        await auditLog('HAB_UPDATE', 'Habilitations modifiees');
     } else {
-        showNotif(errors + ' erreur(s) lors de la sauvegarde', 'error');
+        showNotif(errors + ' erreur(s) sauvegarde', 'error');
     }
 }
 // ===== FIN TICKET 2 =====
+
 </script>
 </body>
 </html>
