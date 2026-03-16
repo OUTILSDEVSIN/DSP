@@ -509,7 +509,7 @@
 
 <script>
     // ===== SUPABASE (UNE SEULE DÉCLARATION) =====
-    const supabase = Supabase.createClient(
+    const supabaseClient = window.supabase.createClient(
         'YOUR_SUPABASE_URL',
         'YOUR_ANON_KEY'
     );
@@ -541,7 +541,7 @@
         const pass = document.getElementById('auth-password').value;
         document.getElementById('login-error').style.display = 'none';
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
 
         if (error) {
             document.getElementById('login-error').style.display = 'block';
@@ -558,7 +558,7 @@
 
     // ===== LOGOUT =====
     document.getElementById('logout-btn').onclick = async () => {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         document.getElementById('app-screen').style.display = 'none';
         document.getElementById('login-screen').style.display = 'flex';
         document.getElementById('auth-email').value = '';
@@ -669,7 +669,7 @@
         habilitationsData[currentHabId] = result;
 
         // Sauvegarde Supabase
-        await supabase.from('habilitation_gestionnaires').upsert({
+        await supabaseClient.from('habilitation_gestionnaires').upsert({
             user_id: currentHabId,
             ...result,
             updated_at: new Date().toISOString()
