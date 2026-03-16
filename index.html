@@ -78,9 +78,9 @@
   }
   .login-logo-name {
     font-size: 26px; font-weight: 800; letter-spacing: -0.8px;
-    color: #0f1b2d;
+    color: #fff;
   }
-  .login-logo-name span { color: #e5195e; }
+  .login-logo-name span { color: #ff4d7d; }
   .login-subtitle {
     text-align: center; color: #6b7689;
     font-size: 13px; margin-bottom: 32px; margin-top: 6px;
@@ -98,7 +98,7 @@
     background: #f8f9fa;
     border: 1.5px solid #e0e3e8;
     border-radius: 14px;
-    font-size: 15px; outline: none; color: #0f1b2d;
+    font-size: 15px; outline: none; color: #fff;
     transition: all 0.2s ease;
     box-sizing: border-box;
   }
@@ -133,7 +133,7 @@
     letter-spacing: 0.3px;
   }
   .login-error {
-    color: #dc2626; font-size: 12px; margin-top: 10px;
+    color: #ff6b8a; font-size: 12px; margin-top: 10px;
     display: none; text-align: center;
     background: rgba(232,18,81,0.12);
     border: 1px solid rgba(232,18,81,0.2);
@@ -825,7 +825,7 @@ async function handleFile(event) {
       `<div class="stat-card" style="max-width:300px"><div class="number" style="color:#27ae60">${mapped.length}</div><div class="label">Dossiers importés</div></div>`;
     await loadDossiers();
     await loadAllUsers();
-    showAutoAssignModal(mapped.length);
+    showGestionnairesModal();
   };
   reader.readAsArrayBuffer(file);
 }
@@ -1432,8 +1432,10 @@ async function renderAuditLogs() {
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <h2 style="color:var(--navy);margin:0">🔍 Journal d'audit</h2>
-      ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px;margin-left:12px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs (&gt;3 mois)</button>' : ''}
-      <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
+        ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs</button>' : ''}
+      </div>
     </div>`;
   if (logs.length === 0) {
     html += '<div style="text-align:center;padding:40px;color:#888">Aucune entrée dans le journal pour les 3 derniers mois.</div>';
@@ -1864,46 +1866,74 @@ function showHabilitationsModal() {
         var habs = res.data || [];
         var habMap = {};
         habs.forEach(function(h) { habMap[h.user_id] = h; });
-        var gests = allUsers.filter(function(u) { return ['gestionnaire','manager'].includes(u.role); });
+        var gests = allUsers.filter(function(u) {
+            return ['gestionnaire','manager'].includes(u.role);
+        });
+
         var modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.id = 'hab-modal';
         modal.style.zIndex = 3000;
-        var rows = '';
+
+        var bodyHTML = '';
         gests.forEach(function(g) {
             var hab = habMap[g.id] || {portefeuille:[],type:[],nature:[]};
-            var catRows = '';
+            var catHTML = '';
             Object.keys(CRITERES_HAB).forEach(function(cat) {
                 var opts = CRITERES_HAB[cat];
-                catRows += '<div style="margin-bottom:10px">'
-                    + '<div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">' + cat.charAt(0).toUpperCase()+cat.slice(1) + '</div>'
-                    + '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+                catHTML += '<div style="margin-bottom:10px">';
+                catHTML += '<div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">' + cat.charAt(0).toUpperCase() + cat.slice(1) + '</div>';
+                catHTML += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
                 opts.forEach(function(opt) {
-                    var checked = (hab[cat]||[]).includes(opt);
-                    catRows += '<label style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px solid '+(checked?'var(--rose)':'#e0e3e8')+';border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;background:'+(checked?'var(--rose-light)':'#f8f9fa')+';transition:all 0.15s">'
-                        + '<input type="checkbox" data-uid="'+g.id+'" data-cat="'+cat+'" value="'+opt+'" '+(checked?'checked':'')+' style="width:13px;height:13px;accent-color:var(--rose)">'
-                        + opt + '</label>';
+                    var isChecked = (hab[cat] || []).includes(opt);
+                    var borderCol = isChecked ? 'var(--rose)' : '#e0e3e8';
+                    var bgCol     = isChecked ? 'var(--rose-light)' : '#f8f9fa';
+                    var chk       = isChecked ? 'checked' : '';
+                    catHTML += '<label style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px solid ' + borderCol + ';border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;background:' + bgCol + ';transition:all 0.15s">';
+                    catHTML += '<input type="checkbox" class="hab-cb" data-uid="' + g.id + '" data-cat="' + cat + '" value="' + opt + '" ' + chk + ' style="width:13px;height:13px;accent-color:var(--rose)">';
+                    catHTML += ' ' + opt + '</label>';
                 });
-                catRows += '</div></div>';
+                catHTML += '</div></div>';
             });
-            rows += '<div style="padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:var(--gray-100)">'
-                + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-                + '<div><strong style="color:var(--navy);font-size:14px">' + g.prenom + ' ' + g.nom + '</strong>'
-                + '<span style="font-size:11px;color:var(--gray-600);margin-left:8px">' + g.role.toUpperCase() + '</span></div>'
-                + '<button onclick="selectAllHabsUser('' + g.id + '')" style="font-size:11px;padding:3px 10px;background:var(--gray-200);border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;color:var(--navy);font-weight:600">Tout sélectionner</button>'
-                + '</div>' + catRows + '</div>';
+
+            bodyHTML += '<div style="padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:var(--gray-100)">';
+            bodyHTML += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
+            bodyHTML += '<div><strong style="color:var(--navy);font-size:14px">' + g.prenom + ' ' + g.nom + '</strong>';
+            bodyHTML += ' <span style="font-size:11px;color:var(--gray-600)">' + g.role.toUpperCase() + '</span></div>';
+            bodyHTML += '<button class="btn-sel-all btn btn-secondary" data-uid="' + g.id + '" style="font-size:11px;padding:3px 10px">Tout sélectionner</button>';
+            bodyHTML += '</div>' + catHTML + '</div>';
         });
-        modal.innerHTML = '<div class="modal" style="max-width:580px;width:95vw;max-height:85vh;overflow-y:auto">'
-            + '<h2 style="display:flex;align-items:center;justify-content:space-between">🔑 Habilitations'
-            + '<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="closeModal('hab-modal')">✕ Fermer</button></h2>'
-            + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les droits. Non coché = pas le droit.</p>'
-            + '<div id="hab-users-list">' + rows + '</div>'
-            + '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;border-top:1px solid var(--gray-200);padding-top:16px">'
-            + '<button class="btn btn-secondary" onclick="closeModal('hab-modal')">Annuler</button>'
-            + '<button class="btn btn-primary" onclick="saveAllHabilitations()">💾 Enregistrer</button>'
-            + '</div></div>';
+
+        modal.innerHTML =
+            '<div class="modal" style="max-width:580px;width:95vw;max-height:85vh;overflow-y:auto">' +
+            '<h2 style="display:flex;align-items:center;justify-content:space-between">🔑 Habilitations' +
+            '<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" id="btn-close-hab">✕ Fermer</button></h2>' +
+            '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les droits de chaque gestionnaire. Non coché = pas le droit.</p>' +
+            '<div id="hab-users-list">' + bodyHTML + '</div>' +
+            '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;border-top:1px solid var(--gray-200);padding-top:16px">' +
+            '<button class="btn btn-secondary" id="btn-cancel-hab">Annuler</button>' +
+            '<button class="btn btn-primary" id="btn-save-hab">💾 Enregistrer</button>' +
+            '</div></div>';
+
         document.body.appendChild(modal);
-        modal.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+
+        document.getElementById('btn-close-hab').onclick  = function() { closeModal('hab-modal'); };
+        document.getElementById('btn-cancel-hab').onclick = function() { closeModal('hab-modal'); };
+        document.getElementById('btn-save-hab').onclick   = saveAllHabilitations;
+
+        modal.querySelectorAll('.btn-sel-all').forEach(function(btn) {
+            btn.onclick = function() {
+                var uid = this.dataset.uid;
+                modal.querySelectorAll('.hab-cb[data-uid="' + uid + '"]').forEach(function(cb) {
+                    cb.checked = true;
+                    var lbl = cb.closest('label');
+                    lbl.style.borderColor = 'var(--rose)';
+                    lbl.style.background  = 'var(--rose-light)';
+                });
+            };
+        });
+
+        modal.querySelectorAll('.hab-cb').forEach(function(cb) {
             cb.addEventListener('change', function() {
                 var lbl = this.closest('label');
                 lbl.style.borderColor = this.checked ? 'var(--rose)' : '#e0e3e8';
@@ -1913,185 +1943,208 @@ function showHabilitationsModal() {
     });
 }
 
-function selectAllHabsUser(uid) {
-    document.querySelectorAll('#hab-modal input[data-uid="' + uid + '"]').forEach(function(cb) {
-        cb.checked = true;
-        var lbl = cb.closest('label');
-        lbl.style.borderColor = 'var(--rose)';
-        lbl.style.background  = 'var(--rose-light)';
-    });
-}
-
 async function saveAllHabilitations() {
-    var gests = allUsers.filter(function(u) { return ['gestionnaire','manager'].includes(u.role); });
+    var gests = allUsers.filter(function(u) {
+        return ['gestionnaire','manager'].includes(u.role);
+    });
     var errors = 0;
     for (var i = 0; i < gests.length; i++) {
         var g = gests[i];
-        var hab = {portefeuille:[], type:[], nature:[]};
-        document.querySelectorAll('#hab-modal input[data-uid="' + g.id + '"]:checked').forEach(function(cb) {
+        var hab = { portefeuille: [], type: [], nature: [] };
+        var modal = document.getElementById('hab-modal');
+        modal.querySelectorAll('.hab-cb[data-uid="' + g.id + '"]:checked').forEach(function(cb) {
             hab[cb.dataset.cat].push(cb.value);
         });
-        var res = await db.from('habilitation_gestionnaires')
+        var result = await db.from('habilitation_gestionnaires')
             .upsert({ user_id: g.id, portefeuille: hab.portefeuille, type: hab.type, nature: hab.nature, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-        if (res.error) errors++;
+        if (result.error) errors++;
     }
     closeModal('hab-modal');
     if (errors === 0) {
-        showNotif('Habilitations enregistrées !', 'success');
-        await auditLog('HAB_UPDATE', 'Habilitations modifiées pour ' + gests.length + ' gestionnaire(s)');
+        showNotif('Habilitations enregistrees !', 'success');
+        await auditLog('HAB_UPDATE', 'Habilitations modifiees');
     } else {
-        showNotif(errors + ' erreur(s) lors de la sauvegarde', 'error');
+        showNotif(errors + ' erreur(s) sauvegarde', 'error');
     }
 }
 // ===== FIN TICKET 2 =====
 
+
+// ===== TICKET 1 — DISPATCH INTELLIGENT =====
+
 function showGestionnairesModal() {
-    const modal = document.createElement('div');
+    var gests = allUsers.filter(function(u) {
+        return u.role === 'gestionnaire' || u.role === 'manager';
+    });
+    var items = '';
+    gests.forEach(function(u) {
+        var initials = ((u.prenom||'')[0]||'') + ((u.nom||'')[0]||'');
+        items += '<label style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--gray-200);cursor:pointer">'
+            + '<div style="display:flex;align-items:center;gap:12px">'
+            + '<div style="width:36px;height:36px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">' + initials + '</div>'
+            + '<div>'
+            + '<div style="font-weight:600;color:var(--navy);font-size:14px">' + u.prenom + ' ' + u.nom + '</div>'
+            + '<div style="font-size:12px;color:var(--gray-600)">' + u.email + '</div>'
+            + '</div></div>'
+            + '<input type="checkbox" class="gest-active-cb" value="' + u.id + '" checked style="width:18px;height:18px;accent-color:var(--rose)">'
+            + '</label>';
+    });
+
+    var modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'gest-modal';
     modal.innerHTML = '<div class="modal" style="max-width:520px">'
-        + '<h2>🔧 Sélection des gestionnaires actifs</h2>'
-        + '<p style="color:var(--gray-600);margin-bottom:16px">Choisissez les gestionnaires qui recevront des dossiers aujourd\'hui</p>'
-        + '<div style="max-height:320px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:var(--radius-md);padding:12px;margin-bottom:16px;background:var(--gray-100)">'
-        + allUsers.filter(u => ['gestionnaire','manager'].includes(u.role)).map(u => `
-            <label style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--gray-200);cursor:pointer">
-                <div style="display:flex;align-items:center;gap:12px">
-                    <div style="width:36px;height:36px;border-radius:50%;background:var(--${u.role==='admin'?'navy':u.role==='manager'?'purple':'green'});color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">${(u.prenom||'')[0]}${(u.nom||'')[0]}</div>
-                    <div>
-                        <div style="font-weight:600;color:var(--navy);font-size:14px">${u.prenom} ${u.nom}</div>
-                        <div style="font-size:12px;color:var(--gray-600)">${u.email}</div>
-                    </div>
-                </div>
-                <input type="checkbox" class="gest-active" value="${u.id}" checked style="width:18px;height:18px;accent-color:var(--rose)">
-            </label>
-        `).join('')
-        + '</div>'
-        + '<div style="display:flex;gap:12px;justify-content:flex-end">'
-        + '<button class="btn btn-secondary" onclick="closeModal('gest-modal')">Annuler</button>'
-        + '<button class="btn btn-primary" onclick="confirmGestionnaires()">Suivant</button>'
+        + '<h2>👥 Sélection des gestionnaires</h2>'
+        + '<p style="color:var(--gray-600);margin-bottom:16px">Cochez les gestionnaires qui recevront des dossiers.</p>'
+        + '<div style="max-height:320px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--gray-100)">'
+        + items + '</div>'
+        + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">'
+        + '<button class="btn btn-secondary" id="btn-gest-cancel">Annuler</button>'
+        + '<button class="btn btn-primary" id="btn-gest-confirm">Suivant →</button>'
         + '</div></div>';
     document.body.appendChild(modal);
+    document.getElementById('btn-gest-cancel').onclick = function() { closeModal('gest-modal'); };
+    document.getElementById('btn-gest-confirm').onclick = function() { confirmGestionnaires(); };
 }
 
 function confirmGestionnaires() {
-    var activeGest = Array.from(document.querySelectorAll('.gest-active:checked')).map(cb => cb.value);
-    if (activeGest.length === 0) {
-        showNotif('Sélectionnez au moins un gestionnaire', 'error');
-        return;
-    }
-    sessionStorage.setItem('active_gestionnaires', JSON.stringify(activeGest));
+    var checked = Array.from(document.querySelectorAll('.gest-active-cb:checked')).map(function(cb) { return cb.value; });
+    if (checked.length === 0) { showNotif('Sélectionnez au moins un gestionnaire', 'error'); return; }
+    sessionStorage.setItem('dispatch_gestionnaires', JSON.stringify(checked));
     closeModal('gest-modal');
     showRepartitionModal();
 }
 
 function showRepartitionModal() {
-    const modal = document.createElement('div');
+    var modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'repart-modal';
     modal.innerHTML = '<div class="modal" style="max-width:440px">'
         + '<h2>⚙️ Mode de répartition</h2>'
-        + '<div style="display:flex;align-items:center;gap:12px;padding:20px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:20px;background:var(--gray-100)">'
-        + '<input type="radio" id="auto-repart" name="mode" value="auto" checked style="width:18px;height:18px;accent-color:var(--rose)">'
-        + '<label for="auto-repart" style="flex:1;cursor:pointer"><strong>Automatique</strong><br><small style="color:var(--gray-600)">Dispatch intelligent par habilitations (10/gestionnaire)</small></label>'
+        + '<div style="display:flex;align-items:center;gap:12px;padding:20px;border:2px solid var(--rose);border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer" onclick="document.getElementById(\'r-auto\').checked=true">'
+        + '<input type="radio" id="r-auto" name="repart-mode" value="auto" checked style="width:18px;height:18px;accent-color:var(--rose)">'
+        + '<div><strong>Automatique</strong><br><small style="color:var(--gray-600)">Dispatch intelligent par habilitations</small></div>'
         + '</div>'
-        + '<div style="display:flex;align-items:center;gap:12px;padding:20px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:24px;background:var(--gray-100)">'
-        + '<input type="radio" id="manual-repart" name="mode" value="manual" style="width:18px;height:18px;accent-color:var(--rose)">'
-        + '<label for="manual-repart" style="flex:1;cursor:pointer"><strong>Manuelle</strong><br><small style="color:var(--gray-600)">Passer directement au menu Attribution</small></label>'
+        + '<div style="display:flex;align-items:center;gap:12px;padding:20px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:24px;cursor:pointer" onclick="document.getElementById(\'r-manual\').checked=true">'
+        + '<input type="radio" id="r-manual" name="repart-mode" value="manual" style="width:18px;height:18px;accent-color:var(--rose)">'
+        + '<div><strong>Manuelle</strong><br><small style="color:var(--gray-600)">Aller directement au menu Attribution</small></div>'
         + '</div>'
         + '<div style="display:flex;gap:12px;justify-content:flex-end">'
-        + '<button class="btn btn-secondary" onclick="closeModal('repart-modal')">Annuler</button>'
-        + '<button class="btn btn-primary" onclick="doRepartition()">Confirmer</button>'
+        + '<button class="btn btn-secondary" id="btn-repart-cancel">Retour</button>'
+        + '<button class="btn btn-primary" id="btn-repart-confirm">Confirmer</button>'
         + '</div></div>';
     document.body.appendChild(modal);
+    document.getElementById('btn-repart-cancel').onclick = function() { closeModal('repart-modal'); };
+    document.getElementById('btn-repart-confirm').onclick = function() {
+        var mode = document.querySelector('input[name="repart-mode"]:checked').value;
+        closeModal('repart-modal');
+        if (mode === 'manual') { showTab('attribution'); }
+        else { showPropositionModal(); }
+    };
 }
 
-function doRepartition() {
-    var mode = document.querySelector('input[name="mode"]:checked').value;
-    closeModal('repart-modal');
-    if (mode === 'manual') {
-        showTab('attribution');
-    } else {
-        showAutoDispatchModal();
-    }
-}
-
-function showAutoDispatchModal() {
-    var activeIds = JSON.parse(sessionStorage.getItem('active_gestionnaires') || '[]');
-    var activeGest = allUsers.filter(u => activeIds.includes(u.id));
-
-    // Charger habilitations
+function showPropositionModal() {
     db.from('habilitation_gestionnaires').select('*').then(function(res) {
         var habMap = {};
-        if (res.data) res.data.forEach(h => habMap[h.user_id] = h);
+        if (res.data) res.data.forEach(function(h) { habMap[h.user_id] = h; });
 
-        // Dossiers non attribués
-        var dossiersNonAttrib = allDossiers.filter(d => !d.gestionnaire);
-
-        // Répartition par habilitations
-        var propositions = {};
-        activeGest.forEach(function(g) {
-            var hab = habMap[g.id] || {portefeuille:[],type:[],nature:[]};
-            var eligible = dossiersNonAttrib.filter(function(d) {
-                return (hab.portefeuille.length === 0 || hab.portefeuille.includes(d.portefeuille)) &&
-                       (hab.type.length === 0 || hab.type.includes(d.type)) &&
-                       (hab.nature.length === 0 || hab.nature.includes(d.nature));
-            });
-            propositions[g.id] = {g: g, dossiers: eligible.slice(0,10), hab: hab};
-        });
+        var activeIds = JSON.parse(sessionStorage.getItem('dispatch_gestionnaires') || '[]');
+        var activeGest = allUsers.filter(function(u) { return activeIds.includes(String(u.id)); });
+        var dossiersLibres = allDossiers.filter(function(d) { return !d.gestionnaire || d.gestionnaire === ''; });
 
         var modal = document.createElement('div');
         modal.className = 'modal-overlay';
-        modal.id = 'dispatch-modal';
+        modal.id = 'proposition-modal';
         modal.style.zIndex = 4000;
-        var rows = '';
+
+        var propData = {};
+        var usedIds = [];
+
         activeGest.forEach(function(g) {
-            var prop = proposals[g.id];
-            rows += '<div style="margin-bottom:16px;padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:white">';
-            rows += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
-            rows += '<strong>' + g.prenom + ' ' + g.nom + '</strong>';
-            rows += '<input type="number" class="nb-dossiers" data-id="' + g.id + '" value="10" min="1" max="' + prop.dossiers.length + '" style="width:70px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;text-align:center">';
-            rows += '</div>';
-            prop.dossiers.forEach(function(d, i) {
-                rows += '<div draggable="true" data-dossier="' + d.id + '" data-gest="' + g.id + '" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--gray-300);border-radius:8px;margin-bottom:4px;cursor:move;background:#f8f9fa">';
-                rows += '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:13px">' + d.ref_sinistre + '</span>';
-                rows += '<span style="font-size:11px;color:var(--gray-600)">' + d.portefeuille + ' | ' + d.type + ' | ' + d.nature + '</span>';
-                rows += '<button onclick="removeDossier('' + d.id + '', this)" style="margin-left:auto;background:none;border:none;color:var(--gray-600);cursor:pointer;font-size:14px">✕</button>';
-                rows += '</div>';
-            });
-            rows += '</div>';
+            var hab = habMap[g.id] || { portefeuille: [], type: [], nature: [] };
+            var eligible = dossiersLibres.filter(function(d) {
+                return !usedIds.includes(d.id)
+                    && (hab.portefeuille.length === 0 || hab.portefeuille.includes(d.portefeuille))
+                    && (hab.type.length === 0 || hab.type.includes(d.type))
+                    && (hab.nature.length === 0 || hab.nature.includes(d.nature));
+            }).slice(0, 10);
+            eligible.forEach(function(d) { usedIds.push(d.id); });
+            propData[g.id] = { g: g, dossiers: eligible };
         });
 
-        modal.innerHTML = '<div class="modal" style="max-width:680px;width:95vw">'
+        var blocks = '';
+        activeGest.forEach(function(g) {
+            var prop = propData[g.id];
+            var dLines = '';
+            prop.dossiers.forEach(function(d) {
+                dLines += '<div data-dossier-id="' + d.id + '" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;margin-bottom:4px;background:#f8f9fa">'
+                    + '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:12px">' + d.ref_sinistre + '</span>'
+                    + '<span style="font-size:11px;color:var(--gray-600);flex:1">' + (d.portefeuille||'') + ' | ' + (d.type||'') + ' | ' + (d.nature||'') + '</span>'
+                    + '<button class="btn-remove-dossier" data-id="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700">✕</button>'
+                    + '</div>';
+            });
+            blocks += '<div style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:white">'
+                + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+                + '<strong style="color:var(--navy)">' + g.prenom + ' ' + g.nom + '</strong>'
+                + '<div style="display:flex;align-items:center;gap:8px">'
+                + '<label style="font-size:12px;color:var(--gray-600)">Dossiers :</label>'
+                + '<input type="number" class="nb-dossiers-input" data-gestid="' + g.id + '" value="' + prop.dossiers.length + '" min="1" max="50" style="width:60px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:13px">'
+                + '</div></div>'
+                + '<div class="dossiers-list" data-gestid="' + g.id + '">' + dLines + '</div>'
+                + '</div>';
+        });
+
+        modal.innerHTML = '<div class="modal" style="max-width:700px;width:95vw;max-height:90vh;overflow-y:auto">'
             + '<h2>🚀 Proposition de dispatch intelligent</h2>'
-            + '<p style="color:var(--gray-600);margin-bottom:16px">Dossiers filtrés par habilitations. Glissez-déposez ou ajustez les nombres.</p>'
-            + rows
-            + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;border-top:1px solid var(--gray-200);padding-top:16px">'
-            + '<button class="btn btn-secondary" onclick="closeModal('dispatch-modal')">Modifier</button>'
-            + '<button class="btn btn-success" onclick="doIntelligentDispatch()">✅ DISPATCH</button>'
+            + '<p style="color:var(--gray-600);margin-bottom:16px">Dossiers filtrés par habilitations. Ajustez si besoin.</p>'
+            + blocks
+            + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
+            + '<button class="btn btn-secondary" id="btn-prop-cancel">Annuler</button>'
+            + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 28px">✅ DISPATCH</button>'
             + '</div></div>';
+
         document.body.appendChild(modal);
+
+        document.getElementById('btn-prop-cancel').onclick = function() { closeModal('proposition-modal'); };
+
+        modal.querySelectorAll('.btn-remove-dossier').forEach(function(btn) {
+            btn.onclick = function() {
+                var parent = this.closest('[data-dossier-id]');
+                if (parent) parent.remove();
+            };
+        });
+
+        document.getElementById('btn-do-dispatch').onclick = async function() {
+            var assignments = [];
+            activeGest.forEach(function(g) {
+                var nb = parseInt(document.querySelector('.nb-dossiers-input[data-gestid="' + g.id + '"]').value) || 10;
+                var list = Array.from(document.querySelectorAll('.dossiers-list[data-gestid="' + g.id + '"] [data-dossier-id]')).slice(0, nb);
+                list.forEach(function(el) {
+                    assignments.push({ dossierId: el.dataset.dossierId, gestId: g.id, gestName: g.prenom + ' ' + g.nom });
+                });
+            });
+
+            var ok = 0;
+            for (var i = 0; i < assignments.length; i++) {
+                var a = assignments[i];
+                var res = await db.from('dossiers').update({
+                    gestionnaire: a.gestName,
+                    statut: 'attribue',
+                    verrouille: true
+                }).eq('id', a.dossierId);
+                if (!res.error) ok++;
+            }
+
+            closeModal('proposition-modal');
+            showNotif(ok + ' dossier(s) dispatchés avec succès !', 'success');
+            await auditLog('DISPATCH', ok + ' dossiers dispatchés via dispatch intelligent');
+            await loadDossiers();
+            renderDashboard();
+        };
     });
 }
+// ===== FIN TICKET 1 =====
 
-async function doIntelligentDispatch() {
-    var activeIds = JSON.parse(sessionStorage.getItem('active_gestionnaires') || '[]');
-    var activeGest = allUsers.filter(u => activeIds.includes(u.id));
-
-    // Charger propositions actuelles (simplifié)
-    var totalAssigned = 0;
-    activeGest.forEach(function(g) {
-        var nb = parseInt(document.querySelector('.nb-dossiers[data-id="' + g.id + '"]').value) || 10;
-        totalAssigned += nb;
-    });
-
-    // Exécuter le même dispatch que menu Attribution
-    await doDispatch(); // Fonction existante
-    closeModal('dispatch-modal');
-    showNotif(totalAssigned + ' dossiers dispatchés !', 'success');
-    await loadDossiers();
-    renderDashboard();
-}
-
-</script></script>
+</script>
 </body>
 </html>
