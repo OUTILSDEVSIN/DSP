@@ -1201,7 +1201,6 @@ async function renderMesDossiers() {
 }
 
 // ===== UTILISATEURS =====
-async 
 // ===== PURGE AUDIT LOGS (R4 — Rétention 3 mois) =====
 function confirmPurgeAuditLogs() {
   // Sécurité : admin uniquement
@@ -1433,10 +1432,8 @@ async function renderAuditLogs() {
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <h2 style="color:var(--navy);margin:0">🔍 Journal d'audit</h2>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
-        ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs (&gt;3 mois)</button>' : ''}
-      </div>
+      ${currentUserData.role === 'admin' ? '<button class="btn btn-danger" style="font-size:12px;padding:6px 14px;margin-left:12px" onclick="confirmPurgeAuditLogs()">🗑️ Purger les logs (&gt;3 mois)</button>' : ''}
+      <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 3 derniers mois · ${logs.length} entrée(s)</span>
     </div>`;
   if (logs.length === 0) {
     html += '<div style="text-align:center;padding:40px;color:#888">Aucune entrée dans le journal pour les 3 derniers mois.</div>';
@@ -1855,98 +1852,98 @@ db.auth.getSession().then(({ data }) => {
   if (data.session) { currentUser = data.session.user; loadUserData(); }
 });
 
-// ===== TICKET 2 HABILITATIONS =====
-const CRITERES_HAB = {
+// ===== TICKET 2 — HABILITATIONS =====
+var CRITERES_HAB = {
     portefeuille: ['MIA', 'OPTINEO'],
     type: ['AUTO', 'MRH'],
     nature: ['MAT', 'BDG', 'VOL', 'DDE', 'AUTRE']
 };
 
 function showHabilitationsModal() {
-    db.from('habilitation_gestionnaires').select('*').then(({ data: habs }) => {
-        const habMap = {};
-        if (habs) habs.forEach(h => habMap[h.user_id] = h);
-        const gests = allUsers.filter(u => ['gestionnaire','manager'].includes(u.role));
-        const modal = document.createElement('div');
+    db.from('habilitation_gestionnaires').select('*').then(function(res) {
+        var habs = res.data || [];
+        var habMap = {};
+        habs.forEach(function(h) { habMap[h.user_id] = h; });
+        var gests = allUsers.filter(function(u) { return ['gestionnaire','manager'].includes(u.role); });
+        var modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.id = 'hab-modal';
         modal.style.zIndex = 3000;
-        let rows = '';
-        gests.forEach(g => {
-            const hab = habMap[g.id] || {portefeuille:[],type:[],nature:[]};
-            let catRows = '';
-            Object.entries(CRITERES_HAB).forEach(([cat, opts]) => {
-                catRows += `<div style="margin-bottom:10px">
-                    <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${cat.charAt(0).toUpperCase()+cat.slice(1)}</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px">`;
-                opts.forEach(opt => {
-                    const checked = (hab[cat]||[]).includes(opt);
-                    catRows += `<label style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px solid ${checked ? 'var(--rose)' : '#e0e3e8'};border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;background:${checked ? 'var(--rose-light)' : '#f8f9fa'};transition:all 0.15s">
-                        <input type="checkbox" data-uid="${g.id}" data-cat="${cat}" value="${opt}" ${checked ? 'checked' : ''} style="width:13px;height:13px;accent-color:var(--rose)">
-                        ${opt}
-                    </label>`;
+        var rows = '';
+        gests.forEach(function(g) {
+            var hab = habMap[g.id] || {portefeuille:[],type:[],nature:[]};
+            var catRows = '';
+            Object.keys(CRITERES_HAB).forEach(function(cat) {
+                var opts = CRITERES_HAB[cat];
+                catRows += '<div style="margin-bottom:10px">'
+                    + '<div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">' + cat.charAt(0).toUpperCase()+cat.slice(1) + '</div>'
+                    + '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+                opts.forEach(function(opt) {
+                    var checked = (hab[cat]||[]).includes(opt);
+                    catRows += '<label style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px solid '+(checked?'var(--rose)':'#e0e3e8')+';border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;background:'+(checked?'var(--rose-light)':'#f8f9fa')+';transition:all 0.15s">'
+                        + '<input type="checkbox" data-uid="'+g.id+'" data-cat="'+cat+'" value="'+opt+'" '+(checked?'checked':'')+' style="width:13px;height:13px;accent-color:var(--rose)">'
+                        + opt + '</label>';
                 });
                 catRows += '</div></div>';
             });
-            rows += `<div style="padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:var(--gray-100)">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                    <div><strong style="color:var(--navy);font-size:14px">${g.prenom} ${g.nom}</strong>
-                    <span style="font-size:11px;color:var(--gray-600);margin-left:8px">${g.role.toUpperCase()}</span></div>
-                    <button onclick="selectAllHabsUser('${g.id}')" style="font-size:11px;padding:3px 10px;background:var(--gray-200);border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;color:var(--navy);font-weight:600">Tout sélectionner</button>
-                </div>${catRows}</div>`;
+            rows += '<div style="padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:var(--gray-100)">'
+                + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+                + '<div><strong style="color:var(--navy);font-size:14px">' + g.prenom + ' ' + g.nom + '</strong>'
+                + '<span style="font-size:11px;color:var(--gray-600);margin-left:8px">' + g.role.toUpperCase() + '</span></div>'
+                + '<button onclick="selectAllHabsUser('' + g.id + '')" style="font-size:11px;padding:3px 10px;background:var(--gray-200);border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;color:var(--navy);font-weight:600">Tout sélectionner</button>'
+                + '</div>' + catRows + '</div>';
         });
-        modal.innerHTML = `<div class="modal" style="max-width:580px;width:95vw;max-height:85vh;overflow-y:auto">
-            <h2 style="display:flex;align-items:center;justify-content:space-between">
-                🔑 Habilitations
-                <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="closeModal('hab-modal')">✕ Fermer</button>
-            </h2>
-            <p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les droits de chaque gestionnaire. Non coché = pas le droit.</p>
-            <div id="hab-users-list">${rows}</div>
-            <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;border-top:1px solid var(--gray-200);padding-top:16px">
-                <button class="btn btn-secondary" onclick="closeModal('hab-modal')">Annuler</button>
-                <button class="btn btn-primary" onclick="saveAllHabilitations()">💾 Enregistrer</button>
-            </div>
-        </div>`;
+        modal.innerHTML = '<div class="modal" style="max-width:580px;width:95vw;max-height:85vh;overflow-y:auto">'
+            + '<h2 style="display:flex;align-items:center;justify-content:space-between">🔑 Habilitations'
+            + '<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="closeModal('hab-modal')">✕ Fermer</button></h2>'
+            + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les droits. Non coché = pas le droit.</p>'
+            + '<div id="hab-users-list">' + rows + '</div>'
+            + '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;border-top:1px solid var(--gray-200);padding-top:16px">'
+            + '<button class="btn btn-secondary" onclick="closeModal('hab-modal')">Annuler</button>'
+            + '<button class="btn btn-primary" onclick="saveAllHabilitations()">💾 Enregistrer</button>'
+            + '</div></div>';
         document.body.appendChild(modal);
-        modal.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        modal.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
             cb.addEventListener('change', function() {
-                const lbl = this.closest('label');
+                var lbl = this.closest('label');
                 lbl.style.borderColor = this.checked ? 'var(--rose)' : '#e0e3e8';
-                lbl.style.background = this.checked ? 'var(--rose-light)' : '#f8f9fa';
+                lbl.style.background  = this.checked ? 'var(--rose-light)' : '#f8f9fa';
             });
         });
     });
 }
 
 function selectAllHabsUser(uid) {
-    document.querySelectorAll(`#hab-modal input[data-uid="${uid}"]`).forEach(cb => {
+    document.querySelectorAll('#hab-modal input[data-uid="' + uid + '"]').forEach(function(cb) {
         cb.checked = true;
-        const lbl = cb.closest('label');
+        var lbl = cb.closest('label');
         lbl.style.borderColor = 'var(--rose)';
-        lbl.style.background = 'var(--rose-light)';
+        lbl.style.background  = 'var(--rose-light)';
     });
 }
 
 async function saveAllHabilitations() {
-    const gests = allUsers.filter(u => ['gestionnaire','manager'].includes(u.role));
-    let errors = 0;
-    for (const g of gests) {
-        const hab = {portefeuille:[],type:[],nature:[]};
-        document.querySelectorAll(`#hab-modal input[data-uid="${g.id}"]:checked`).forEach(cb => {
+    var gests = allUsers.filter(function(u) { return ['gestionnaire','manager'].includes(u.role); });
+    var errors = 0;
+    for (var i = 0; i < gests.length; i++) {
+        var g = gests[i];
+        var hab = {portefeuille:[], type:[], nature:[]};
+        document.querySelectorAll('#hab-modal input[data-uid="' + g.id + '"]:checked').forEach(function(cb) {
             hab[cb.dataset.cat].push(cb.value);
         });
-        const { error } = await db.from('habilitation_gestionnaires')
-            .upsert({ user_id: g.id, ...hab, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-        if (error) errors++;
+        var res = await db.from('habilitation_gestionnaires')
+            .upsert({ user_id: g.id, portefeuille: hab.portefeuille, type: hab.type, nature: hab.nature, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+        if (res.error) errors++;
     }
     closeModal('hab-modal');
     if (errors === 0) {
         showNotif('Habilitations enregistrées !', 'success');
-        await auditLog('HAB_UPDATE', `Habilitations modifiées pour ${gests.length} gestionnaires`);
+        await auditLog('HAB_UPDATE', 'Habilitations modifiées pour ' + gests.length + ' gestionnaire(s)');
     } else {
-        showNotif(`${errors} erreur(s) sauvegarde`, 'error');
+        showNotif(errors + ' erreur(s) lors de la sauvegarde', 'error');
     }
 }
+// ===== FIN TICKET 2 =====
 </script>
 </body>
 </html>
