@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.22">
+  <meta name="version" content="2.5.23">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -332,7 +332,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.22';
+    const APP_VERSION = '2.5.23';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -705,7 +705,7 @@ async function doReset(type) {
   await loadDossiers(); renderDashboard();
 }
 
-async function renderDashboard() {
+async async function renderDashboard() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
   const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
@@ -737,7 +737,7 @@ async function renderDashboard() {
     const theadLiberer = canRelease ? '<th></th>' : '';
     html += `<div class="table-container"><div class="table-toolbar"><h2>Répartition par gestionnaire</h2></div><table>
       <thead><tr><th>Gestionnaire</th><th>Rôle</th><th>Total</th><th>Traités</th><th>En cours</th><th>Progression</th>${theadLiberer}</tr></thead><tbody>`;
-    const membres = allUsers.filter(u => u.role !== 'admin' || u.email === currentUserData.email);
+    const membres = allUsers; // Tous les utilisateurs actifs visibles dans le tableau
     membres.forEach(g => {
       const nom = g.prenom + ' ' + g.nom;
       const t = dos3m.filter(d => d.gestionnaire === nom).length;
