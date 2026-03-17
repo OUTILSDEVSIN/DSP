@@ -98,14 +98,14 @@
     background: #f8f9fa;
     border: 1.5px solid #e0e3e8;
     border-radius: 14px;
-    font-size: 15px; outline: none; color: #fff;
+    font-size: 15px; outline: none; color: #1e293b;
     transition: all 0.2s ease;
     box-sizing: border-box;
   }
   .login-box input::placeholder { color: #b0b8c5; }
   .login-box input:focus {
     border-color: rgba(232,18,81,0.7);
-    background: rgba(255,255,255,0.12);
+    background: #fff;
     box-shadow: 0 0 0 3px rgba(232,18,81,0.15);
   }
   #login-btn, .login-box button {
@@ -124,7 +124,7 @@
     box-shadow: 0 10px 32px rgba(232,18,81,0.55);
   }
   #login-btn:disabled {
-    background: rgba(255,255,255,0.12);
+    background: #fff;
     box-shadow: none; cursor: not-allowed; opacity: 0.6;
   }
   .login-footer {
@@ -149,7 +149,7 @@
   .header-title { font-size: 14px; font-weight: 700; color: var(--white); letter-spacing: 0.1px; }
   .header-right { display: flex; align-items: center; gap: 6px; }
   .header-username { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
-  .header-role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; margin-right: 4px; }
+  .header-role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: #fff; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; margin-right: 4px; }
   .header-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 6px; }
   .btn-header { background: none; border: none; color: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
   .btn-header:hover { background: rgba(255,255,255,0.1); color: white; }
@@ -1973,7 +1973,7 @@ async function saveAllHabilitations() {
 // ===== TICKET 1 — DISPATCH INTELLIGENT =====
 
 function showGestionnairesModal() {
-    var gests = allUsers.filter(function(u) {
+    var gests = (allUsers||[]).filter(function(u) {
         return u.role === 'gestionnaire' || u.role === 'manager';
     });
     var items = '';
@@ -1981,34 +1981,32 @@ function showGestionnairesModal() {
         var initials = ((u.prenom||'')[0]||'') + ((u.nom||'')[0]||'');
         items += '<label style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--gray-200);cursor:pointer">'
             + '<div style="display:flex;align-items:center;gap:12px">'
-            + '<div style="width:36px;height:36px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">' + initials + '</div>'
+            + '<div style="width:36px;height:36px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">' + initials + '</div>'
             + '<div>'
             + '<div style="font-weight:600;color:var(--navy);font-size:14px">' + u.prenom + ' ' + u.nom + '</div>'
-            + '<div style="font-size:12px;color:var(--gray-600)">' + u.email + '</div>'
+            + '<div style="font-size:12px;color:var(--gray-600)">' + u.role.toUpperCase() + '</div>'
             + '</div></div>'
             + '<input type="checkbox" class="gest-active-cb" value="' + u.id + '" checked style="width:18px;height:18px;accent-color:var(--rose)">'
             + '</label>';
     });
-
     var modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'gest-modal';
-    modal.innerHTML = '<div class="modal" style="max-width:520px">'
+    modal.innerHTML = '<div class="modal" style="max-width:500px">'
         + '<h2>👥 Sélection des gestionnaires</h2>'
-        + '<p style="color:var(--gray-600);margin-bottom:16px">Cochez les gestionnaires qui recevront des dossiers.</p>'
-        + '<div style="max-height:320px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--gray-100)">'
-        + items + '</div>'
+        + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les gestionnaires qui recevront des dossiers aujourd\'hui.</p>'
+        + '<div style="max-height:300px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--gray-100)">' + items + '</div>'
         + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">'
         + '<button class="btn btn-secondary" id="btn-gest-cancel">Annuler</button>'
         + '<button class="btn btn-primary" id="btn-gest-confirm">Suivant →</button>'
         + '</div></div>';
     document.body.appendChild(modal);
     document.getElementById('btn-gest-cancel').onclick = function() { closeModal('gest-modal'); };
-    document.getElementById('btn-gest-confirm').onclick = function() { confirmGestionnaires(); };
+    document.getElementById('btn-gest-confirm').onclick = confirmGestionnaires;
 }
 
 function confirmGestionnaires() {
-    var checked = Array.from(document.querySelectorAll('.gest-active-cb:checked')).map(function(cb) { return cb.value; });
+    var checked = Array.from(document.querySelectorAll('.gest-active-cb:checked')).map(function(cb) { return String(cb.value); });
     if (checked.length === 0) { showNotif('Sélectionnez au moins un gestionnaire', 'error'); return; }
     sessionStorage.setItem('dispatch_gestionnaires', JSON.stringify(checked));
     closeModal('gest-modal');
@@ -2019,21 +2017,21 @@ function showRepartitionModal() {
     var modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'repart-modal';
-    modal.innerHTML = '<div class="modal" style="max-width:440px">'
+    modal.innerHTML = '<div class="modal" style="max-width:420px">'
         + '<h2>⚙️ Mode de répartition</h2>'
-        + '<div style="display:flex;align-items:center;gap:12px;padding:20px;border:2px solid var(--rose);border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer" onclick="document.getElementById(\'r-auto\').checked=true">'
+        + '<div id="box-auto" style="display:flex;align-items:center;gap:12px;padding:16px;border:2px solid var(--rose);border-radius:var(--radius-md);margin-bottom:10px;cursor:pointer;background:#fff5f7">'
         + '<input type="radio" id="r-auto" name="repart-mode" value="auto" checked style="width:18px;height:18px;accent-color:var(--rose)">'
-        + '<div><strong>Automatique</strong><br><small style="color:var(--gray-600)">Dispatch intelligent par habilitations</small></div>'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:12px;padding:20px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:24px;cursor:pointer" onclick="document.getElementById(\'r-manual\').checked=true">'
+        + '<div><strong>Automatique</strong><br><small style="color:var(--gray-600)">Dispatch intelligent par habilitations (10/gestionnaire)</small></div></div>'
+        + '<div id="box-manual" style="display:flex;align-items:center;gap:12px;padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:20px;cursor:pointer">'
         + '<input type="radio" id="r-manual" name="repart-mode" value="manual" style="width:18px;height:18px;accent-color:var(--rose)">'
-        + '<div><strong>Manuelle</strong><br><small style="color:var(--gray-600)">Aller directement au menu Attribution</small></div>'
-        + '</div>'
+        + '<div><strong>Manuelle</strong><br><small style="color:var(--gray-600)">Aller directement au menu Attribution</small></div></div>'
         + '<div style="display:flex;gap:12px;justify-content:flex-end">'
         + '<button class="btn btn-secondary" id="btn-repart-cancel">Retour</button>'
         + '<button class="btn btn-primary" id="btn-repart-confirm">Confirmer</button>'
         + '</div></div>';
     document.body.appendChild(modal);
+    document.getElementById('box-auto').onclick   = function() { document.getElementById('r-auto').checked = true; };
+    document.getElementById('box-manual').onclick = function() { document.getElementById('r-manual').checked = true; };
     document.getElementById('btn-repart-cancel').onclick = function() { closeModal('repart-modal'); };
     document.getElementById('btn-repart-confirm').onclick = function() {
         var mode = document.querySelector('input[name="repart-mode"]:checked').value;
@@ -2043,105 +2041,120 @@ function showRepartitionModal() {
     };
 }
 
-function showPropositionModal() {
-    db.from('habilitation_gestionnaires').select('*').then(function(res) {
-        var habMap = {};
-        if (res.data) res.data.forEach(function(h) { habMap[h.user_id] = h; });
+async function showPropositionModal() {
+    // Recharger les dossiers frais
+    await loadDossiers();
+    var res = await db.from('habilitation_gestionnaires').select('*');
+    var habMap = {};
+    if (res.data) res.data.forEach(function(h) { habMap[String(h.user_id)] = h; });
 
-        var activeIds = JSON.parse(sessionStorage.getItem('dispatch_gestionnaires') || '[]');
-        var activeGest = allUsers.filter(function(u) { return activeIds.includes(String(u.id)); });
-        var dossiersLibres = allDossiers.filter(function(d) { return !d.gestionnaire || d.gestionnaire === ''; });
+    var activeIds = JSON.parse(sessionStorage.getItem('dispatch_gestionnaires') || '[]');
+    var activeGest = (allUsers||[]).filter(function(u) { return activeIds.includes(String(u.id)); });
 
-        var modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.id = 'proposition-modal';
-        modal.style.zIndex = 4000;
+    // Dossiers libres = statut nonattribue OU gestionnaire vide/null
+    var dossiersLibres = (allDossiers||[]).filter(function(d) {
+        return d.statut === 'nonattribue' || !d.gestionnaire || d.gestionnaire === '';
+    });
 
-        var propData = {};
-        var usedIds = [];
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'proposition-modal';
+    modal.style.zIndex = 4000;
 
-        activeGest.forEach(function(g) {
-            var hab = habMap[g.id] || { portefeuille: [], type: [], nature: [] };
-            var eligible = dossiersLibres.filter(function(d) {
-                return !usedIds.includes(d.id)
-                    && (hab.portefeuille.length === 0 || hab.portefeuille.includes(d.portefeuille))
-                    && (hab.type.length === 0 || hab.type.includes(d.type))
-                    && (hab.nature.length === 0 || hab.nature.includes(d.nature));
-            }).slice(0, 10);
-            eligible.forEach(function(d) { usedIds.push(d.id); });
-            propData[g.id] = { g: g, dossiers: eligible };
-        });
+    var usedIds = [];
+    var propData = {};
 
-        var blocks = '';
-        activeGest.forEach(function(g) {
-            var prop = propData[g.id];
-            var dLines = '';
-            prop.dossiers.forEach(function(d) {
-                dLines += '<div data-dossier-id="' + d.id + '" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;margin-bottom:4px;background:#f8f9fa">'
-                    + '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:12px">' + d.ref_sinistre + '</span>'
-                    + '<span style="font-size:11px;color:var(--gray-600);flex:1">' + (d.portefeuille||'') + ' | ' + (d.type||'') + ' | ' + (d.nature||'') + '</span>'
-                    + '<button class="btn-remove-dossier" data-id="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700">✕</button>'
-                    + '</div>';
-            });
-            blocks += '<div style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:white">'
-                + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
-                + '<strong style="color:var(--navy)">' + g.prenom + ' ' + g.nom + '</strong>'
-                + '<div style="display:flex;align-items:center;gap:8px">'
-                + '<label style="font-size:12px;color:var(--gray-600)">Dossiers :</label>'
-                + '<input type="number" class="nb-dossiers-input" data-gestid="' + g.id + '" value="' + prop.dossiers.length + '" min="1" max="50" style="width:60px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:13px">'
-                + '</div></div>'
-                + '<div class="dossiers-list" data-gestid="' + g.id + '">' + dLines + '</div>'
+    activeGest.forEach(function(g) {
+        var hab = habMap[String(g.id)];
+        // Si pas d'habilitations → tous les dossiers sont éligibles
+        var pf   = (hab && hab.portefeuille && hab.portefeuille.length > 0) ? hab.portefeuille.map(function(x){return x.toUpperCase();}) : null;
+        var tp   = (hab && hab.type && hab.type.length > 0)        ? hab.type.map(function(x){return x.toUpperCase();})        : null;
+        var nat  = (hab && hab.nature && hab.nature.length > 0)    ? hab.nature.map(function(x){return x.toUpperCase();})      : null;
+
+        var eligible = dossiersLibres.filter(function(d) {
+            if (usedIds.includes(d.id)) return false;
+            var okPf  = !pf  || pf.includes((d.portefeuille||'').toUpperCase());
+            var okTp  = !tp  || tp.includes((d.type||'').toUpperCase());
+            var okNat = !nat || nat.includes((d.nature||'').toUpperCase());
+            return okPf && okTp && okNat;
+        }).slice(0, 10);
+
+        eligible.forEach(function(d) { usedIds.push(d.id); });
+        propData[String(g.id)] = { g: g, dossiers: eligible };
+    });
+
+    var blocks = '';
+    activeGest.forEach(function(g) {
+        var prop = propData[String(g.id)];
+        var dLines = '';
+        prop.dossiers.forEach(function(d) {
+            dLines += '<div data-dossier-id="' + d.id + '" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;margin-bottom:4px;background:#f8f9fa">'
+                + '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:12px">' + (d.ref_sinistre||'') + '</span>'
+                + '<span style="font-size:11px;color:var(--gray-600);flex:1">' + (d.portefeuille||'') + ' | ' + (d.type||'') + ' | ' + (d.nature||'') + '</span>'
+                + '<button data-dossier-rm="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">✕</button>'
                 + '</div>';
         });
+        if (prop.dossiers.length === 0) {
+            dLines = '<div style="padding:12px;text-align:center;color:var(--gray-600);font-size:13px">⚠️ Aucun dossier éligible pour les habilitations de ce gestionnaire</div>';
+        }
+        blocks += '<div style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:white">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+            + '<div><strong style="color:var(--navy)">' + g.prenom + ' ' + g.nom + '</strong>'
+            + ' <span style="font-size:11px;color:var(--gray-600);background:var(--gray-100);padding:2px 8px;border-radius:10px">' + prop.dossiers.length + ' dossier(s)</span></div>'
+            + '<div style="display:flex;align-items:center;gap:6px">'
+            + '<label style="font-size:12px;color:var(--gray-600)">Max :</label>'
+            + '<input type="number" class="nb-dossiers-input" data-gestid="' + g.id + '" value="10" min="1" max="50" style="width:55px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:13px">'
+            + '</div></div>'
+            + '<div class="dossiers-list-block" data-gestid="' + g.id + '">' + dLines + '</div>'
+            + '</div>';
+    });
 
-        modal.innerHTML = '<div class="modal" style="max-width:700px;width:95vw;max-height:90vh;overflow-y:auto">'
-            + '<h2>🚀 Proposition de dispatch intelligent</h2>'
-            + '<p style="color:var(--gray-600);margin-bottom:16px">Dossiers filtrés par habilitations. Ajustez si besoin.</p>'
-            + blocks
-            + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
-            + '<button class="btn btn-secondary" id="btn-prop-cancel">Annuler</button>'
-            + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 28px">✅ DISPATCH</button>'
-            + '</div></div>';
+    modal.innerHTML = '<div class="modal" style="max-width:700px;width:95vw;max-height:88vh;overflow-y:auto">'
+        + '<h2>🚀 Proposition de dispatch intelligent</h2>'
+        + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Dossiers filtrés par habilitations. Ajustez le nombre max ou supprimez des dossiers.</p>'
+        + blocks
+        + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
+        + '<button class="btn btn-secondary" id="btn-prop-cancel">Annuler</button>'
+        + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 32px;font-weight:700">✅ DISPATCH</button>'
+        + '</div></div>';
 
-        document.body.appendChild(modal);
+    document.body.appendChild(modal);
+    document.getElementById('btn-prop-cancel').onclick = function() { closeModal('proposition-modal'); };
 
-        document.getElementById('btn-prop-cancel').onclick = function() { closeModal('proposition-modal'); };
-
-        modal.querySelectorAll('.btn-remove-dossier').forEach(function(btn) {
-            btn.onclick = function() {
-                var parent = this.closest('[data-dossier-id]');
-                if (parent) parent.remove();
-            };
-        });
-
-        document.getElementById('btn-do-dispatch').onclick = async function() {
-            var assignments = [];
-            activeGest.forEach(function(g) {
-                var nb = parseInt(document.querySelector('.nb-dossiers-input[data-gestid="' + g.id + '"]').value) || 10;
-                var list = Array.from(document.querySelectorAll('.dossiers-list[data-gestid="' + g.id + '"] [data-dossier-id]')).slice(0, nb);
-                list.forEach(function(el) {
-                    assignments.push({ dossierId: el.dataset.dossierId, gestId: g.id, gestName: g.prenom + ' ' + g.nom });
-                });
-            });
-
-            var ok = 0;
-            for (var i = 0; i < assignments.length; i++) {
-                var a = assignments[i];
-                var res = await db.from('dossiers').update({
-                    gestionnaire: a.gestName,
-                    statut: 'attribue',
-                    verrouille: true
-                }).eq('id', a.dossierId);
-                if (!res.error) ok++;
-            }
-
-            closeModal('proposition-modal');
-            showNotif(ok + ' dossier(s) dispatchés avec succès !', 'success');
-            await auditLog('DISPATCH', ok + ' dossiers dispatchés via dispatch intelligent');
-            await loadDossiers();
-            renderDashboard();
+    modal.querySelectorAll('[data-dossier-rm]').forEach(function(btn) {
+        btn.onclick = function() {
+            var row = btn.closest('[data-dossier-id]');
+            if (row) row.remove();
         };
     });
+
+    document.getElementById('btn-do-dispatch').onclick = async function() {
+        var assignments = [];
+        activeGest.forEach(function(g) {
+            var nb = parseInt((document.querySelector('.nb-dossiers-input[data-gestid="' + g.id + '"]')||{}).value) || 10;
+            var rows = Array.from(document.querySelectorAll('.dossiers-list-block[data-gestid="' + g.id + '"] [data-dossier-id]')).slice(0, nb);
+            var nom = g.prenom + ' ' + g.nom;
+            rows.forEach(function(el) {
+                assignments.push({ dossierId: el.dataset.dossierId, nom: nom });
+            });
+        });
+
+        var ok = 0;
+        for (var i = 0; i < assignments.length; i++) {
+            var a = assignments[i];
+            var r = await db.from('dossiers').update({
+                gestionnaire: a.nom,
+                statut: 'attribue',
+                verrouille: true
+            }).eq('id', a.dossierId);
+            if (!r.error) ok++;
+        }
+        closeModal('proposition-modal');
+        showNotif(ok + ' dossier(s) dispatchés avec succès !', 'success');
+        await auditLog('DISPATCH', ok + ' dossiers - dispatch intelligent');
+        await loadDossiers();
+        renderDashboard();
+    };
 }
 // ===== FIN TICKET 1 =====
 
