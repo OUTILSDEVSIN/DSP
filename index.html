@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.19">
+  <meta name="version" content="2.5.20">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -332,7 +332,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.19';
+    const APP_VERSION = '2.5.20';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -378,6 +378,7 @@
       <span class="header-sep">|</span>
       <button class="btn-header" onclick="showChangePassword()">🔑 Mot de passe</button>
       <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
+      <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
       <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
     </div>
   </header>
@@ -489,6 +490,11 @@ async function loadUserData() {
   // Afficher le bouton reset uniquement pour admin/manager
   const btnReset = document.getElementById('btn-reset-header');
   if (btnReset) btnReset.style.display = ['admin','manager'].includes(data.role) ? '' : 'none';
+  // Afficher le bouton God Switch uniquement pour Julien Maubon (admin)
+  const btnGod = document.getElementById('btn-god-switch');
+  if (btnGod && currentUser && currentUser.email === 'julien.maubon@mieuxassure.com' && data.role === 'admin') {
+    btnGod.style.display = '';
+  }
 }
 
 async function doLogout() {
@@ -542,7 +548,7 @@ function closeModal(id) {
 
 // ===== TABS =====
 function buildTabs() {
-  const role = currentUserData.role;
+  const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   const tabs = [{ id: 'dashboard', label: '📊 Tableau de bord' }];
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'import', label: '📂 Importer Excel' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'attribution', label: '📋 Attribution' });
@@ -702,7 +708,7 @@ async function doReset(type) {
 async function renderDashboard() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
-  const role = currentUserData.role;
+  const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   // Filtre 3 mois pour les stats
   const cutoff3m = new Date(); cutoff3m.setMonth(cutoff3m.getMonth() - 3);
   const dos3m = allDossiers.filter(d => !d.created_at || new Date(d.created_at) >= cutoff3m);
@@ -996,7 +1002,7 @@ async function renderAttribution() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
 
-  const role = currentUserData.role;
+  const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   const gestionnaires = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
 
   if (window._fPortefeuille === undefined) window._fPortefeuille = '';
@@ -1533,7 +1539,7 @@ async function doEditUser(id, originalEmail, isSelf) {
 }
 
 function showAddUser() {
-  const role = currentUserData.role;
+  const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   const roleOptions = role === 'admin'
     ? '<option value="gestionnaire">Gestionnaire</option><option value="manager">Manager</option><option value="admin">Admin</option>'
     : '<option value="gestionnaire">Gestionnaire</option>';
@@ -1985,7 +1991,7 @@ function normalizeType(val) {
 
 function showGestionnairesModal() {
     var gests = (allUsers||[]).filter(function(u) {
-        return u.role === 'gestionnaire' || u.role === 'manager';
+        return u.role === 'gestionnaire' || u.role === 'manager' || u.role === 'admin';
     });
     var items = '';
     gests.forEach(function(u) {
@@ -2178,6 +2184,99 @@ async function showPropositionModal() {
     };
 }
 // ===== FIN TICKET 1 =====
+
+
+// ===== GOD SWITCH — MODE TEST ADMIN =====
+var _realRole = null;
+
+function showGodSwitchMenu() {
+    var existing = document.getElementById('god-switch-menu');
+    if (existing) { existing.remove(); return; }
+
+    var menu = document.createElement('div');
+    menu.id = 'god-switch-menu';
+    menu.style.cssText = 'position:fixed;top:56px;right:12px;background:white;border:1px solid var(--gray-200);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:9999;min-width:200px;overflow:hidden';
+
+    var currentSimRole = sessionStorage.getItem('sim_role') || currentUserData.role;
+    var roles = [
+        { val: 'admin',        label: '👑 Admin',        desc: 'Tous les accès' },
+        { val: 'manager',      label: '🔧 Manager',      desc: 'Importer + Équipe' },
+        { val: 'gestionnaire', label: '📋 Gestionnaire', desc: 'Tableau de bord + Mes dossiers' }
+    ];
+
+    var items = '<div style="padding:10px 14px;border-bottom:1px solid var(--gray-200);font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px">🎭 Simuler un rôle</div>';
+    roles.forEach(function(r) {
+        var isActive = currentSimRole === r.val;
+        items += '<div onclick="applyGodSwitch(\'' + r.val + '\')" style="padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:' + (isActive ? '#fff5f7' : 'white') + ';border-left:3px solid ' + (isActive ? 'var(--rose)' : 'transparent') + '" onmouseover="this.style.background=\'#f8f9fa\'" onmouseout="this.style.background=\'' + (isActive ? '#fff5f7' : 'white') + '\'">'
+            + '<div><div style="font-weight:600;font-size:13px;color:var(--navy)">' + r.label + '</div>'
+            + '<div style="font-size:11px;color:var(--gray-600)">' + r.desc + '</div></div>'
+            + (isActive ? '<span style="color:var(--rose);font-size:16px">✓</span>' : '')
+            + '</div>';
+    });
+    menu.innerHTML = items;
+
+    document.body.appendChild(menu);
+    setTimeout(function() {
+        document.addEventListener('click', function closeMenu(e) {
+            if (!menu.contains(e.target) && e.target.id !== 'btn-god-switch') {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    }, 100);
+}
+
+function applyGodSwitch(role) {
+    var menu = document.getElementById('god-switch-menu');
+    if (menu) menu.remove();
+
+    var previousRole = sessionStorage.getItem('sim_role') || currentUserData.role;
+    if (role === previousRole) return;
+
+    sessionStorage.setItem('sim_role', role);
+
+    // Bannière si pas admin réel
+    var existingBanner = document.getElementById('god-banner');
+    if (existingBanner) existingBanner.remove();
+
+    if (role !== 'admin') {
+        var banner = document.createElement('div');
+        banner.id = 'god-banner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:8888;background:linear-gradient(90deg,#e81251,#ff4d7d);color:white;text-align:center;padding:6px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:12px';
+        banner.innerHTML = '🎭 Mode test : <strong>' + role.toUpperCase() + '</strong> — Vue simulée uniquement'
+            + '<button onclick="applyGodSwitch(\'admin\')" style="margin-left:16px;background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.5);color:white;padding:3px 12px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✕ Quitter</button>';
+        document.body.insertBefore(banner, document.body.firstChild);
+        // Décaler le header
+        var appScreen = document.getElementById('app-screen');
+        if (appScreen) appScreen.style.paddingTop = '36px';
+    } else {
+        var appScreen2 = document.getElementById('app-screen');
+        if (appScreen2) appScreen2.style.paddingTop = '';
+        sessionStorage.removeItem('sim_role');
+    }
+
+    // Mettre à jour le badge rôle dans le header
+    var headerRole = document.getElementById('header-role');
+    if (headerRole) headerRole.textContent = role.toUpperCase();
+
+    // Reconstruire les onglets avec le nouveau rôle simulé
+    var savedRole = currentUserData.role;
+    currentUserData.role = role;
+    buildTabs();
+    currentUserData.role = savedRole;
+
+    // Rediriger vers dashboard
+    currentUserData._simRole = role;
+    showTab('dashboard');
+
+    showNotif('Mode test : ' + role + ' activé', 'success');
+}
+
+// Override getEffectiveRole pour toutes les vérifications de rôle
+function getEffectiveRole() {
+    return sessionStorage.getItem('sim_role') || currentUserData.role;
+}
+// ===== FIN GOD SWITCH =====
 
 </script>
 </body>
