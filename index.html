@@ -149,7 +149,7 @@
   .header-title { font-size: 14px; font-weight: 700; color: var(--white); letter-spacing: 0.1px; }
   .header-right { display: flex; align-items: center; gap: 6px; }
   .header-username { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
-  .header-role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: #fff; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.6px; margin-right: 4px; }
+  .header-role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(229,18,81,0.15); color: #fff; text-transform: uppercase; letter-spacing: 0.6px; margin-right: 4px; border: 1px solid rgba(255,255,255,0.3); }
   .header-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 6px; }
   .btn-header { background: none; border: none; color: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
   .btn-header:hover { background: rgba(255,255,255,0.1); color: white; }
@@ -1970,6 +1970,17 @@ async function saveAllHabilitations() {
 // ===== FIN TICKET 2 =====
 
 
+var TYPE_LABEL_MAP = {
+    'habitation': 'MRH',
+    'auto': 'AUTO',
+    'mrh': 'MRH',
+    'automobile': 'AUTO'
+};
+function normalizeType(val) {
+    if (!val) return '';
+    return TYPE_LABEL_MAP[(val+'').toLowerCase().trim()] || (val+'').toUpperCase().trim();
+}
+
 // ===== TICKET 1 — DISPATCH INTELLIGENT =====
 
 function showGestionnairesModal() {
@@ -2042,8 +2053,8 @@ function showRepartitionModal() {
 }
 
 async function showPropositionModal() {
-    // Recharger les dossiers frais
     await loadDossiers();
+    await loadAllUsers();
     var res = await db.from('habilitation_gestionnaires').select('*');
     var habMap = {};
     if (res.data) res.data.forEach(function(h) { habMap[String(h.user_id)] = h; });
@@ -2051,7 +2062,7 @@ async function showPropositionModal() {
     var activeIds = JSON.parse(sessionStorage.getItem('dispatch_gestionnaires') || '[]');
     var activeGest = (allUsers||[]).filter(function(u) { return activeIds.includes(String(u.id)); });
 
-    // Dossiers libres = statut nonattribue OU gestionnaire vide/null
+    // Dossiers libres
     var dossiersLibres = (allDossiers||[]).filter(function(d) {
         return d.statut === 'nonattribue' || !d.gestionnaire || d.gestionnaire === '';
     });
@@ -2066,16 +2077,27 @@ async function showPropositionModal() {
 
     activeGest.forEach(function(g) {
         var hab = habMap[String(g.id)];
-        // Si pas d'habilitations → tous les dossiers sont éligibles
-        var pf   = (hab && hab.portefeuille && hab.portefeuille.length > 0) ? hab.portefeuille.map(function(x){return x.toUpperCase();}) : null;
-        var tp   = (hab && hab.type && hab.type.length > 0)        ? hab.type.map(function(x){return x.toUpperCase();})        : null;
-        var nat  = (hab && hab.nature && hab.nature.length > 0)    ? hab.nature.map(function(x){return x.toUpperCase();})      : null;
+
+        // Habilitations normalisées
+        var pf  = (hab && hab.portefeuille && hab.portefeuille.length > 0)
+                    ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
+        var tp  = (hab && hab.type && hab.type.length > 0)
+                    ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
+        var nat = (hab && hab.nature && hab.nature.length > 0)
+                    ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
 
         var eligible = dossiersLibres.filter(function(d) {
             if (usedIds.includes(d.id)) return false;
-            var okPf  = !pf  || pf.includes((d.portefeuille||'').toUpperCase());
-            var okTp  = !tp  || tp.includes((d.type||'').toUpperCase());
-            var okNat = !nat || nat.includes((d.nature||'').toUpperCase());
+
+            // Normaliser les valeurs du dossier avec le mapping
+            var dPf  = (d.portefeuille||'').toUpperCase().trim();
+            var dTp  = normalizeType(d.type);   // "Habitation" → "MRH", "Auto" → "AUTO"
+            var dNat = (d.nature||'').toUpperCase().trim();
+
+            var okPf  = !pf  || pf.includes(dPf);
+            var okTp  = !tp  || tp.includes(dTp);
+            var okNat = !nat || nat.includes(dNat);
+
             return okPf && okTp && okNat;
         }).slice(0, 10);
 
@@ -2123,7 +2145,7 @@ async function showPropositionModal() {
 
     modal.querySelectorAll('[data-dossier-rm]').forEach(function(btn) {
         btn.onclick = function() {
-            var row = btn.closest('[data-dossier-id]');
+            var row = this.closest('[data-dossier-id]');
             if (row) row.remove();
         };
     });
@@ -2138,7 +2160,6 @@ async function showPropositionModal() {
                 assignments.push({ dossierId: el.dataset.dossierId, nom: nom });
             });
         });
-
         var ok = 0;
         for (var i = 0; i < assignments.length; i++) {
             var a = assignments[i];
