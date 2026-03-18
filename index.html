@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.29">
+  <meta name="version" content="2.5.31">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.29';
+    const APP_VERSION = '2.5.31';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -560,6 +560,7 @@ function buildTabs() {
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
+  if (role === 'admin' || role === 'manager') tabs.push({ id: 'stats', label: '📊 Stats' });
   const container = document.getElementById('tabs-container');
   container.innerHTML = tabs.map(t =>
     `<div class="tab" id="tab-${t.id}" onclick="showTab('${t.id}')">${t.label}</div>`
@@ -583,6 +584,7 @@ function showTab(id) {
   else if (id === 'mesdossiers') renderMesDossiers();
   else if (id === 'utilisateurs') renderUtilisateurs();
   else if (id === 'audit') renderAuditLogs();
+  else if (id === 'stats') renderStats();
 }
 
 // ===== LOAD DATA =====
@@ -1783,7 +1785,7 @@ async function toggleTraite(id, checked, gestionnaire) {
     renderAttribution(); return;
   }
   const newStatut = checked ? 'traite' : 'ouvert';
-  const { error } = await db.from('dossiers').update({ traite: checked, statut: newStatut }).eq('id', id);
+  const { error } = await db.from('dossiers').update({ traite: checked, statut: newStatut, traite_at: checked ? new Date().toISOString() : null }).eq('id', id);
   if (error) { showNotif('Erreur.', 'error'); return; }
   await auditLog(checked ? 'MARQUER_TRAITE' : 'REMETTRE_EN_COURS', 'Dossier ID ' + id);
   
@@ -2321,7 +2323,8 @@ async function showPropositionModal() {
             var r = await db.from('dossiers').update({
                 gestionnaire: a.nom,
                 statut: 'attribue',
-                verrouille: true
+                verrouille: true,
+                dispatched_at: new Date().toISOString()
             }).eq('id', a.dossierId);
             if (!r.error) ok++;
         }
@@ -2334,6 +2337,249 @@ async function showPropositionModal() {
 }
 // ===== FIN TICKET 1 =====
 
+
+
+// ===== STATS =====
+async function renderStats() {
+  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement des stats...</div>';
+
+  // Données du jour (live)
+  await loadDossiers();
+  await loadAllUsers();
+
+  // Données historiques
+  var resHisto = await db.from('stats_journalieres').select('*').order('date_journee', { ascending: false });
+  var histo = resHisto.data || [];
+
+  var role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
+
+  // ── KPIs DU JOUR ──────────────────────────────────────────
+  var total     = allDossiers.length;
+  var traites   = allDossiers.filter(function(d){ return d.traite; }).length;
+  var enCours   = total - traites;
+  var tauxGlobal = total > 0 ? Math.round(traites / total * 100) : 0;
+
+  // Temps moyen traitement (minutes) — journée en cours
+  var dosAvecTemps = allDossiers.filter(function(d){
+    return d.traite && d.traite_at && d.dispatched_at;
+  });
+  var tpsMoyenMin = 0;
+  if (dosAvecTemps.length > 0) {
+    var totalMin = dosAvecTemps.reduce(function(acc, d) {
+      return acc + (new Date(d.traite_at) - new Date(d.dispatched_at)) / 60000;
+    }, 0);
+    tpsMoyenMin = Math.round(totalMin / dosAvecTemps.length);
+  }
+
+  // Meilleur gestionnaire du jour
+  var gestScores = {};
+  allDossiers.forEach(function(d) {
+    if (!d.gestionnaire) return;
+    if (!gestScores[d.gestionnaire]) gestScores[d.gestionnaire] = { assignes: 0, traites: 0 };
+    gestScores[d.gestionnaire].assignes++;
+    if (d.traite) gestScores[d.gestionnaire].traites++;
+  });
+  var topGest = Object.entries(gestScores).sort(function(a,b){ return b[1].traites - a[1].traites; })[0];
+
+  // ── CLASSEMENT GESTIONNAIRES ──────────────────────────────
+  var gestRows = Object.entries(gestScores).map(function(e) {
+    var nom = e[0]; var s = e[1];
+    var pct = s.assignes > 0 ? Math.round(s.traites / s.assignes * 100) : 0;
+    return { nom: nom, assignes: s.assignes, traites: s.traites, enCours: s.assignes - s.traites, pct: pct };
+  }).sort(function(a,b){ return b.traites - a.traites; });
+
+  var rankRows = gestRows.map(function(g, i) {
+    var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1) + '.';
+    var couleur = g.pct >= 80 ? '#27ae60' : g.pct >= 50 ? '#e67e22' : '#e74c3c';
+    return '<tr>'
+      + '<td style="text-align:center;font-size:16px">' + medal + '</td>'
+      + '<td><strong>' + g.nom + '</strong></td>'
+      + '<td style="text-align:center">' + g.assignes + '</td>'
+      + '<td style="text-align:center;color:#27ae60;font-weight:700">' + g.traites + '</td>'
+      + '<td style="text-align:center;color:#e67e22">' + g.enCours + '</td>'
+      + '<td><div style="display:flex;align-items:center;gap:8px">'
+      + '<div style="background:#eee;border-radius:10px;height:10px;flex:1"><div style="background:' + couleur + ';height:10px;border-radius:10px;width:' + g.pct + '%"></div></div>'
+      + '<strong style="color:' + couleur + ';min-width:36px">' + g.pct + '%</strong></div></td>'
+      + '</tr>';
+  }).join('');
+
+  // ── RÉPARTITION PAR CRITÈRES (jour) ──────────────────────
+  function countBy(field) {
+    var map = {};
+    allDossiers.forEach(function(d) {
+      var v = (d[field] || 'N/A').toUpperCase();
+      if (!map[v]) map[v] = { total: 0, traites: 0 };
+      map[v].total++; if (d.traite) map[v].traites++;
+    });
+    return Object.entries(map).sort(function(a,b){ return b[1].total - a[1].total; });
+  }
+
+  function renderBars(entries) {
+    return entries.map(function(e) {
+      var label = e[0]; var s = e[1];
+      var pct = s.total > 0 ? Math.round(s.traites / s.total * 100) : 0;
+      return '<div style="margin-bottom:10px">'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+        + '<span style="font-weight:600;font-size:13px">' + label + '</span>'
+        + '<span style="font-size:12px;color:#888">' + s.traites + '/' + s.total + ' (' + pct + '%)</span>'
+        + '</div>'
+        + '<div style="background:#eee;border-radius:8px;height:10px">'
+        + '<div style="background:var(--rose);height:10px;border-radius:8px;width:' + pct + '%"></div>'
+        + '</div></div>';
+    }).join('');
+  }
+
+  var byType  = countBy('type');
+  var byNat   = countBy('nature');
+  var byPf    = countBy('portefeuille');
+
+  // ── STATS HISTORIQUES (mois glissant) ────────────────────
+  // Agréger par semaine
+  function getWeek(dateStr) {
+    var d = new Date(dateStr);
+    var jan1 = new Date(d.getFullYear(), 0, 1);
+    return 'S' + Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  }
+  var weekMap = {};
+  histo.forEach(function(h) {
+    var wk = getWeek(h.date_journee);
+    if (!weekMap[wk]) weekMap[wk] = { assignes: 0, traites: 0 };
+    weekMap[wk].assignes += h.nb_assignes;
+    weekMap[wk].traites  += h.nb_traites;
+  });
+  var weekRows = Object.entries(weekMap).slice(0, 8).map(function(e) {
+    var pct = e[1].assignes > 0 ? Math.round(e[1].traites / e[1].assignes * 100) : 0;
+    return '<tr>'
+      + '<td><strong>' + e[0] + '</strong></td>'
+      + '<td style="text-align:center">' + e[1].assignes + '</td>'
+      + '<td style="text-align:center;color:#27ae60">' + e[1].traites + '</td>'
+      + '<td style="text-align:center">' + pct + '%</td>'
+      + '</tr>';
+  }).join('');
+
+  // Classement mensuel (30 derniers jours)
+  var monthAgo = new Date(); monthAgo.setDate(monthAgo.getDate() - 30);
+  var monthHisto = histo.filter(function(h){ return new Date(h.date_journee) >= monthAgo; });
+  var monthGest = {};
+  monthHisto.forEach(function(h) {
+    if (!monthGest[h.gestionnaire]) monthGest[h.gestionnaire] = { assignes: 0, traites: 0 };
+    monthGest[h.gestionnaire].assignes += h.nb_assignes;
+    monthGest[h.gestionnaire].traites  += h.nb_traites;
+  });
+  var monthRows = Object.entries(monthGest).sort(function(a,b){ return b[1].traites - a[1].traites; }).map(function(e, i) {
+    var pct = e[1].assignes > 0 ? Math.round(e[1].traites / e[1].assignes * 100) : 0;
+    var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1) + '.';
+    return '<tr>'
+      + '<td style="text-align:center">' + medal + '</td>'
+      + '<td><strong>' + e[0] + '</strong></td>'
+      + '<td style="text-align:center">' + e[1].assignes + '</td>'
+      + '<td style="text-align:center;color:#27ae60;font-weight:700">' + e[1].traites + '</td>'
+      + '<td style="text-align:center">' + pct + '%</td>'
+      + '</tr>';
+  }).join('');
+
+  var tpsTxt = tpsMoyenMin > 0
+    ? (tpsMoyenMin >= 60 ? Math.floor(tpsMoyenMin/60) + 'h' + (tpsMoyenMin%60) + 'min' : tpsMoyenMin + ' min')
+    : '—';
+
+  var html = '<div style="max-width:1100px">'
+
+    // Titre
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">'
+    + '<h2 style="color:var(--navy);margin:0">📊 Statistiques</h2>'
+    + '<div style="display:flex;align-items:center;gap:10px">'
+    + '<span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 ' + new Date().toLocaleDateString('fr-FR', {weekday:'long',day:'numeric',month:'long'}) + '</span>'
+    + (role === \'admin\' ? \'<button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;color:#e74c3c;border-color:#e74c3c" onclick="resetStats()">🗑️ Réinitialiser les stats</button>\' : \'\')
+    + '</div>'
+    + '</div>'
+
+    // KPIs du jour
+    + '<div class="stats-grid" style="margin-bottom:24px">'
+    + '<div class="stat-card"><div class="number">' + total + '</div><div class="label">Total du jour</div></div>'
+    + '<div class="stat-card"><div class="number" style="color:#27ae60">' + traites + '</div><div class="label">Traités</div></div>'
+    + '<div class="stat-card"><div class="number" style="color:#e67e22">' + enCours + '</div><div class="label">En cours</div></div>'
+    + '<div class="stat-card"><div class="number" style="color:var(--rose)">' + tauxGlobal + '%</div><div class="label">Taux global</div></div>'
+    + '<div class="stat-card"><div class="number" style="font-size:20px">' + tpsTxt + '</div><div class="label">Temps moyen</div></div>'
+    + '<div class="stat-card"><div class="number" style="font-size:16px;color:var(--navy)">' + (topGest ? topGest[0].split(' ')[0] : '—') + '</div><div class="label">🏆 Top du jour</div></div>'
+    + '</div>'
+
+    // Classement du jour
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">'
+    + '<div class="table-container"><div class="table-toolbar"><h2>🏆 Classement du jour</h2></div>'
+    + '<table><thead><tr><th>#</th><th>Gestionnaire</th><th>Assignés</th><th>Traités</th><th>En cours</th><th>Progression</th></tr></thead>'
+    + '<tbody>' + (rankRows || '<tr><td colspan="6" style="text-align:center;color:#888;padding:20px">Aucun dossier dispatché aujourd'hui</td></tr>') + '</tbody></table></div>'
+
+    // Répartition par critères
+    + '<div class="table-container"><div class="table-toolbar"><h2>📋 Répartition du jour</h2>'
+    + '<div style="display:flex;gap:6px">'
+    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere('type')">Type</button>'
+    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere('nature')">Nature</button>'
+    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere('portefeuille')">Portefeuille</button>'
+    + '</div></div>'
+    + '<div style="padding:16px" id="critere-bars">' + renderBars(byType) + '</div></div>'
+    + '</div>'
+
+    // Stats historiques
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'
+
+    // Par semaine
+    + '<div class="table-container"><div class="table-toolbar"><h2>📈 Volume par semaine</h2></div>'
+    + '<table><thead><tr><th>Semaine</th><th>Assignés</th><th>Traités</th><th>Taux</th></tr></thead>'
+    + '<tbody>' + (weekRows || '<tr><td colspan="4" style="text-align:center;color:#888;padding:20px">Pas encore de données historiques</td></tr>') + '</tbody></table></div>'
+
+    // Classement mensuel
+    + '<div class="table-container"><div class="table-toolbar"><h2>🗓️ Classement 30 derniers jours</h2></div>'
+    + '<table><thead><tr><th>#</th><th>Gestionnaire</th><th>Assignés</th><th>Traités</th><th>Taux</th></tr></thead>'
+    + '<tbody>' + (monthRows || '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">Pas encore de données historiques</td></tr>') + '</tbody></table></div>'
+
+    + '</div></div>';
+
+  // Stocker les données pour switchCritere
+  window._statsByType  = byType;
+  window._statsByNat   = byNat;
+  window._statsByPf    = byPf;
+  window._renderBars   = renderBars;
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function switchCritere(critere) {
+  var data = critere === 'type' ? window._statsByType
+           : critere === 'nature' ? window._statsByNat
+           : window._statsByPf;
+  if (data && window._renderBars) {
+    document.getElementById('critere-bars').innerHTML = window._renderBars(data);
+  }
+}
+
+function resetStats() {
+  var modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'reset-stats-modal';
+  modal.innerHTML = '<div class="modal" style="max-width:420px;text-align:center">'
+    + '<div style="font-size:48px;margin-bottom:12px">🗑️</div>'
+    + '<h2 style="color:#e74c3c">Réinitialiser les stats ?</h2>'
+    + '<p style="color:#666;margin:16px 0">Cette action supprime <strong>tout l\'historique</strong> de la table <code>stats_journalieres</code>.<br>Les données du jour en cours ne sont pas affectées.</p>'
+    + '<div style="display:flex;gap:12px;justify-content:center;margin-top:20px">'
+    + '<button class="btn btn-secondary" onclick="closeModal(\'reset-stats-modal\')">Annuler</button>'
+    + '<button class="btn btn-primary" style="background:#e74c3c;border-color:#e74c3c" onclick="confirmResetStats()">🗑️ Confirmer la suppression</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+}
+
+async function confirmResetStats() {
+  closeModal('reset-stats-modal');
+  var { error } = await db.from('stats_journalieres').delete().gte('id', 0);
+  if (error) {
+    showNotif('Erreur lors de la réinitialisation : ' + error.message, 'error');
+  } else {
+    await auditLog('RESET_STATS', 'Historique stats_journalieres effacé manuellement');
+    showNotif('✅ Historique des stats réinitialisé !', 'success');
+    renderStats();
+  }
+}
+
+// ===== FIN STATS =====
 
 // ===== GOD SWITCH — MODE TEST ADMIN =====
 var _realRole = null;
