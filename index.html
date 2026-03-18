@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.26">
+  <meta name="version" content="2.5.28">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.26';
+    const APP_VERSION = '2.5.28';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1882,7 +1882,7 @@ function showHabilitationsModal() {
     db.from('habilitation_gestionnaires').select('*').then(function(res) {
         var habs = res.data || [];
         var habMap = {};
-        habs.forEach(function(h) { habMap[h.user_id] = h; });
+        habs.forEach(function(h) { habMap[String(h.user_id)] = h; });
         var gests = allUsers.filter(function(u) {
             return ['gestionnaire','manager','admin'].includes(u.role);
         });
@@ -1902,7 +1902,7 @@ function showHabilitationsModal() {
                 catHTML += '<div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">' + cat.charAt(0).toUpperCase() + cat.slice(1) + '</div>';
                 catHTML += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
                 opts.forEach(function(opt) {
-                    var isChecked = (hab[cat] || []).includes(opt);
+                    var isChecked = Array.isArray(hab[cat]) && hab[cat].map(String).includes(String(opt));
                     var borderCol = isChecked ? 'var(--rose)' : '#e0e3e8';
                     var bgCol     = isChecked ? 'var(--rose-light)' : '#f8f9fa';
                     var chk       = isChecked ? 'checked' : '';
@@ -1962,7 +1962,7 @@ function showHabilitationsModal() {
 
 async function saveAllHabilitations() {
     var gests = allUsers.filter(function(u) {
-        return ['gestionnaire','manager'].includes(u.role);
+        return ['gestionnaire','manager','admin'].includes(u.role);
     });
     var errors = 0;
     for (var i = 0; i < gests.length; i++) {
@@ -2103,12 +2103,24 @@ async function showPropositionModal() {
         var hab = habMap[String(g.id)];
 
         // Habilitations normalisées
-        var pf  = (hab && hab.portefeuille && hab.portefeuille.length > 0)
-                    ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
-        var tp  = (hab && hab.type && hab.type.length > 0)
-                    ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
-        var nat = (hab && hab.nature && hab.nature.length > 0)
-                    ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
+        // null = aucune fiche → pas de restriction
+        // []   = fiche vide  → rien n'est autorisé
+        // [..] = fiche avec valeurs → filtre appliqué
+        var pf  = hab
+                    ? (hab.portefeuille && hab.portefeuille.length > 0
+                        ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); })
+                        : [])
+                    : null;
+        var tp  = hab
+                    ? (hab.type && hab.type.length > 0
+                        ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); })
+                        : [])
+                    : null;
+        var nat = hab
+                    ? (hab.nature && hab.nature.length > 0
+                        ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); })
+                        : [])
+                    : null;
 
         // dossiersLibres déjà triés MRH/BDG globalement — filtrer par habilitation
         var eligible = dossiersLibres.filter(function(d) {
