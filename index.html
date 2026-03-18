@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.25">
+  <meta name="version" content="2.5.26">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.25';
+    const APP_VERSION = '2.5.26';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1884,7 +1884,7 @@ function showHabilitationsModal() {
         var habMap = {};
         habs.forEach(function(h) { habMap[h.user_id] = h; });
         var gests = allUsers.filter(function(u) {
-            return ['gestionnaire','manager'].includes(u.role);
+            return ['gestionnaire','manager','admin'].includes(u.role);
         });
 
         var modal = document.createElement('div');
@@ -2079,9 +2079,16 @@ async function showPropositionModal() {
     var activeIds = JSON.parse(sessionStorage.getItem('dispatch_gestionnaires') || '[]');
     var activeGest = (allUsers||[]).filter(function(u) { return activeIds.includes(String(u.id)); });
 
-    // Dossiers libres
+    // Dossiers libres — pré-triés : MRH/BDG en priorité globale
+    var _PRIO = ['MRH','BDG'];
     var dossiersLibres = (allDossiers||[]).filter(function(d) {
-        return d.statut === 'nonattribue' || !d.gestionnaire || d.gestionnaire === '';
+        var s = (d.statut||'').toLowerCase();
+        return s === 'nonattribue' || s === '' || !d.gestionnaire || d.gestionnaire === '';
+    }).sort(function(a, b) {
+        var aN = (a.nature||'').toUpperCase(); var bN = (b.nature||'').toUpperCase();
+        var aP = _PRIO.some(function(p){ return aN.includes(p); });
+        var bP = _PRIO.some(function(p){ return bN.includes(p); });
+        if (aP && !bP) return -1; if (!aP && bP) return 1; return 0;
     });
 
     var modal = document.createElement('div');
@@ -2103,31 +2110,17 @@ async function showPropositionModal() {
         var nat = (hab && hab.nature && hab.nature.length > 0)
                     ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
 
-        var PRIO_NATURES = ['MRH', 'BDG'];
-        var eligibleAll = dossiersLibres.filter(function(d) {
+        // dossiersLibres déjà triés MRH/BDG globalement — filtrer par habilitation
+        var eligible = dossiersLibres.filter(function(d) {
             if (usedIds.includes(d.id)) return false;
-
             var dPf  = (d.portefeuille||'').toUpperCase().trim();
             var dTp  = normalizeType(d.type);
             var dNat = (d.nature||'').toUpperCase().trim();
-
             var okPf  = !pf  || pf.includes(dPf);
             var okTp  = !tp  || tp.includes(dTp);
             var okNat = !nat || nat.includes(dNat);
-
             return okPf && okTp && okNat;
-        });
-        // Priorité MRH / BDG en premier si l'habilitation le permet
-        eligibleAll.sort(function(a, b) {
-            var aNat = (a.nature||'').toUpperCase().trim();
-            var bNat = (b.nature||'').toUpperCase().trim();
-            var aCanPrio = PRIO_NATURES.some(function(p){ return aNat.includes(p); });
-            var bCanPrio = PRIO_NATURES.some(function(p){ return bNat.includes(p); });
-            if (aCanPrio && !bCanPrio) return -1;
-            if (!aCanPrio && bCanPrio) return 1;
-            return 0;
-        });
-        var eligible = eligibleAll.slice(0, 10);
+        }).slice(0, 10);
 
         eligible.forEach(function(d) { usedIds.push(d.id); });
         propData[String(g.id)] = { g: g, dossiers: eligible };
@@ -2140,7 +2133,6 @@ async function showPropositionModal() {
         prop.dossiers.forEach(function(d) {
             dLines += '<div data-dossier-id="' + d.id + '" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;margin-bottom:4px;background:#f8f9fa">'
                 + '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:12px">' + (d.ref_sinistre||'') + '</span>'
-                + ((['MRH','BDG'].some(function(p){ return (d.nature||'').toUpperCase().includes(p); })) ? '<span style="font-size:10px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;font-weight:700">★ ' + (d.nature||'').toUpperCase() + '</span>' : '')
                 + '<span style="font-size:11px;color:var(--gray-600);flex:1">' + (d.portefeuille||'') + ' | ' + (d.type||'') + ' | ' + (d.nature||'') + '</span>'
                 + '<select data-dossier-move="' + d.id + '" data-current-gest="' + g.id + '" title="Déplacer vers..." style="font-size:11px;padding:2px 4px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;max-width:130px"><option value="">↔️ Déplacer</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
                 + '<button data-dossier-rm="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">✕</button>'
