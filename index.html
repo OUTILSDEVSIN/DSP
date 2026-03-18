@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.24">
+  <meta name="version" content="2.5.25">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -329,10 +329,15 @@
   .selection-badge { font-size: 12px; color: var(--gray-600); font-weight: 600; background: var(--gray-100); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
   /* Supprimer l'ancien bandeau et les anciens filtres si CSS présent */
   .filter-bandeau, .filters { display: none !important; }
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.24';
+    const APP_VERSION = '2.5.25';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1093,6 +1098,9 @@ async function renderAttribution() {
       <button class="btn btn-warning" onclick="lockSelection()" style="display:flex;align-items:center;gap:6px">🔒 Verrouiller</button>
       <button class="btn btn-secondary" onclick="unlockSelection()" style="display:flex;align-items:center;gap:6px">🔓 Déverrouiller</button>
       <span class="selection-badge" id="selection-count">0 sélectionné(s)</span>
+      <button class="btn btn-primary" onclick="showGestionnairesModal()" style="display:flex;align-items:center;gap:6px;padding:8px 16px">
+        🎯 Attribution intelligente
+      </button>
       <button class="btn-dispatch" onclick="showDispatch()" ${nbVerrouilles===0?'disabled':''} style="margin-left:auto;display:flex;align-items:center;gap:8px">
         🚀 DISPATCHER ${nbVerrouilles > 0 ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:1px 8px">${nbVerrouilles}</span>` : ''}
       </button>
@@ -2095,12 +2103,12 @@ async function showPropositionModal() {
         var nat = (hab && hab.nature && hab.nature.length > 0)
                     ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
 
-        var eligible = dossiersLibres.filter(function(d) {
+        var PRIO_NATURES = ['MRH', 'BDG'];
+        var eligibleAll = dossiersLibres.filter(function(d) {
             if (usedIds.includes(d.id)) return false;
 
-            // Normaliser les valeurs du dossier avec le mapping
             var dPf  = (d.portefeuille||'').toUpperCase().trim();
-            var dTp  = normalizeType(d.type);   // "Habitation" → "MRH", "Auto" → "AUTO"
+            var dTp  = normalizeType(d.type);
             var dNat = (d.nature||'').toUpperCase().trim();
 
             var okPf  = !pf  || pf.includes(dPf);
@@ -2108,7 +2116,18 @@ async function showPropositionModal() {
             var okNat = !nat || nat.includes(dNat);
 
             return okPf && okTp && okNat;
-        }).slice(0, 10);
+        });
+        // Priorité MRH / BDG en premier si l'habilitation le permet
+        eligibleAll.sort(function(a, b) {
+            var aNat = (a.nature||'').toUpperCase().trim();
+            var bNat = (b.nature||'').toUpperCase().trim();
+            var aCanPrio = PRIO_NATURES.some(function(p){ return aNat.includes(p); });
+            var bCanPrio = PRIO_NATURES.some(function(p){ return bNat.includes(p); });
+            if (aCanPrio && !bCanPrio) return -1;
+            if (!aCanPrio && bCanPrio) return 1;
+            return 0;
+        });
+        var eligible = eligibleAll.slice(0, 10);
 
         eligible.forEach(function(d) { usedIds.push(d.id); });
         propData[String(g.id)] = { g: g, dossiers: eligible };
@@ -2121,7 +2140,9 @@ async function showPropositionModal() {
         prop.dossiers.forEach(function(d) {
             dLines += '<div data-dossier-id="' + d.id + '" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;margin-bottom:4px;background:#f8f9fa">'
                 + '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:12px">' + (d.ref_sinistre||'') + '</span>'
+                + ((['MRH','BDG'].some(function(p){ return (d.nature||'').toUpperCase().includes(p); })) ? '<span style="font-size:10px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;font-weight:700">★ ' + (d.nature||'').toUpperCase() + '</span>' : '')
                 + '<span style="font-size:11px;color:var(--gray-600);flex:1">' + (d.portefeuille||'') + ' | ' + (d.type||'') + ' | ' + (d.nature||'') + '</span>'
+                + '<select data-dossier-move="' + d.id + '" data-current-gest="' + g.id + '" title="Déplacer vers..." style="font-size:11px;padding:2px 4px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;max-width:130px"><option value="">↔️ Déplacer</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
                 + '<button data-dossier-rm="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">✕</button>'
                 + '</div>';
         });
@@ -2159,7 +2180,34 @@ async function showPropositionModal() {
         };
     });
 
+    // Logique déplacer un dossier vers un autre gestionnaire
+    function bindMoveSelects() {
+        modal.querySelectorAll('[data-dossier-move]').forEach(function(sel) {
+            sel.onchange = function() {
+                var targetGestId = this.value;
+                if (!targetGestId) return;
+                var row = this.closest('[data-dossier-id]');
+                if (!row) return;
+                var targetBlock = modal.querySelector('.dossiers-list-block[data-gestid="' + targetGestId + '"]');
+                if (!targetBlock) { this.value = ''; return; }
+                // Mettre à jour l'attribut current-gest
+                this.setAttribute('data-current-gest', targetGestId);
+                this.value = '';
+                // Retirer le message vide s'il existe
+                var emptyMsg = targetBlock.querySelector('[data-empty-msg]');
+                if (emptyMsg) emptyMsg.remove();
+                targetBlock.appendChild(row);
+            };
+        });
+    }
+    bindMoveSelects();
+
     document.getElementById('btn-do-dispatch').onclick = async function() {
+        // Animation pendant le dispatch
+        var btnDispatch = this;
+        btnDispatch.disabled = true;
+        btnDispatch.innerHTML = '<span style="display:inline-block;animation:spin 0.8s linear infinite">⏳</span> Dispatch en cours...';
+        btnDispatch.style.opacity = '0.8';
         var assignments = [];
         activeGest.forEach(function(g) {
             var nb = parseInt((document.querySelector('.nb-dossiers-input[data-gestid="' + g.id + '"]')||{}).value) || 10;
