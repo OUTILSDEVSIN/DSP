@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.31">
+  <meta name="version" content="2.5.33">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.31';
+    const APP_VERSION = '2.5.33';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -2347,6 +2347,13 @@ async function renderStats() {
   await loadDossiers();
   await loadAllUsers();
 
+  // Charger le flag archivage depuis app_config
+  var archivageActif = true;
+  var resConfig = await db.from('app_config').select('value').eq('key', 'archivage_stats').maybeSingle();
+  if (resConfig.data) {
+    archivageActif = resConfig.data.value !== 'false' && resConfig.data.value !== false;
+  }
+
   // Données historiques
   var resHisto = await db.from('stats_journalieres').select('*').order('date_journee', { ascending: false });
   var histo = resHisto.data || [];
@@ -2489,7 +2496,8 @@ async function renderStats() {
     + '<h2 style="color:var(--navy);margin:0">📊 Statistiques</h2>'
     + '<div style="display:flex;align-items:center;gap:10px">'
     + '<span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">📅 ' + new Date().toLocaleDateString('fr-FR', {weekday:'long',day:'numeric',month:'long'}) + '</span>'
-    + (role === \'admin\' ? \'<button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;color:#e74c3c;border-color:#e74c3c" onclick="resetStats()">🗑️ Réinitialiser les stats</button>\' : \'\')
+    + (role === 'admin' ? '<button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;color:#e74c3c;border-color:#e74c3c" onclick="resetStats()">🗑️ Réinitialiser les stats</button>' : '')
+    + (role === 'admin' ? '<div id="archivage-toggle-zone">⏳ Chargement...</div>' : '')
     + '</div>'
     + '</div>'
 
@@ -2541,6 +2549,16 @@ async function renderStats() {
   window._renderBars   = renderBars;
 
   document.getElementById('main-content').innerHTML = html;
+
+  // Rendre le bouton toggle archivage
+  var toggleZone = document.getElementById('archivage-toggle-zone');
+  if (toggleZone) {
+    toggleZone.innerHTML = archivageActif
+      ? '<button onclick="toggleArchivage(false)" style="display:flex;align-items:center;gap:6px;padding:4px 14px;background:#eafaf1;border:1.5px solid #27ae60;color:#1e8449;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">'
+        + '<span style="width:10px;height:10px;border-radius:50%;background:#27ae60;display:inline-block"></span>Archivage ON</button>'
+      : '<button onclick="toggleArchivage(true)" style="display:flex;align-items:center;gap:6px;padding:4px 14px;background:#fdf2f8;border:1.5px solid #e74c3c;color:#c0392b;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">'
+        + '<span style="width:10px;height:10px;border-radius:50%;background:#e74c3c;display:inline-block"></span>Archivage SUSPENDU</button>';
+  }
 }
 
 function switchCritere(critere) {
@@ -2577,6 +2595,29 @@ async function confirmResetStats() {
     showNotif('✅ Historique des stats réinitialisé !', 'success');
     renderStats();
   }
+}
+
+
+async function toggleArchivage(activer) {
+  var valeur = activer ? 'true' : 'false';
+  var label   = activer ? 'activé' : 'suspendu';
+
+  // Upsert dans app_config
+  var { error } = await db.from('app_config')
+    .upsert({ key: 'archivage_stats', value: valeur }, { onConflict: 'key' });
+
+  if (error) {
+    showNotif('Erreur : ' + error.message, 'error');
+    return;
+  }
+
+  await auditLog(
+    activer ? 'ARCHIVAGE_STATS_ON' : 'ARCHIVAGE_STATS_OFF',
+    activer ? 'Archivage des stats réactivé' : 'Archivage des stats suspendu (mode test)'
+  );
+
+  showNotif(activer ? '✅ Archivage réactivé' : '⏸️ Archivage suspendu', activer ? 'success' : 'info');
+  renderStats(); // Rafraîchir pour mettre à jour le bouton
 }
 
 // ===== FIN STATS =====
