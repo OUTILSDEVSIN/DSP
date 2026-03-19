@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.39">
+  <meta name="version" content="2.5.38">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.39';
+    const APP_VERSION = '2.5.38';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -2701,62 +2701,6 @@ async function toggleArchivage(activer) {
 }
 
 // ===== FIN STATS =====
-
-// ===== HISTORIQUE REFERENTS =====
-async function toggleHistoriqueActif() {
-  var nouvelEtat = !window._historiqueActif;
-  var valeur = nouvelEtat ? 'true' : 'false';
-  var { error } = await db.from('app_config')
-    .upsert({ key: 'historique_actif', value: valeur }, { onConflict: 'key' });
-  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-  window._historiqueActif = nouvelEtat;
-  await auditLog(
-    nouvelEtat ? 'HISTORIQUE_REFERENT_ON' : 'HISTORIQUE_REFERENT_OFF',
-    nouvelEtat ? 'Referent historique active' : 'Referent historique desactive'
-  );
-  showNotif(nouvelEtat ? '✅ Référent historique activé' : '⏸️ Référent historique désactivé',
-            nouvelEtat ? 'success' : 'info');
-  renderAttribution();
-}
-
-async function changerReferent(refSinistre) {
-  await loadAllUsers();
-  var gests = (allUsers || []).filter(function(u) {
-    return ['gestionnaire', 'manager', 'admin'].includes(u.role);
-  });
-  var optsHTML = gests.map(function(g) {
-    var nom = g.prenom + ' ' + g.nom;
-    var cur = window._historiqueMap && window._historiqueMap[refSinistre];
-    var sel = cur && cur.gestionnaire === nom ? 'selected' : '';
-    return '<option value="' + nom + '" ' + sel + '>' + nom + '</option>';
-  }).join('');
-  var modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'referent-modal';
-  modal.innerHTML = '<div class="modal" style="max-width:400px;text-align:center">'
-    + '<h2 style="color:var(--navy)">✏️ Changer le référent</h2>'
-    + '<p style="color:#666;margin:12px 0">Réf. sinistre : <strong>' + refSinistre + '</strong></p>'
-    + '<select id="sel-new-referent" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:16px">' + optsHTML + '</select>'
-    + '<div style="display:flex;gap:10px;justify-content:center">'
-    + '<button class="btn btn-secondary" onclick="closeModal('referent-modal')">Annuler</button>'
-    + '<button class="btn btn-primary" onclick="confirmerChangementReferent('' + refSinistre + '')">✅ Confirmer</button>'
-    + '</div></div>';
-  document.body.appendChild(modal);
-}
-
-async function confirmerChangementReferent(refSinistre) {
-  var newGest = document.getElementById('sel-new-referent').value;
-  if (!newGest) return;
-  var { error } = await db.from('historique_sinistres')
-    .update({ gestionnaire: newGest })
-    .eq('ref_sinistre', refSinistre);
-  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-  closeModal('referent-modal');
-  await auditLog('REFERENT_CHANGE', 'Ref. ' + refSinistre + ' -> ' + newGest);
-  showNotif('✅ Référent mis à jour : ' + newGest, 'success');
-  renderAttribution();
-}
-// ===== FIN HISTORIQUE REFERENTS =====
 
 // ===== GOD SWITCH — MODE TEST ADMIN =====
 var _realRole = null;
