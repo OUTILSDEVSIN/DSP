@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.37">
+  <meta name="version" content="2.5.38">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.37';
+    const APP_VERSION = '2.5.38';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -2155,6 +2155,33 @@ async function showPropositionModal() {
 
     var usedIds = [];
     var propData = {};
+
+    // ── PRÉ-ASSIGNATION HISTORIQUE ─────────────────────────────
+    var dossiersPreAssignes = {};
+    var idsPreAssignes = [];
+    if (histoPropActif) {
+      dossiersLibres.forEach(function(d) {
+        var hEntry = histoPropMap[d.ref_sinistre];
+        if (!hEntry) return;
+        var refGest = activeGest.find(function(g) {
+          return (g.prenom + ' ' + g.nom) === hEntry.gestionnaire;
+        });
+        if (!refGest) return;
+        var hab2 = habMap[String(refGest.id)];
+        var pf2  = hab2 ? (hab2.portefeuille && hab2.portefeuille.length > 0 ? hab2.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
+        var tp2  = hab2 ? (hab2.type && hab2.type.length > 0 ? hab2.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
+        var nat2 = hab2 ? (hab2.nature && hab2.nature.length > 0 ? hab2.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
+        var okPf2  = !pf2  || pf2.length  === 0 || pf2.some(function(p){ return (d.portefeuille||'').toUpperCase().includes(p); });
+        var okTp2  = !tp2  || tp2.length  === 0 || tp2.some(function(p){ return (d.type||'').toUpperCase().includes(p); });
+        var okNat2 = !nat2 || nat2.length === 0 || nat2.some(function(p){ return (d.nature||'').toUpperCase().includes(p); });
+        if (!okPf2 || !okTp2 || !okNat2) return;
+        if (!dossiersPreAssignes[String(refGest.id)]) dossiersPreAssignes[String(refGest.id)] = [];
+        dossiersPreAssignes[String(refGest.id)].push(d);
+        idsPreAssignes.push(d.id);
+      });
+      dossiersLibres = dossiersLibres.filter(function(d){ return !idsPreAssignes.includes(d.id); });
+    }
+    // ── FIN PRÉ-ASSIGNATION ────────────────────────────────────
 
     activeGest.forEach(function(g) {
         var hab = habMap[String(g.id)];
