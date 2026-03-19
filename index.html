@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.36">
+  <meta name="version" content="2.5.37">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.36';
+    const APP_VERSION = '2.5.37';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -560,7 +560,7 @@ function buildTabs() {
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
-  if (role === 'admin' || role === 'manager') tabs.push({ id: 'stats', label: '📊 Stats' });
+  tabs.push({ id: 'stats', label: '📊 Stats' });
   const container = document.getElementById('tabs-container');
   container.innerHTML = tabs.map(t =>
     `<div class="tab" id="tab-${t.id}" onclick="showTab('${t.id}')">${t.label}</div>`
@@ -1012,6 +1012,12 @@ async function renderAttribution() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
 
+  var resHistoAttr = await db.from('historique_sinistres').select('ref_sinistre, gestionnaire, date_traitement');
+  window._historiqueMap = {};
+  if (resHistoAttr.data) resHistoAttr.data.forEach(function(h){ window._historiqueMap[h.ref_sinistre] = h; });
+  var resFlagAttr = await db.from('app_config').select('value').eq('key','historique_actif').maybeSingle();
+  window._historiqueActif = !resFlagAttr.data || resFlagAttr.data.value !== 'false';
+
   const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   const gestionnaires = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
 
@@ -1112,6 +1118,13 @@ async function renderAttribution() {
   <div class="table-container">
     <div class="table-toolbar">
       <h2>Attribution des dossiers <span style="color:#888;font-weight:400;font-size:14px">(${filtered.length})</span></h2>
+      ${['admin','manager'].includes(role) ? `<div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:#666">🔗 Référent historique :</span>
+        <button onclick="toggleHistoriqueActif()" style="display:flex;align-items:center;gap:6px;padding:4px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;border:1.5px solid ${window._historiqueActif ? '#27ae60' : '#e74c3c'};background:${window._historiqueActif ? '#eafaf1' : '#fdf2f8'};color:${window._historiqueActif ? '#1e8449' : '#c0392b'}">
+          <span style="width:10px;height:10px;border-radius:50%;background:${window._historiqueActif ? '#27ae60' : '#e74c3c'};display:inline-block"></span>
+          ${window._historiqueActif ? 'Actif' : 'Désactivé'}
+        </button>
+      </div>` : ''}
     </div>
     <table>
       <thead><tr>
@@ -1145,8 +1158,15 @@ async function renderAttribution() {
         <td><input type="checkbox" class="row-check" data-id="${d.id}"
           ${d.verrouille ? 'disabled title="Dossier verrouillé — libérez-le d\u0027abord"' : ''}
           onchange="updateSelectionCount()"></td>
-        <td><strong>${d.ref_sinistre||''}</strong>
+        <td>
+          <strong>${d.ref_sinistre||''}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
+          ${(window._historiqueActif && window._historiqueMap && window._historiqueMap[d.ref_sinistre]) ? `
+            <div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">
+              📌 Déjà traité le ${new Date(window._historiqueMap[d.ref_sinistre].date_traitement).toLocaleDateString('fr-FR')}
+              — ${window._historiqueMap[d.ref_sinistre].gestionnaire}
+              ${['admin','manager'].includes(role) ? `<button onclick="changerReferent('${d.ref_sinistre}')" style="margin-left:4px;background:none;border:none;cursor:pointer;font-size:11px" title="Changer le référent">✏️</button>` : ''}
+            </div>` : ''}
         </td>
         <td><span class="badge badge-attribue">${d.portefeuille||'-'}</span></td>
         <td>${d.ref_contrat||'-'}</td>
@@ -1198,13 +1218,25 @@ async function renderMesDossiers() {
   if (!mesDossiers.length) {
     html += '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
   } else {
+    const monNomMD = currentUserData.prenom + ' ' + currentUserData.nom;
+    const histoMapMD = window._historiqueMap || {};
+    const histoActifMD = window._historiqueActif !== false;
+    // Trier : dossiers "déjà traités par moi" en premier
+    mesDossiers.sort(function(a, b) {
+      const aH = histoActifMD && histoMapMD[a.ref_sinistre] && histoMapMD[a.ref_sinistre].gestionnaire === monNomMD;
+      const bH = histoActifMD && histoMapMD[b.ref_sinistre] && histoMapMD[b.ref_sinistre].gestionnaire === monNomMD;
+      return (aH === bH) ? 0 : aH ? -1 : 1;
+    });
     mesDossiers.forEach(d => {
       const statut = d.statut || 'nonattribue';
       const canSee = ['attribue','encours','ouvert','traite'].includes(statut);
       if (!canSee) return;
-      html += `<tr>
+      const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
+      const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
+      html += `<tr style="${dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : ''}">
         <td><strong>${d.ref_sinistre}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
+          ${dejaTraiteParMoi ? `<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">📌 Déjà traité le ${new Date(histoEntryMD.date_traitement).toLocaleDateString('fr-FR')}</div>` : ''}
         </td>
         <td>${d.ref_contrat}</td>
         <td>${d.nature_label || d.nature}</td>
@@ -1787,7 +1819,17 @@ async function toggleTraite(id, checked, gestionnaire) {
   const newStatut = checked ? 'traite' : 'ouvert';
   const { error } = await db.from('dossiers').update({ traite: checked, statut: newStatut, traite_at: checked ? new Date().toISOString() : null }).eq('id', id);
   if (error) { showNotif('Erreur.', 'error'); return; }
-  await auditLog(checked ? 'MARQUER_TRAITE' : 'REMETTRE_EN_COURS', 'Dossier ID ' + id);
+  const dossierRef = (allDossiers.find(function(d){ return d.id === id; }) || {}).ref_sinistre || ('ID ' + id);
+  await auditLog(checked ? 'MARQUER_TRAITE' : 'REMETTRE_EN_COURS', 'Réf. sinistre : ' + dossierRef);
+  if (checked) {
+    const dFound = allDossiers.find(function(d){ return d.id === id; });
+    if (dFound && dFound.ref_sinistre) {
+      await db.from('historique_sinistres').upsert(
+        { ref_sinistre: dFound.ref_sinistre, gestionnaire: gestionnaire, date_traitement: new Date().toISOString().split('T')[0] },
+        { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+      );
+    }
+  }
   
   showNotif(checked ? '✅ Dossier marqué traité' : '↩️ Dossier remis en cours', 'success');
   allDossiers = allDossiers.map(d => d.id === id ? {...d, traite: checked, statut: newStatut} : d);
@@ -2078,6 +2120,13 @@ async function showPropositionModal() {
     var habMap = {};
     if (res.data) res.data.forEach(function(h) { habMap[String(h.user_id)] = h; });
 
+    // Charger historique référents pour pré-assignation intelligente
+    var resHistoProp = await db.from('historique_sinistres').select('ref_sinistre, gestionnaire, date_traitement');
+    var histoPropMap = {};
+    if (resHistoProp.data) resHistoProp.data.forEach(function(h){ histoPropMap[h.ref_sinistre] = h; });
+    var resFlagProp = await db.from('app_config').select('value').eq('key','historique_actif').maybeSingle();
+    var histoPropActif = !resFlagProp.data || resFlagProp.data.value !== 'false';
+
     var activeIds = JSON.parse(sessionStorage.getItem('dispatch_gestionnaires') || '[]');
     var activeGest = (allUsers||[]).filter(function(u) { return activeIds.includes(String(u.id)); });
 
@@ -2143,7 +2192,11 @@ async function showPropositionModal() {
         }).slice(0, 10);
 
         eligible.forEach(function(d) { usedIds.push(d.id); });
-        propData[String(g.id)] = { g: g, dossiers: eligible };
+        // Fusionner pré-assignés (en tête) + éligibles normaux
+        var preA = dossiersPreAssignes[String(g.id)] || [];
+        var eligibleIds = eligible.map(function(d){ return d.id; });
+        var preAFiltered = preA.filter(function(d){ return !eligibleIds.includes(d.id); });
+        propData[String(g.id)] = { g: g, dossiers: preAFiltered.concat(eligible) };
     });
 
     var blocks = '';
