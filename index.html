@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.35">
+  <meta name="version" content="2.5.36">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -337,7 +337,7 @@
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.35';
+    const APP_VERSION = '2.5.36';
     const storedVersion = sessionStorage.getItem('dispatchis_version');
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -2520,9 +2520,9 @@ async function renderStats() {
     // Répartition par critères
     + '<div class="table-container"><div class="table-toolbar"><h2>📋 Répartition du jour</h2>'
     + '<div style="display:flex;gap:6px">'
-    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere('type')">Type</button>'
-    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere('nature')">Nature</button>'
-    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere('portefeuille')">Portefeuille</button>'
+    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere(&#39;type&#39;)">Type</button>'
+    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere(&#39;nature&#39;)">Nature</button>'
+    + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="switchCritere(&#39;portefeuille&#39;)">Portefeuille</button>'
     + '</div></div>'
     + '<div style="padding:16px" id="critere-bars">' + renderBars(byType) + '</div></div>'
     + '</div>'
