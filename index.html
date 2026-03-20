@@ -428,8 +428,10 @@ let filterStatut = '';
   async function checkPasswordExpiry() {
     if (!currentUserData) return;
     var lastChange = currentUserData.last_password_change;
+    // Si la colonne n'existe pas en DB (undefined) → ne pas forcer
+    if (lastChange === undefined) return;
     if (!lastChange) {
-      // Première connexion ou champ absent → forcer le changement
+      // Champ null = première connexion → forcer le changement
       showPasswordRenewalModal(true);
       return;
     }
@@ -553,7 +555,7 @@ async function doLogin() {
 }
 
 async function loadUserData() {
-  const { data } = await db.from('utilisateurs').select('id,email,nom,prenom,role,actif').eq('email', currentUser.email).single();
+  const { data } = await db.from('utilisateurs').select('id,email,nom,prenom,role,actif,last_password_change').eq('email', currentUser.email).single();
   if (!data) { showNotif('Utilisateur non trouvé dans la base.', 'error'); await db.auth.signOut(); return; }
   currentUserData = data;
   // Vérifier lockout d'urgence au démarrage
