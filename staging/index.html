@@ -411,6 +411,75 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
   })();
   // ===== FIN BANDEAU STAGING =====
 
+  // ===== GESTION TOKEN SUPABASE DANS L'URL (reset pwd / magic link) =====
+  (async function handleAuthRedirect() {
+    var hash = window.location.hash;
+    if (!hash) return;
+    // Parser les params du hash
+    var params = {};
+    hash.replace('#', '').split('&').forEach(function(p) {
+      var kv = p.split('=');
+      params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
+    });
+    if (params.error) {
+      console.warn('Auth error:', params.error_description);
+      return;
+    }
+    if (params.access_token && (params.type === 'recovery' || params.type === 'magiclink')) {
+      // Définir la session Supabase avec le token reçu
+      var { data, error } = await db.auth.setSession({
+        access_token: params.access_token,
+        refresh_token: params.refresh_token || ''
+      });
+      if (error) {
+        alert('Erreur de connexion : ' + error.message);
+        return;
+      }
+      // Nettoyer l'URL
+      window.history.replaceState(null, '', window.location.pathname);
+      if (params.type === 'recovery') {
+        // Forcer le changement de mot de passe
+        currentUser = data.session.user;
+        var modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '99999';
+        modal.innerHTML = '<div class="modal" style="max-width:420px;text-align:center">'
+          + '<div style="font-size:48px;margin-bottom:8px">🔑</div>'
+          + '<h2 style="color:var(--rose)">Nouveau mot de passe</h2>'
+          + '<p style="color:#666;font-size:13px;margin:12px 0 20px">Choisissez votre nouveau mot de passe.</p>'
+          + '<input type="password" id="reset-new-pwd" placeholder="Minimum 8 caractères" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box">'
+          + '<input type="password" id="reset-confirm-pwd" placeholder="Confirmer le mot de passe" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box">'
+          + '<div id="reset-url-error" style="color:#dc2626;font-size:12px;display:none;margin-bottom:8px"></div>'
+          + '<button class="btn btn-primary" style="width:100%;padding:12px" onclick="doResetFromUrl()">Enregistrer</button>'
+          + '</div>';
+        document.body.appendChild(modal);
+      } else if (params.type === 'magiclink') {
+        // Magic link → connexion directe
+        currentUser = data.session.user;
+        await loadUserData();
+      }
+    }
+  })();
+
+  async function doResetFromUrl() {
+    var newPwd = document.getElementById('reset-new-pwd').value;
+    var confirmPwd = document.getElementById('reset-confirm-pwd').value;
+    var errEl = document.getElementById('reset-url-error');
+    errEl.style.display = 'none';
+    if (newPwd.length < 8) { errEl.textContent = 'Minimum 8 caractères.'; errEl.style.display = 'block'; return; }
+    if (newPwd !== confirmPwd) { errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.style.display = 'block'; return; }
+    var { error } = await db.auth.updateUser({ password: newPwd });
+    if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
+    // Mettre à jour last_password_change
+    await db.from('utilisateurs').update({ last_password_change: new Date().toISOString() }).eq('email', currentUser.email);
+    // Fermer la modale et connecter
+    document.querySelectorAll('.modal-overlay').forEach(function(m) { m.remove(); });
+    await loadUserData();
+    showNotif('✅ Mot de passe défini avec succès !', 'success');
+  }
+  // ===== FIN GESTION TOKEN =====
+
+
 
   // ===== onAuthStateChange — gestion expiration token =====
   db.auth.onAuthStateChange(function(event, session) {
