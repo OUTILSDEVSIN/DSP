@@ -2838,7 +2838,7 @@ async function toggleArchivage(activer) {
 // ===== FIN STATS =====
 
 // ===== HISTORIQUE REFERENTS =====
-async async function toggleHistoriqueActif() {
+async function toggleHistoriqueActif() {
   var nouvelEtat = !window._historiqueActif;
   var valeur = nouvelEtat ? 'true' : 'false';
   var { error } = await db.from('app_config')
