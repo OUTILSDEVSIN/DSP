@@ -428,6 +428,7 @@
       <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
       <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
       <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
+      <button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre / clair">🌙</button>
     </div>
   </header>
   <div class="tabs" id="tabs-container"></div>
@@ -2756,7 +2757,7 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
     modal.className = 'modal-overlay';
     modal.id = 'prio-alert-modal';
     modal.style.zIndex = 5000;
-    modal.innerHTML = '<div class="modal" style="max-width:780px;padding:28px">'
+    modal.innerHTML = '<div class="modal" style="max-width:960px;width:95vw;padding:28px">'
         + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
         + '<div style="font-size:36px">⚠️</div>'
         + '<div><h2 style="color:#e74c3c;margin:0">' + nonAttribuesPrio.length + ' dossier(s) prioritaire(s) non attribué(s)</h2>'
