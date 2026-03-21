@@ -2149,11 +2149,14 @@ async function toggleTraite(id, checked, gestionnaire) {
       // Aucun dossier habilité disponible
       var ov2 = document.createElement('div'); ov2.className = 'modal-overlay'; ov2.id = 'hab-blocked-modal';
       var bx2 = document.createElement('div'); bx2.className = 'modal'; bx2.style.cssText = 'text-align:center;max-width:420px';
-      bx2.innerHTML = '<div style="font-size:52px;margin-bottom:12px">🚫</div>'
-        + '<h2 style="color:#e74c3c">Dossier non disponible</h2>'
-        + '<p style="color:#666;margin:16px 0">Vous n'êtes pas habilité(e) pour les dossiers actuellement disponibles.<br><br>'
-        + '<strong>Rapprochez-vous de votre manager</strong> pour obtenir une habilitation ou faire attribuer un dossier manuellement.</p>'
-        + '<div style="margin-top:20px"><button class="btn btn-secondary" onclick="closeModal('hab-blocked-modal')" style="width:100%">OK, compris</button></div>';
+      bx2.innerHTML = [
+        '<div style="font-size:52px;margin-bottom:12px">&#x1F6AB;</div>',
+        '<h2 style="color:#e74c3c">Dossier non disponible</h2>',
+        '<p style="color:#666;margin:16px 0">Vous n&apos;êtes pas habilité(e) pour les dossiers disponibles.<br><br>',
+        '<strong>Rapprochez-vous de votre manager</strong> pour une attribution manuelle.</p>',
+        '<div style="margin-top:20px"><button class="btn btn-secondary" onclick="closeModal(&quot;hab-blocked-modal&quot;)" style="width:100%">OK, compris</button></div>'
+      ].join('');
+
       ov2.appendChild(bx2); document.body.appendChild(ov2);
       return;
     }
@@ -2767,7 +2770,7 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
         + '<th style="padding:8px 10px">Action</th></tr></thead>'
         + '<tbody>' + rows + '</tbody></table></div>'
         + '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">'
-        + '<button class="btn btn-secondary" onclick="closeModal('prio-alert-modal')">Ignorer pour l'instant</button>'
+        + '<button class="btn btn-secondary" onclick="closeModal(&quot;prio-alert-modal&quot;)">Ignorer pour l&apos;instant</button>'
         + '</div></div>';
     document.body.appendChild(modal);
 }
@@ -2783,7 +2786,7 @@ async function forceAttribuerPrioritaire(dossierId, btn) {
     minModal.style.zIndex = 6000;
     minModal.innerHTML = '<div class="modal" style="max-width:400px;text-align:center">'
         + '<div style="font-size:36px;margin-bottom:8px">🔧</div>'
-        + '<h2 style="color:var(--navy)">Forcer l'attribution</h2>'
+        + '<h2 style="color:var(--navy)">Forcer l&apos;attribution</h2>'
         + '<p style="color:#666;font-size:13px;margin:12px 0">Choisissez un gestionnaire pour ce dossier prioritaire :</p>'
         + '<select id="force-attr-select" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:16px">' + opts + '</select>'
         + '<div style="display:flex;gap:10px;justify-content:center">'
