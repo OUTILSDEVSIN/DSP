@@ -428,6 +428,7 @@
       <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
       <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
       <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
+      <button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre / clair">🌙</button>
     </div>
   </header>
   <div class="tabs" id="tabs-container"></div>
@@ -435,8 +436,8 @@
 </div>
 
 <script>
-const SUPABASE_URL = 'https://xwiguxvmlqskzamapyzf.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aWd1eHZtbHFza3phbWFweXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODUwMTMsImV4cCI6MjA4ODc2MTAxM30.6on-JPw82PY3LZlUiHDwWlSkOt2l_rmfIsDwGPo137M';
+const SUPABASE_URL = 'https://eqyqcslfvcyxdgjhvmry.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeXFjc2xmdmN5eGRnamh2bXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTYwNzQsImV4cCI6MjA4OTU5MjA3NH0.1OaRZHo45J_cMMdQCgR0wrqS13irrP1wBUuNe8SHrqU';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -456,6 +457,20 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
     }
   }
   // ===== FIN DARK MODE =====
+
+    // ===== BANDEAU STAGING =====
+  (function() {
+    var banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:linear-gradient(90deg,#f39c12,#e67e22);color:white;text-align:center;padding:6px;font-size:13px;font-weight:700;letter-spacing:0.5px;';
+    banner.innerHTML = '⚠️ ENVIRONNEMENT DE TEST — Les données saisies ici ne sont pas réelles';
+    document.body.prepend(banner);
+    // Décaler le header pour ne pas être masqué
+    document.addEventListener('DOMContentLoaded', function() {
+      var header = document.querySelector('header');
+      if (header) header.style.marginTop = '32px';
+    });
+  })();
+  // ===== FIN BANDEAU STAGING =====
 
   // ===== SAFE STORAGE (Edge Tracking Prevention) =====
   var safeSession = {
@@ -2756,7 +2771,7 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
     modal.className = 'modal-overlay';
     modal.id = 'prio-alert-modal';
     modal.style.zIndex = 5000;
-    modal.innerHTML = '<div class="modal" style="max-width:780px;padding:28px">'
+    modal.innerHTML = '<div class="modal" style="max-width:960px;width:95vw;padding:28px">'
         + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
         + '<div style="font-size:36px">⚠️</div>'
         + '<div><h2 style="color:#e74c3c;margin:0">' + nonAttribuesPrio.length + ' dossier(s) prioritaire(s) non attribué(s)</h2>'
