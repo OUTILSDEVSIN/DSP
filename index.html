@@ -2784,15 +2784,17 @@ async function forceAttribuerPrioritaire(dossierId, btn) {
     minModal.className = 'modal-overlay';
     minModal.id = 'force-attr-modal';
     minModal.style.zIndex = 6000;
-    minModal.innerHTML = '<div class="modal" style="max-width:400px;text-align:center">'
-        + '<div style="font-size:36px;margin-bottom:8px">🔧</div>'
-        + '<h2 style="color:var(--navy)">Forcer l&apos;attribution</h2>'
-        + '<p style="color:#666;font-size:13px;margin:12px 0">Choisissez un gestionnaire pour ce dossier prioritaire :</p>'
-        + '<select id="force-attr-select" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:16px">' + opts + '</select>'
-        + '<div style="display:flex;gap:10px;justify-content:center">'
-        + '<button class="btn btn-secondary" onclick="closeModal('force-attr-modal')">Annuler</button>'
-        + '<button class="btn btn-primary" onclick="doForceAttribution(' + dossierId + ')">✅ Confirmer</button>'
-        + '</div></div>';
+    minModal.innerHTML = [
+        '<div class="modal" style="max-width:400px;text-align:center">',
+        '<div style="font-size:36px;margin-bottom:8px">&#x1F527;</div>',
+        '<h2 style="color:var(--navy)">Forcer l&apos;attribution</h2>',
+        '<p style="color:#666;font-size:13px;margin:12px 0">Choisissez un gestionnaire pour ce dossier prioritaire&nbsp;:</p>',
+        '<select id="force-attr-select" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:16px">' + opts + '</select>',
+        '<div style="display:flex;gap:10px;justify-content:center">',
+        '<button class="btn btn-secondary" onclick="closeModal(&quot;force-attr-modal&quot;)">Annuler</button>',
+        '<button class="btn btn-primary" onclick="doForceAttribution(' + dossierId + ')">&#x2705; Confirmer</button>',
+        '</div></div>'
+    ].join('');
     document.body.appendChild(minModal);
 }
 
