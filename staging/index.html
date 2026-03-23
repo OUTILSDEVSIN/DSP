@@ -1266,14 +1266,14 @@ function statutBadge(statut, verrouille) {
 }
 
 // ===== ATTRIBUTION =====
-async 
 function _cellRecuperer(d) {
   if (!d.gestionnaire || d.gestionnaire === '') {
-    return '<td style="text-align:center"><button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="recupererDossier('' + d.id + '')">📥 Récupérer</button></td>';
+    var id = d.id;
+    return '<td style="text-align:center"><button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="recupererDossier(' + "'" + id + "'" + ')">📥 Récupérer</button></td>';
   }
   return '<td style="text-align:center"><span style="color:#bbb;font-size:12px">—</span></td>';
 }
-function renderAttribution() {
+async function renderAttribution() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
 
