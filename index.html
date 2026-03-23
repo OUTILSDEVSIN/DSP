@@ -380,7 +380,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.41';
+    const APP_VERSION = '2.5.42';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -769,7 +769,7 @@ function buildTabs() {
   const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   const tabs = [{ id: 'dashboard', label: '📊 Tableau de bord' }];
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'import', label: '📂 Importer Excel' });
-  if (role === 'admin' || role === 'manager') tabs.push({ id: 'attribution', label: '📋 Attribution' });
+  tabs.push({ id: 'attribution', label: '📋 Attribution' });
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
@@ -907,17 +907,19 @@ async function doReset(type) {
     }
     closeModal('reset-confirm-modal');
     // Supprimer par batch via IDs réels
+  await loadDossiers();
   const allIds = allDossiers.map(d => d.id);
   if (allIds.length === 0) { showNotif('Aucun dossier à supprimer.', 'info'); return; }
-  const { error } = await db.from('dossiers').delete().in('id', allIds);
+  const { error } = await db.from('dossiers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
     await auditLog('RESET_COMPLET', allIds.length + ' dossiers supprimés définitivement');
     showNotif('💣 ' + allIds.length + ' dossiers supprimés.', 'success');
   } else {
     closeModal('reset-confirm-modal');
-    const allIds2 = allDossiers.map(d => d.id);
+    await loadDossiers();
+  const allIds2 = allDossiers.map(d => d.id);
   if (allIds2.length === 0) { showNotif('Aucun dossier à réinitialiser.', 'info'); return; }
-  const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'nonattribue', traite: false }).in('id', allIds2);
+  const { error } = await db.from('dossiers').update({ gestionnaire: '', verrouille: false, statut: 'nonattribue', traite: false }).neq('id', '00000000-0000-0000-0000-000000000000');
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
     await auditLog('RESET_PARTIEL', allIds2.length + ' dossiers réinitialisés');
     showNotif('🔄 ' + allIds2.length + ' dossiers réinitialisés.', 'success');
@@ -997,9 +999,11 @@ function detectPortefeuille(refContrat) {
   return 'MIA';
 }
 
-function detectType(refContrat) {
-  const r = (refContrat || '').toUpperCase();
-  if (r.includes('MRH')) return 'Habitation';
+function detectType(refContrat, refSinistre) {
+  const r  = (refContrat  || '').toUpperCase();
+  const rs = (refSinistre || '').toUpperCase();
+  if (r.includes('MRH')  || rs.includes('MRH'))  return 'Habitation';
+  if (r.includes('IMMO') || rs.includes('IMMO'))  return 'Habitation';
   return 'Auto';
 }
 
@@ -1013,12 +1017,10 @@ async function handleFile(event) {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!rows.length) { showNotif('Fichier vide ou format incorrect.', 'error'); return; }
 
-    // Normalisation des clés : on crée une map clé_normalisée -> clé_originale
     const firstRow = rows[0];
     const normalize = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     const keyMap = {};
     Object.keys(firstRow).forEach(k => { keyMap[normalize(k)] = k; });
-
     const get = (r, ...candidates) => {
       for (const c of candidates) {
         const norm = normalize(c);
@@ -1036,11 +1038,8 @@ async function handleFile(event) {
       ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
       nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
       nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
-      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
+      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'), get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre')),
       portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
-      gestionnaire: '',
-      traite: false,
-      verrouille: false
     })).filter(d => d.ref_sinistre);
 
     if (!mapped.length) {
@@ -1049,15 +1048,60 @@ async function handleFile(event) {
       return;
     }
 
-    const { error } = await db.from('dossiers').insert(mapped);
-    if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
-    await auditLog('IMPORT_EXCEL', mapped.length + ' dossiers importés');
-    showNotif('✅ ' + mapped.length + ' dossiers importés. Données personnelles non conservées (RGPD).', 'success');
-    document.getElementById('import-result').innerHTML =
-      `<div class="stat-card" style="max-width:300px"><div class="number" style="color:#27ae60">${mapped.length}</div><div class="label">Dossiers importés</div></div>`;
+    // ── DÉTECTION RE-IMPORT ────────────────────────────────────
+    await loadDossiers();
+    const existingRefs = new Map(allDossiers.map(d => [d.ref_sinistre, d]));
+    const isReimport = existingRefs.size > 0;
+
+    let nouveaux = [], relances = [], ignores = 0;
+
+    for (const row of mapped) {
+      const existing = existingRefs.get(row.ref_sinistre);
+      if (!existing) {
+        // Nouveau dossier
+        nouveaux.push({ ...row, gestionnaire: '', traite: false, verrouille: false, statut: 'nonattribue' });
+      } else if (existing.traite) {
+        // Dossier traité → relancé
+        relances.push(existing);
+      } else {
+        // Doublon non traité → ignoré
+        ignores++;
+      }
+    }
+
+    // Insérer les nouveaux
+    if (nouveaux.length > 0) {
+      const { error } = await db.from('dossiers').insert(nouveaux);
+      if (error) { showNotif('Erreur import : ' + error.message, 'error'); return; }
+    }
+
+    // Relancer les dossiers traités
+    let relancesNotif = [];
+    for (const d of relances) {
+      await db.from('dossiers').update({
+        statut: 'ouvert',
+        traite: false,
+        verrouille: true,
+        traite_at: null
+      }).eq('id', d.id);
+      relancesNotif.push({ ref: d.ref_sinistre, gestionnaire: d.gestionnaire });
+    }
+
+    // Notifications temps réel pour les gestionnaires relancés
+    if (relancesNotif.length > 0) {
+      // Marquer en sessionStorage pour affichage dans renderMesDossiers
+      const existingRelances = JSON.parse(safeSession.getItem('relances_notif') || '[]');
+      const merged = [...existingRelances, ...relancesNotif.map(r => r.ref)];
+      safeSession.setItem('relances_notif', JSON.stringify(merged));
+    }
+
+    await auditLog('IMPORT_EXCEL', (isReimport ? 'RE-IMPORT' : 'IMPORT') + ' — ' + nouveaux.length + ' nouveaux, ' + relances.length + ' relancés, ' + ignores + ' ignorés');
+
     await loadDossiers();
     await loadAllUsers();
-    showGestionnairesModal();
+
+    // ── BOÎTE DE DIALOGUE RÉSUMÉ ───────────────────────────────
+    showImportSummaryModal(nouveaux.length, relances.length, ignores, relancesNotif, isReimport);
   };
   reader.readAsArrayBuffer(file);
 }
@@ -1224,6 +1268,13 @@ function statutBadge(statut, verrouille) {
 }
 
 // ===== ATTRIBUTION =====
+function _cellRecuperer(d) {
+  if (!d.gestionnaire || d.gestionnaire === '') {
+    var id = d.id;
+    return '<td style="text-align:center"><button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="recupererDossier(' + "'" + id + "'" + ')">📥 Récupérer</button></td>';
+  }
+  return '<td style="text-align:center"><span style="color:#bbb;font-size:12px">—</span></td>';
+}
 async function renderAttribution() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
@@ -1242,7 +1293,7 @@ async function renderAttribution() {
   if (window._fNature === undefined) window._fNature = '';
   if (window._fStatut === undefined) window._fStatut = '';
   if (window._fGestionnaire === undefined) window._fGestionnaire = '';
-  if (window._fNonAttribue === undefined) window._fNonAttribue = false;
+  if (window._fNonAttribue === undefined) window._fNonAttribue = (role === 'gestionnaire');
 
   const portefeuilles = [...new Set(allDossiers.map(d => d.portefeuille).filter(Boolean))].sort();
   const types = [...new Set(allDossiers.map(d => d.type).filter(Boolean))].sort();
@@ -1308,8 +1359,8 @@ async function renderAttribution() {
         Non attribués seulement
       </label>
     </div>
-    <!-- LIGNE 3 : Toolbar dispatch -->
-    <div class="urow urow-3">
+    <!-- LIGNE 3 : Toolbar dispatch (admin/manager uniquement) -->
+    <div class="urow urow-3" style="${['admin','manager'].includes(role) ? '' : 'display:none'}">
       <label class="check-label check-all-label">
         <input type="checkbox" id="check-all-top" onchange="toggleAll(this.checked)" style="width:15px;height:15px;accent-color:var(--rose)">
         Tout sélectionner
@@ -1354,6 +1405,7 @@ async function renderAttribution() {
         <th>🔒</th>
         <th>Statut</th>
         <th>Traité</th>
+        ${role === 'gestionnaire' ? '<th>Action</th>' : ''}
       </tr></thead>
       <tbody>`;
 
@@ -1407,6 +1459,7 @@ async function renderAttribution() {
             ${d.traite ? '✅' : '⬜'}
           </span>
         </td>
+        ${role === 'gestionnaire' ? _cellRecuperer(d) : ''}
       </tr>`;
     });
   }
@@ -1414,10 +1467,102 @@ async function renderAttribution() {
   html += `</tbody></table></div>`;
   document.getElementById('main-content').innerHTML = html;
 }
+
+
+
+// ===== IMPORT SUMMARY MODAL =====
+function showImportSummaryModal(nbNouveaux, nbRelances, nbIgnores, relancesNotif, isReimport) {
+  var relancesHtml = '';
+  if (relancesNotif.length > 0) {
+    relancesHtml = '<div style="margin:12px 0;padding:12px;background:#fffbea;border:1px solid #ffc107;border-radius:8px">'
+      + '<strong style="color:#856404">🔄 Dossiers relancés (' + relancesNotif.length + ') :</strong>'
+      + '<ul style="margin:8px 0 0 16px;padding:0">'
+      + relancesNotif.map(r => '<li style="font-size:13px"><strong>' + r.ref + '</strong>'
+        + (r.gestionnaire ? ' → <span style="color:var(--navy)">' + r.gestionnaire + '</span>' : '') + '</li>').join('')
+      + '</ul></div>';
+  }
+  var modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'import-summary-modal';
+  modal.style.zIndex = 5000;
+  modal.innerHTML = '<div class="modal" style="max-width:500px">'
+    + '<div style="font-size:40px;text-align:center;margin-bottom:12px">' + (isReimport ? '🔄' : '📂') + '</div>'
+    + '<h2 style="text-align:center;color:var(--navy)">' + (isReimport ? 'Re-import effectué' : 'Import effectué') + '</h2>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:16px 0">'
+    + '<div style="text-align:center;padding:12px;background:#eafaf1;border-radius:8px"><div style="font-size:24px;font-weight:700;color:#27ae60">' + nbNouveaux + '</div><div style="font-size:12px;color:#666">Nouveau(x)</div></div>'
+    + '<div style="text-align:center;padding:12px;background:#fffbea;border-radius:8px"><div style="font-size:24px;font-weight:700;color:#f39c12">' + nbRelances + '</div><div style="font-size:12px;color:#666">Relancé(s)</div></div>'
+    + '<div style="text-align:center;padding:12px;background:#f8f9fa;border-radius:8px"><div style="font-size:24px;font-weight:700;color:#999">' + nbIgnores + '</div><div style="font-size:12px;color:#666">Ignoré(s)</div></div>'
+    + '</div>'
+    + relancesHtml
+    + '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">'
+    + (nbNouveaux > 0
+        ? '<button class="btn btn-secondary" onclick="closeModal(&apos;import-summary-modal&apos;)">Passer</button>'
+          + '<button class="btn btn-primary" onclick="closeModal(&apos;import-summary-modal&apos;);showGestionnairesModal()">🎯 Attribuer les nouveaux dossiers</button>'
+        : '<button class="btn btn-primary" onclick="closeModal(&apos;import-summary-modal&apos;)">✅ Fermer</button>')
+    + '</div></div>';
+  document.body.appendChild(modal);
+}
+// ===== FIN IMPORT SUMMARY MODAL =====
+// ===== TOGGLE TRAITÉ DANS MES DOSSIERS =====
+async function toggleTraiteMesDossiers(id, checked) {
+  const newStatut = checked ? 'traite' : 'ouvert';
+  const { error } = await db.from('dossiers').update({
+    traite: checked,
+    statut: newStatut,
+    traite_at: checked ? new Date().toISOString() : null
+  }).eq('id', id);
+  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+  if (checked) {
+    const d = (allDossiers || []).find(x => String(x.id) === String(id));
+    if (d) {
+      await db.from('historique_sinistres').upsert(
+        { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
+        { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+      );
+    }
+  }
+  await auditLog(checked ? 'TRAITEMENT_DOSSIER' : 'REOUVERTURE_DOSSIER',
+    (checked ? 'Dossier marqué traité' : 'Dossier réouvert') + ' — id:' + id);
+  showNotif(checked ? '✅ Dossier marqué comme traité.' : '🔄 Dossier réouvert.', 'success');
+  await loadDossiers();
+  renderMesDossiers();
+}
+// ===== FIN TOGGLE TRAITÉ MES DOSSIERS =====
+// ===== RÉCUPÉRER UN DOSSIER (gestionnaire) =====
+async function recupererDossier(dossierId) {
+  const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
+  // Vérification concurrence : relire le dossier en base
+  const { data: fresh, error: errFresh } = await db.from('dossiers')
+    .select('id, gestionnaire, statut, verrouille, ref_sinistre')
+    .eq('id', dossierId).maybeSingle();
+  if (errFresh) { showNotif('Erreur : ' + errFresh.message, 'error'); return; }
+  if (!fresh) { showNotif('Dossier introuvable.', 'error'); return; }
+  // Premier arrivé premier servi
+  if (fresh.gestionnaire && fresh.gestionnaire !== '') {
+    showNotif('⚠️ Ce dossier vient d\'être récupéré par ' + fresh.gestionnaire + '.', 'error');
+    await loadDossiers(); renderAttribution(); return;
+  }
+  const { error } = await db.from('dossiers').update({
+    gestionnaire: monNom,
+    statut: 'attribue',
+    verrouille: true
+  }).eq('id', dossierId);
+  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+  await auditLog('RECUPERATION_DOSSIER', 'Dossier ' + (fresh.ref_sinistre||dossierId) + ' récupéré en autonomie');
+  showNotif('✅ Dossier ' + (fresh.ref_sinistre||'') + ' ajouté à vos dossiers !', 'success');
+  await loadDossiers();
+  renderAttribution();
+}
+// ===== FIN RÉCUPÉRER DOSSIER =====
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
+  await loadAllUsers();
+  var resHistoMD = await db.from('historique_sinistres').select('ref_sinistre, gestionnaire, date_traitement');
+  window._historiqueMap = {};
+  if (resHistoMD.data) resHistoMD.data.forEach(function(h){ window._historiqueMap[h.ref_sinistre] = h; });
+  window._historiqueActif = true;
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
   let html = `<div class="stats-grid">
@@ -1461,23 +1606,55 @@ async function renderMesDossiers() {
       // Ordre stable par ID (ordre d'arrivée)
       return (a.id || 0) - (b.id || 0);
     });
+    // Récupérer refs relancées depuis sessionStorage
+    const relancesRefs = JSON.parse(safeSession.getItem('relances_notif') || '[]');
+
+    // Pop-up temps réel si des relances concernent ce gestionnaire
+    const mesRelances = mesDossiers.filter(d => relancesRefs.includes(d.ref_sinistre));
+    if (mesRelances.length > 0) {
+      setTimeout(function() {
+        var notifHtml = mesRelances.map(r => '<li style="font-size:13px"><strong>' + r.ref_sinistre + '</strong></li>').join('');
+        var relanceModal = document.createElement('div');
+        relanceModal.className = 'modal-overlay';
+        relanceModal.id = 'relance-notif-modal';
+        relanceModal.style.zIndex = 6000;
+        relanceModal.innerHTML = '<div class="modal" style="max-width:420px;text-align:center">'
+          + '<div style="font-size:44px;margin-bottom:8px">🔄</div>'
+          + '<h2 style="color:#e67e22">Dossier(s) relancé(s)</h2>'
+          + '<p style="color:#666;font-size:13px;margin:8px 0 16px">Le manager a importé une nouvelle remontée.<br>Les dossiers suivants nécessitent votre attention :</p>'
+          + '<ul style="text-align:left;margin:0 0 16px 16px;padding:0">' + notifHtml + '</ul>'
+          + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(&apos;relance-notif-modal&apos;)">✅ J\'ai compris</button>'
+          + '</div>';
+        document.body.appendChild(relanceModal);
+        // Vider la notif après affichage
+        safeSession.setItem('relances_notif', JSON.stringify(
+          relancesRefs.filter(r => !mesRelances.map(d => d.ref_sinistre).includes(r))
+        ));
+      }, 500);
+    }
+
     mesDossiers.forEach(d => {
       const statut = d.statut || 'nonattribue';
       const canSee = ['attribue','encours','ouvert','traite'].includes(statut);
       if (!canSee) return;
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
-      html += `<tr style="${dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : ''}">
+      const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
+      html += `<tr style="${isRelance ? 'background:#fffde7;border-left:3px solid #f39c12' : (dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : '')}">
         <td><strong>${d.ref_sinistre}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
+          ${isRelance ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}
           ${dejaTraiteParMoi ? `<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">📌 Déjà traité le ${new Date(histoEntryMD.date_traitement).toLocaleDateString('fr-FR')}</div>` : ''}
         </td>
         <td>${d.ref_contrat}</td>
         <td>${d.nature_label || d.nature}</td>
         <td>${d.portefeuille}</td>
         <td>${statutBadge(d.statut, d.verrouille)}</td>
-        <td><input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-          onchange="toggleTraite('${d.id}', this.checked, '${d.gestionnaire||''}')"></td>
+        <td style="text-align:center">
+          <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
+            style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
+            onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">
+        </td>
       </tr>`;
     });
   }
@@ -2045,11 +2222,8 @@ async function toggleTraite(id, checked, gestionnaire) {
     showNotif('Vous ne pouvez cocher que vos propres dossiers.', 'error');
     renderAttribution(); return;
   }
-  // TICKET 5 – Gestionnaire ne peut pas décocher Traité
-  if (!checked && !isManager) {
-    showNotif('Seul le manager peut réinitialiser un dossier traité.', 'error');
-    renderAttribution(); return;
-  }
+  // Gestionnaire peut décocher traité → statut ouvert, reste verrouillé
+  // (isManager ou propriétaire du dossier)
   const newStatut = checked ? 'traite' : 'ouvert';
   const { error } = await db.from('dossiers').update({ traite: checked, statut: newStatut, traite_at: checked ? new Date().toISOString() : null }).eq('id', id);
   if (error) { showNotif('Erreur.', 'error'); return; }
@@ -2772,6 +2946,7 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
         + '<tbody>' + rows + '</tbody></table></div>'
         + '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">'
         + '<button class="btn btn-secondary" onclick="closeModal(&quot;prio-alert-modal&quot;)">Ignorer pour l&apos;instant</button>'
+        + '<button class="btn btn-primary" onclick="closeModal(&quot;prio-alert-modal&quot;)">✅ Valider</button>'
         + '</div></div>';
     document.body.appendChild(modal);
 }
