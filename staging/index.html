@@ -441,7 +441,7 @@
 
 <script>
 const SUPABASE_URL = 'https://eqyqcslfvcyxdgjhvmry.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeXFjc2xOjE3NzMxODUwMTMsImV4cCI6MjA4ODc2MTAxM30.6on-JPw82PY3LZlUiHDwWlSkOt2l_rmfIsDwGPo137M';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeXFjc2xmdmN5eGRnamh2bXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4MTQ2MzUsImV4cCI6MjA1ODM5MDYzNX0.8dlADKHQUTqaKkOxzmBJOmGQEDi6AVBL9MnHHSaMDLU';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -1003,9 +1003,11 @@ function detectPortefeuille(refContrat) {
   return 'MIA';
 }
 
-function detectType(refContrat) {
-  const r = (refContrat || '').toUpperCase();
-  if (r.includes('MRH')) return 'Habitation';
+function detectType(refContrat, refSinistre) {
+  const r  = (refContrat  || '').toUpperCase();
+  const rs = (refSinistre || '').toUpperCase();
+  if (r.includes('MRH')  || rs.includes('MRH'))  return 'Habitation';
+  if (r.includes('IMMO') || rs.includes('IMMO'))  return 'Habitation';
   return 'Auto';
 }
 
@@ -1040,7 +1042,7 @@ async function handleFile(event) {
       ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
       nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
       nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
-      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
+      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'), get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre')),
       portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
     })).filter(d => d.ref_sinistre);
 
