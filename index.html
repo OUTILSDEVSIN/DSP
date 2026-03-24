@@ -380,7 +380,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.42';
+    const APP_VERSION = '2.5.43';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1429,7 +1429,7 @@ async function renderAttribution() {
         <td>
           <strong>${d.ref_sinistre||''}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
-          ${(window._historiqueActif && window._historiqueMap && window._historiqueMap[d.ref_sinistre]) ? `
+          ${(window._historiqueActif && window._historiqueMap && window._historiqueMap[d.ref_sinistre] && new Date(window._historiqueMap[d.ref_sinistre].date_traitement) < new Date(new Date().toDateString())) ? `
             <div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">
               📌 Déjà traité le ${new Date(window._historiqueMap[d.ref_sinistre].date_traitement).toLocaleDateString('fr-FR')}
               — ${window._historiqueMap[d.ref_sinistre].gestionnaire}
@@ -1592,18 +1592,15 @@ async function renderMesDossiers() {
       return pf.includes('OPTINEO') || tp.includes('MRH') || tp.includes('HABITATION')
           || nat.includes('BRIS DE GLACE') || nat.includes('BDG') || hasRef;
     }
+    // Dossiers récupérés manuellement en cours de session → mis en bas
+    var _recuperesMD = JSON.parse(safeSession.getItem('_recuperesMD') || '[]');
+    var _recuperesSetMD = new Set(_recuperesMD.map(Number));
     mesDossiers.sort(function(a, b) {
-      // Groupe 1 : traités tout en bas
-      var aT = a.traite ? 1 : 0;
-      var bT = b.traite ? 1 : 0;
-      if (aT !== bT) return aT - bT;
-      // Groupe 2 (non traités) : prioritaires en tête
-      if (!a.traite) {
-        var aP = _isPrioMD(a) ? 0 : 1;
-        var bP = _isPrioMD(b) ? 0 : 1;
-        if (aP !== bP) return aP - bP;
-      }
-      // Ordre stable par ID (ordre d'arrivée)
+      // Dossiers récupérés manuellement → en bas
+      var aR = _recuperesSetMD.has(a.id) ? 1 : 0;
+      var bR = _recuperesSetMD.has(b.id) ? 1 : 0;
+      if (aR !== bR) return aR - bR;
+      // Ordre fixe par ID (ordre d'import) — jamais modifié par statut traité
       return (a.id || 0) - (b.id || 0);
     });
     // Récupérer refs relancées depuis sessionStorage
