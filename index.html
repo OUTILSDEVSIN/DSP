@@ -381,7 +381,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.47';
+    const APP_VERSION = '2.5.48';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1067,7 +1067,10 @@ async function handleFile(event) {
         // Dossier traité → relancé
         relances.push(existing);
       } else {
-        // Doublon non traité → ignoré
+        // Doublon non traité → mettre à jour date_etat si elle a changé
+        if (row.date_etat && row.date_etat !== existing.date_etat) {
+          await db.from('dossiers').update({ date_etat: row.date_etat }).eq('id', existing.id);
+        }
         ignores++;
       }
     }
@@ -1410,6 +1413,7 @@ async function renderAttribution() {
       <thead><tr>
         <th><input type="checkbox" id="check-all" onchange="toggleAll(this.checked)"></th>
         <th>Réf. Sinistre</th>
+        <th style="white-space:nowrap">Date État</th>
         <th>Portefeuille</th>
         <th>Réf. Contrat</th>
         <th>Type</th>
@@ -1449,6 +1453,9 @@ async function renderAttribution() {
               — ${window._historiqueMap[d.ref_sinistre].gestionnaire}
               ${['admin','manager'].includes(role) ? `<button onclick="changerReferent('${d.ref_sinistre}')" style="margin-left:4px;background:none;border:none;cursor:pointer;font-size:11px" title="Changer le référent">✏️</button>` : ''}
             </div>` : ''}
+        </td>
+        <td style="white-space:nowrap;font-size:12px;font-weight:600;color:#1B3461">
+          ${d.date_etat ? `<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">&#128197; ${d.date_etat}</span>` : '<span style="color:#bbb">—</span>'}
         </td>
         <td><span class="badge badge-attribue">${d.portefeuille||'-'}</span></td>
         <td>${d.ref_contrat||'-'}</td>
