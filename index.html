@@ -381,7 +381,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.48';
+    const APP_VERSION = '2.5.49';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1014,7 +1014,7 @@ async function handleFile(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async (e) => {
-    const workbook = XLSX.read(e.target.result, { type: 'array' });
+    const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!rows.length) { showNotif('Fichier vide ou format incorrect.', 'error'); return; }
@@ -1037,7 +1037,18 @@ async function handleFile(event) {
 
     const mapped = rows.map(r => ({
       ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
-      date_etat: get(r, 'Date Etat', 'Date état', 'Date etat', 'DATE ETAT', 'date_etat'),
+      date_etat: (function() {
+        var v = get(r, 'Date Etat', 'Date état', 'Date etat', 'DATE ETAT', 'date_etat', 'DateEtat', 'dateetat');
+        if (!v) {
+          // Fallback : scanner toutes les clés contenant "etat"
+          var found = Object.keys(r).find(function(k) {
+            var n = normalize(k);
+            return n.includes('etat') || n.includes('etat');
+          });
+          if (found && r[found] !== '') v = String(r[found]).trim();
+        }
+        return v;
+      })(),
       ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
       nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
       nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
@@ -1068,7 +1079,7 @@ async function handleFile(event) {
         relances.push(existing);
       } else {
         // Doublon non traité → mettre à jour date_etat si elle a changé
-        if (row.date_etat && row.date_etat !== existing.date_etat) {
+        if (row.date_etat) {
           await db.from('dossiers').update({ date_etat: row.date_etat }).eq('id', existing.id);
         }
         ignores++;
