@@ -381,7 +381,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.50';
+    const APP_VERSION = '2.5.51';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -809,7 +809,7 @@ async function loadAllUsers() {
 }
 
 async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp').order('created_at', { ascending: true });
+  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat').order('created_at', { ascending: true });
   allDossiers = data || [];
 }
 
