@@ -381,7 +381,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.51';
+    const APP_VERSION = '2.5.53';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1050,18 +1050,7 @@ async function handleFile(event) {
 
     const mapped = rows.map(r => ({
       ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
-      date_etat: (function() {
-        var v = get(r, 'Date Etat', 'Date état', 'Date etat', 'DATE ETAT', 'date_etat', 'DateEtat', 'dateetat');
-        if (!v) {
-          // Fallback : scanner toutes les clés contenant "etat"
-          var found = Object.keys(r).find(function(k) {
-            var n = normalize(k);
-            return n.includes('etat') || n.includes('etat');
-          });
-          if (found && r[found] !== '') v = String(r[found]).trim();
-        }
-        return v;
-      })(),
+      date_etat: get(r, 'Date Etat', 'Date état', 'Date etat', 'DATE ETAT', 'date_etat', 'DateEtat', 'dateetat'),
       ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
       nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
       nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
@@ -1345,9 +1334,16 @@ async function renderAttribution() {
   if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
 
   // Tri par date_etat ascendant (plus ancienne en tete), nulls en dernier
+  var parseDateEtat = function(s) {
+    if (!s) return null;
+    // Format dd/mm/yyyy
+    var p = s.split('/');
+    if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+    return new Date(s);
+  };
   filtered.sort(function(a, b) {
-    var da = a.date_etat ? new Date(a.date_etat) : null;
-    var db2 = b.date_etat ? new Date(b.date_etat) : null;
+    var da = parseDateEtat(a.date_etat);
+    var db2 = parseDateEtat(b.date_etat);
     if (!da && !db2) return 0;
     if (!da) return 1;
     if (!db2) return -1;
@@ -1470,7 +1466,6 @@ async function renderAttribution() {
         <td>
           <strong>${d.ref_sinistre||''}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}','${statut}',${d.id},this)" title="Copier">📋</button>
-          ${d.date_etat ? `<span style="display:inline-block;margin-left:6px;font-size:11px;font-weight:600;color:#1B3461;background:#e8f0fb;border-radius:5px;padding:2px 7px;vertical-align:middle">📅 ${d.date_etat}</span>` : ''}
           ${(window._historiqueActif && window._historiqueMap && window._historiqueMap[d.ref_sinistre] && new Date(window._historiqueMap[d.ref_sinistre].date_traitement) < new Date(new Date().toDateString())) ? `
             <div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">
               📌 Déjà traité le ${new Date(window._historiqueMap[d.ref_sinistre].date_traitement).toLocaleDateString('fr-FR')}
