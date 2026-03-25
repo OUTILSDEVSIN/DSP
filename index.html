@@ -381,7 +381,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.49';
+    const APP_VERSION = '2.5.50';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -1023,11 +1023,24 @@ async function handleFile(event) {
     const normalize = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     const keyMap = {};
     Object.keys(firstRow).forEach(k => { keyMap[normalize(k)] = k; });
+    const formatDateVal = (v) => {
+      if (!v) return '';
+      // Si c'est déjà une date JS ou une string parseable
+      var d = (v instanceof Date) ? v : new Date(v);
+      if (!isNaN(d.getTime())) {
+        var dd = String(d.getDate()).padStart(2,'0');
+        var mm = String(d.getMonth()+1).padStart(2,'0');
+        var yyyy = d.getFullYear();
+        return dd + '/' + mm + '/' + yyyy;
+      }
+      return String(v).trim();
+    };
     const get = (r, ...candidates) => {
       for (const c of candidates) {
         const norm = normalize(c);
         if (keyMap[norm] !== undefined && r[keyMap[norm]] !== undefined && r[keyMap[norm]] !== '') {
-          return String(r[keyMap[norm]]).trim();
+          var raw = r[keyMap[norm]];
+          return (raw instanceof Date) ? formatDateVal(raw) : String(raw).trim();
         }
       }
       return '';
