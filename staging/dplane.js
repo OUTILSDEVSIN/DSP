@@ -5,7 +5,7 @@
 
 // ─── RÉCUPÉRER LE PLANNING D'UNE DATE ───────────────────────
 async function dplaneGetPlanningDuJour(date) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dplane_planning')
     .select(`
       id,
@@ -237,7 +237,7 @@ function dplaneMarquerPopupAffichee() {
 
 // ─── VÉRIFIER CONFLITS ACTIVITÉ ──────────────────────────────
 async function dplaneVerifierConflit(jour, creneau, activiteId) {
-  const { data: activite } = await supabase
+  const { data: activite } = await db
     .from('dplane_activites')
     .select('permet_multiples, nom')
     .eq('id', activiteId)
@@ -245,7 +245,7 @@ async function dplaneVerifierConflit(jour, creneau, activiteId) {
 
   if (!activite || activite.permet_multiples) return null;
 
-  const { data: existants } = await supabase
+  const { data: existants } = await db
     .from('dplane_planning')
     .select('gestionnaire_id')
     .eq('jour', jour)
