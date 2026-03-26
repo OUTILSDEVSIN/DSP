@@ -381,7 +381,7 @@
   </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.46';
+    const APP_VERSION = '2.5.53';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -392,8 +392,6 @@
   </script>
 </head>
 <body>
-  <div id="staging-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#e67e22;color:white;text-align:center;padding:6px;font-size:13px;font-weight:700;letter-spacing:1px">⚠️ ENVIRONNEMENT DE TEST — STAGING — Les données ne sont pas réelles ⚠️</div>
-  <style>body { padding-top: 32px; }</style>
 
 <div id="login-screen">
   <div class="login-box">
@@ -811,7 +809,7 @@ async function loadAllUsers() {
 }
 
 async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp').order('created_at', { ascending: true });
+  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat').order('created_at', { ascending: true });
   allDossiers = data || [];
 }
 
@@ -1016,7 +1014,7 @@ async function handleFile(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async (e) => {
-    const workbook = XLSX.read(e.target.result, { type: 'array' });
+    const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!rows.length) { showNotif('Fichier vide ou format incorrect.', 'error'); return; }
@@ -1025,11 +1023,24 @@ async function handleFile(event) {
     const normalize = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     const keyMap = {};
     Object.keys(firstRow).forEach(k => { keyMap[normalize(k)] = k; });
+    const formatDateVal = (v) => {
+      if (!v) return '';
+      // Si c'est déjà une date JS ou une string parseable
+      var d = (v instanceof Date) ? v : new Date(v);
+      if (!isNaN(d.getTime())) {
+        var dd = String(d.getDate()).padStart(2,'0');
+        var mm = String(d.getMonth()+1).padStart(2,'0');
+        var yyyy = d.getFullYear();
+        return dd + '/' + mm + '/' + yyyy;
+      }
+      return String(v).trim();
+    };
     const get = (r, ...candidates) => {
       for (const c of candidates) {
         const norm = normalize(c);
         if (keyMap[norm] !== undefined && r[keyMap[norm]] !== undefined && r[keyMap[norm]] !== '') {
-          return String(r[keyMap[norm]]).trim();
+          var raw = r[keyMap[norm]];
+          return (raw instanceof Date) ? formatDateVal(raw) : String(raw).trim();
         }
       }
       return '';
@@ -1039,6 +1050,7 @@ async function handleFile(event) {
 
     const mapped = rows.map(r => ({
       ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
+      date_etat: get(r, 'Date Etat', 'Date état', 'Date etat', 'DATE ETAT', 'date_etat', 'DateEtat', 'dateetat'),
       ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
       nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
       nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
@@ -1068,7 +1080,10 @@ async function handleFile(event) {
         // Dossier traité → relancé
         relances.push(existing);
       } else {
-        // Doublon non traité → ignoré
+        // Doublon non traité → mettre à jour date_etat si elle a changé
+        if (row.date_etat) {
+          await db.from('dossiers').update({ date_etat: row.date_etat }).eq('id', existing.id);
+        }
         ignores++;
       }
     }
@@ -1318,6 +1333,23 @@ async function renderAttribution() {
   if (window._fGestionnaire) filtered = filtered.filter(d => (d.gestionnaire||'') === window._fGestionnaire);
   if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
 
+  // Tri par date_etat ascendant (plus ancienne en tete), nulls en dernier
+  var parseDateEtat = function(s) {
+    if (!s) return null;
+    // Format dd/mm/yyyy
+    var p = s.split('/');
+    if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+    return new Date(s);
+  };
+  filtered.sort(function(a, b) {
+    var da = parseDateEtat(a.date_etat);
+    var db2 = parseDateEtat(b.date_etat);
+    if (!da && !db2) return 0;
+    if (!da) return 1;
+    if (!db2) return -1;
+    return da - db2;
+  });
+
   // Bandeau résumé par critères de recherche (hors gestionnaire)
   const countsPortefeuille = portefeuilles.map(v => ({ label: v, count: allDossiers.filter(d => d.portefeuille === v).length, color: '#1a5276', bg: '#e8f4fd' }));
   const countsType = types.map(v => ({ label: v, count: allDossiers.filter(d => d.type === v).length, color: '#1e8449', bg: '#eafaf1' }));
@@ -1401,6 +1433,7 @@ async function renderAttribution() {
       <thead><tr>
         <th><input type="checkbox" id="check-all" onchange="toggleAll(this.checked)"></th>
         <th>Réf. Sinistre</th>
+        <th style="white-space:nowrap">Date État</th>
         <th>Portefeuille</th>
         <th>Réf. Contrat</th>
         <th>Type</th>
@@ -1439,6 +1472,9 @@ async function renderAttribution() {
               — ${window._historiqueMap[d.ref_sinistre].gestionnaire}
               ${['admin','manager'].includes(role) ? `<button onclick="changerReferent('${d.ref_sinistre}')" style="margin-left:4px;background:none;border:none;cursor:pointer;font-size:11px" title="Changer le référent">✏️</button>` : ''}
             </div>` : ''}
+        </td>
+        <td style="white-space:nowrap;font-size:12px;font-weight:600;color:#1B3461">
+          ${d.date_etat ? `<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">&#128197; ${d.date_etat}</span>` : '<span style="color:#bbb">—</span>'}
         </td>
         <td><span class="badge badge-attribue">${d.portefeuille||'-'}</span></td>
         <td>${d.ref_contrat||'-'}</td>
