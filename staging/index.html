@@ -513,6 +513,22 @@ let filterStatut = '';
     return;
   }
 
+  var daysSince = Math.floor(
+    (Date.now() - new Date(lastChange).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (daysSince >= PWD_RENEWAL_DAYS) {
+    showPasswordRenewalModal(false, daysSince);
+  } else if (daysSince >= PWD_RENEWAL_DAYS - 7) {
+    var remaining = PWD_RENEWAL_DAYS - daysSince;
+    showNotif(
+      'Votre mot de passe expire dans ' + remaining + ' jours. Pensez à le changer.',
+      'info'
+    );
+  }
+}
+
+
   var daysSince = Math.floor((Date.now() - new Date(lastChange).getTime()) / (1000 * 60 * 60 * 24));
   if (daysSince >= PWD_RENEWAL_DAYS) {
     showPasswordRenewalModal(false, daysSince);
