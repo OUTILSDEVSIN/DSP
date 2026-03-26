@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
+
   <meta name="version" content="2.5.41">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -3977,5 +3978,15 @@ function getEffectiveRole() {
 
 </script>
   <script src="dplane.js"></script>
+  <script>
+    // BANDEAU STAGING
+    if (window.location.hostname !== 'localhost') {
+      const stagingBanner = document.createElement('div');
+      stagingBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#d97706;color:white;text-align:center;padding:6px;font-size:12px;font-weight:700;letter-spacing:0.5px;';
+      stagingBanner.textContent = '⚠️ ENVIRONNEMENT STAGING — Ceci n\'est pas la production';
+      document.body.prepend(stagingBanner);
+      document.body.style.paddingTop = '32px';
+    }
+  </script>
 </body>
 </html>
