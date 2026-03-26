@@ -1,30 +1,12 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Test Magic Link</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
+<head><title>Test OK</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body>
-  <h1>Test Magic Link</h1>
-  <input id="email" placeholder="julien@..." />
-  <button onclick="testMagicLink()">Envoyer Magic Link</button>
-  <div id="result"></div>
-
-  <script>
-    const SUPABASE_URL = 'https://eqyqcslfvcyxdgjhvmry.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeXFjc2xmdmN5eGRnamh2bXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTYwNzQsImV4cCI6MjA4OTU5MjA3NH0.1OaRZHo45JcMMdQCgR0wrqS13irrP1wBUuNe8SHrqU';
-    const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    async function testMagicLink() {
-      const email = document.getElementById('email').value;
-      const result = document.getElementById('result');
-      const { error } = await supabase.auth.signInWithOtp({ email });
-      if (error) {
-        result.innerHTML = '<p style="color:red">' + error.message + '</p>';
-      } else {
-        result.innerHTML = '<p style="color:green">✅ Lien envoyé ! Vérifie tes mails</p>';
-      }
-    }
-  </script>
+<h1>✅ MAGIC LINK OK !</h1>
+<p>Token reçu: <span id="status">Connecté</span></p>
+<script>
+const supabase=createClient('https://eqyqcslfvcyxdgjhvmry.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeXFjc2xmdmN5eGRnamh2bXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTYwNzQsImV4cCI6MjA4OTU5MjA3NH0.1OaRZHo45JcMMdQCgR0wrqS13irrP1wBUuNe8SHrqU');
+supabase.from('utilisateurs').select('*').then(({data})=>document.getElementById('status').innerHTML='Users: '+data.length);
+</script>
 </body>
 </html>
