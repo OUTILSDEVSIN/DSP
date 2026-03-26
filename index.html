@@ -504,15 +504,23 @@ let filterStatut = '';
   var PWD_RENEWAL_DAYS = 90;
 
   async function checkPasswordExpiry() {
-    if (!currentUserData) return;
-    var lastChange = currentUserData.last_password_change;
-    // Si la colonne n'existe pas en DB (undefined) → ne pas forcer
-    if (lastChange === undefined) return;
-    if (!lastChange) {
-      // Champ null = première connexion → forcer le changement
-      showPasswordRenewalModal(true);
-      return;
-    }
+  if (!currentUserData) return;
+
+  var lastChange = currentUserData.last_password_change;
+  if (lastChange === undefined) return;
+  if (!lastChange) {
+    showPasswordRenewalModal(true);
+    return;
+  }
+
+  var daysSince = Math.floor((Date.now() - new Date(lastChange).getTime()) / (1000 * 60 * 60 * 24));
+  if (daysSince >= PWD_RENEWAL_DAYS) {
+    showPasswordRenewalModal(false, daysSince);
+  } else if (daysSince >= PWD_RENEWAL_DAYS - 7) {
+    var remaining = PWD_RENEWAL_DAYS - daysSince;
+    showNotif('Votre mot de passe expire dans ' + remaining + ' jours. Pensez à le changer.', 'info');
+  }
+}
     var daysSince = Math.floor((Date.now() - new Date(lastChange).getTime()) / (1000 * 60 * 60 * 24));
     if (daysSince >= PWD_RENEWAL_DAYS) {
       showPasswordRenewalModal(false, daysSince);
@@ -550,11 +558,41 @@ let filterStatut = '';
   }
 
   async function doRenewPassword() {
-    var newPwd = document.getElementById('renew-pwd').value;
-    var confirmPwd = document.getElementById('renew-pwd-confirm').value;
-    var errEl = document.getElementById('renew-pwd-error');
-    errEl.style.display = 'none';
-    if (newPwd.length < 8) { errEl.textContent = 'Le mot de passe doit contenir au moins 8 caractères.'; errEl.style.display = 'block'; return; }
+  var newPwd = document.getElementById('renew-pwd').value;
+  var confirmPwd = document.getElementById('renew-pwd-confirm').value;
+  var errEl = document.getElementById('renew-pwd-error');
+
+  errEl.style.display = 'none';
+
+  if (newPwd.length < 8) {
+    errEl.textContent = 'Le mot de passe doit contenir au moins 8 caractères.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (newPwd !== confirmPwd) {
+    errEl.textContent = 'Les mots de passe ne correspondent pas.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  var { error } = await db.auth.updateUser({ password: newPwd });
+  if (error) {
+    errEl.textContent = 'Erreur ' + error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  await db
+    .from('utilisateurs')
+    .update({ last_password_change: new Date().toISOString() })
+    .eq('email', currentUser.email);
+
+  await auditLog('RENOUVELLEMENT_MDP', 'Mot de passe renouvelé');
+
+  var m = document.getElementById('pwd-renewal-modal');
+  if (m) m.remove();
+  showNotif('Mot de passe mis à jour avec succès !', 'success');
+}
     if (newPwd !== confirmPwd) { errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.style.display = 'block'; return; }
     var { error } = await db.auth.updateUser({ password: newPwd });
     if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
@@ -633,8 +671,48 @@ async function doLogin() {
 }
 
 async function loadUserData() {
-  const { data } = await db.from('utilisateurs').select('id,email,nom,prenom,role,actif,last_password_change').eq('email', currentUser.email).single();
-  if (!data) { showNotif('Utilisateur non trouvé dans la base.', 'error'); await db.auth.signOut(); return; }
+  const { data, error } = await db
+    .from('utilisateurs')
+    .select('id,email,nom,prenom,role,actif,last_password_change')
+    .eq('email', currentUser.email)
+    .maybeSingle();
+
+  if (error || !data) {
+    showNotif('Utilisateur non trouvé dans la base.', 'error');
+    await db.auth.signOut();
+    return;
+  }
+
+  currentUserData = data;
+
+  var lockoutUntil = 0;
+  try {
+    lockoutUntil = parseInt(safeLocal.getItem('dispatchis_emergency_lockout') || '0', 10);
+  } catch (e) {}
+  if (lockoutUntil && Date.now() < lockoutUntil) {
+    showLockoutScreen();
+    return;
+  } else if (lockoutUntil) {
+    safeLocal.removeItem('dispatchis_emergency_lockout');
+    safeLocal.removeItem('dispatchis_emergency_time');
+  }
+
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
+  document.getElementById('header-role').textContent = data.role.toUpperCase();
+
+  checkVersionSync();
+  initDarkMode();
+  buildTabs();
+  initIdleTracking();
+  await loadAllUsers();
+  showTab('dashboard');
+  checkPasswordExpiry();
+}
   currentUserData = data;
   // Vérifier lockout d'urgence au démarrage
   var _lockoutUntil = 0; try { _lockoutUntil = parseInt(safeLocal.getItem('dispatchis_emergency_lockout') || '0'); } catch(e) {}
