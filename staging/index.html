@@ -377,6 +377,229 @@
   }
   .dark-toggle:hover { background: rgba(255,255,255,0.1); }
   /* ===== FIN MODE SOMBRE ===== */
+  
+/* ============================================================ */
+/* DPLANE — STYLES */
+/* ============================================================ */
+
+/* SWITCHER OUTILS */
+.tool-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 3px;
+  margin-right: 12px;
+}
+.tool-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.tool-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+.tool-btn.active { background: var(--rose); color: white; }
+.tool-btn .d-letter { color: var(--rose); }
+.tool-btn.active .d-letter { color: white; }
+
+/* DPLANE SCREEN */
+#dplane-screen { display: none; }
+
+/* GRILLE PLANNING */
+.dplane-grid {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.dplane-grid table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.dplane-grid thead th {
+  background: var(--navy);
+  color: white;
+  padding: 10px 14px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px;
+  border-right: 1px solid rgba(255,255,255,0.1);
+}
+.dplane-grid thead th:first-child { text-align: left; min-width: 140px; }
+.dplane-grid tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-200);
+  border-right: 1px solid var(--gray-200);
+  vertical-align: middle;
+  text-align: center;
+}
+.dplane-grid tbody td:first-child { text-align: left; font-weight: 600; color: var(--navy); }
+.dplane-grid tbody tr:last-child td { border-bottom: none; }
+.dplane-grid tbody tr:hover td { background: #fafbff; }
+
+/* CELLULE PLANNING */
+.dplane-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  min-height: 32px;
+  align-items: center;
+}
+.dplane-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  cursor: default;
+  white-space: nowrap;
+}
+.dplane-tag .tag-remove {
+  cursor: pointer;
+  opacity: 0.7;
+  font-size: 13px;
+  line-height: 1;
+  margin-left: 2px;
+}
+.dplane-tag .tag-remove:hover { opacity: 1; }
+.dplane-cell-add {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--gray-400);
+  background: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.dplane-cell-add:hover { border-color: var(--rose); color: var(--rose); }
+
+/* ABSENCE */
+.dplane-absence {
+  background: #fef3e2;
+  border: 1px solid #f97316;
+  border-radius: 20px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #92540a;
+  white-space: nowrap;
+}
+
+/* NAVIGATION SEMAINE */
+.dplane-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.dplane-nav-week {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+  min-width: 180px;
+  text-align: center;
+}
+.dplane-today-btn {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--gray-300);
+  background: var(--white);
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dplane-today-btn:hover { background: var(--gray-100); border-color: var(--gray-400); }
+
+/* LÉGENDE ACTIVITÉS */
+.dplane-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  align-items: center;
+}
+.dplane-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--gray-600);
+}
+.dplane-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* POPUP PLANNING GESTIONNAIRE */
+.dplane-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,27,45,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(2px);
+}
+.dplane-popup {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  width: 420px;
+  box-shadow: var(--shadow-md);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.dplane-popup h2 { color: var(--navy); font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.dplane-popup .dplane-date { color: var(--gray-600); font-size: 13px; margin-bottom: 18px; }
+.dplane-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+.dplane-activity-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* DARK MODE DPLANE */
+body.dark-mode .dplane-grid { border-color: #2a2d3e !important; }
+body.dark-mode .dplane-grid thead th { background: #0d1f3c; }
+body.dark-mode .dplane-grid tbody td { border-color: #2a2d3e; color: #d0d5e0; }
+body.dark-mode .dplane-grid tbody tr:hover td { background: #1e2235 !important; }
+body.dark-mode .dplane-absence { background: #2a1a0a; color: #f97316; border-color: #f97316; }
+/* FIN DPLANE STYLES */
 
   </style>
   <script>
