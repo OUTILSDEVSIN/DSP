@@ -983,6 +983,246 @@ async function loadUserData() {
     _resetIdleTimer();
   }
   // ===== FIN AUTO-LOGOUT =====
+  
+// ============================================================
+// DPLANE — SWITCHER + INIT
+// ============================================================
+
+let dplaneSemaineOffset = 0;
+let dplaneActivites = [];
+
+function switchTool(tool) {
+  const dispatchScreen = document.getElementById('app-screen');
+  const dplaneScreen = document.getElementById('dplane-screen');
+  const tabsContainer = document.getElementById('tabs-container');
+  const btnDispatch = document.getElementById('btn-tool-dispatch');
+  const btnDplane = document.getElementById('btn-tool-dplane');
+
+  if (tool === 'dplane') {
+    dispatchScreen.style.display = 'none';
+    dplaneScreen.style.display = 'block';
+    btnDispatch.classList.remove('active');
+    btnDplane.classList.add('active');
+    dplaneInit();
+  } else {
+    dispatchScreen.style.display = 'block';
+    dplaneScreen.style.display = 'none';
+    btnDispatch.classList.add('active');
+    btnDplane.classList.remove('active');
+  }
+}
+
+async function dplaneInit() {
+  dplaneActivites = await dplaneGetActivites();
+  renderDplaneLegend();
+  const role = currentUserData?.role;
+  if (role === 'admin' || role === 'manager') {
+    document.getElementById('btn-copier-semaine').style.display = '';
+  }
+  await renderDplaneGrille();
+}
+
+function dplaneGetLundiSemaine(offset) {
+  const today = new Date();
+  const day = today.getDay();
+  const diffToMonday = (day === 0) ? -6 : 1 - day;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diffToMonday + (offset * 7));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function dplaneDateStr(date) {
+  return date.toISOString().split('T')[0];
+}
+
+function dplaneGoToday() {
+  dplaneSemaineOffset = 0;
+  renderDplaneGrille();
+}
+
+function dplaneNavSemaine(dir) {
+  dplaneSemaineOffset += dir;
+  renderDplaneGrille();
+}
+
+function renderDplaneLegend() {
+  const container = document.getElementById('dplane-legend');
+  if (!container) return;
+  container.innerHTML = dplaneActivites.map(a => `
+    <div class="dplane-legend-item">
+      <div class="dplane-legend-dot" style="background:${a.couleur_hex}"></div>
+      <span>${a.nom}</span>
+    </div>
+  `).join('') + `
+    <div class="dplane-legend-item">
+      <div class="dplane-legend-dot" style="background:#f97316"></div>
+      <span>Absence</span>
+    </div>
+  `;
+}
+
+async function renderDplaneGrille() {
+  const lundi = dplaneGetLundiSemaine(dplaneSemaineOffset);
+  const jours = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(lundi);
+    d.setDate(lundi.getDate() + i);
+    jours.push(d);
+  }
+
+  const dateDebut = dplaneDateStr(jours[0]);
+  const dateFin = dplaneDateStr(jours[4]);
+
+  // Label semaine
+  const opts = { day: 'numeric', month: 'long' };
+  document.getElementById('dplane-week-label').textContent =
+    `Semaine du ${jours[0].toLocaleDateString('fr-FR', opts)} au ${jours[4].toLocaleDateString('fr-FR', opts)}`;
+
+  // Récupérer données
+  const [planning, absences] = await Promise.all([
+    dplaneGetPlanningSemaine(dateDebut, dateFin),
+    dplaneGetAbsencesSemaine(dateDebut, dateFin)
+  ]);
+
+  // Gestionnaires actifs
+  const gestionnaires = (allUsers || []).filter(u => u.role === 'gestionnaire' && u.actif);
+
+  const joursLabels = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+  const creneaux = ['matin', 'apres_midi'];
+  const creneauxLabels = { matin: 'Matin', apres_midi: 'Après-midi' };
+
+  // THEAD
+  const thead = document.getElementById('dplane-thead');
+  thead.innerHTML = `<tr>
+    <th>Gestionnaire</th>
+    ${jours.map((j, i) => {
+      const isToday = dplaneDateStr(j) === dplaneDateStr(new Date());
+      return `<th colspan="2" style="${isToday ? 'background:var(--rose);' : ''}">${joursLabels[i]}<br><small style="font-weight:400;opacity:0.8;">${j.toLocaleDateString('fr-FR', {day:'numeric', month:'short'})}</small></th>`;
+    }).join('')}
+  </tr>
+  <tr>
+    <th></th>
+    ${jours.map(() => creneaux.map(c => `<th style="font-size:10px;opacity:0.8;">${creneauxLabels[c]}</th>`).join('')).join('')}
+  </tr>`;
+
+  // TBODY
+  const role = currentUserData?.role;
+  const canEdit = role === 'admin' || role === 'manager';
+  const tbody = document.getElementById('dplane-tbody');
+
+  tbody.innerHTML = gestionnaires.map(gest => {
+    return `<tr>
+      <td>${gest.prenom} ${gest.nom}</td>
+      ${jours.map(jour => {
+        const dateJ = dplaneDateStr(jour);
+        return creneaux.map(creneau => {
+          const absenceJour = absences.find(a =>
+            a.gestionnaire_id === gest.id && a.jour === dateJ &&
+            (a.creneau === creneau || a.creneau === 'journee_entiere')
+          );
+          if (absenceJour) {
+            return `<td><div class="dplane-cell"><span class="dplane-absence">🏖 ${absenceJour.type_absence}</span>${canEdit ? `<button class="dplane-cell-add" title="Supprimer absence" onclick="dplaneSupprimerAbsenceUI('${absenceJour.id}')">×</button>` : ''}</div></td>`;
+          }
+          const tags = planning.filter(p =>
+            p.gestionnaire_id === gest.id && p.jour === dateJ && p.creneau === creneau
+          );
+          const tagsHtml = tags.map(p => {
+            const act = p.dplane_activites;
+            return `<span class="dplane-tag" style="background:${act?.couleur_hex || '#666'}">${act?.nom || '?'}${canEdit ? `<span class="tag-remove" onclick="dplaneSupprimerPlanningUI('${p.id}')">×</span>` : ''}</span>`;
+          }).join('');
+          const addBtn = canEdit ? `<button class="dplane-cell-add" title="Ajouter" onclick="dplaneOuvrirMenu(${gest.id},'${dateJ}','${creneau}',this)">+</button>` : '';
+          return `<td><div class="dplane-cell">${tagsHtml}${addBtn}</div></td>`;
+        }).join('');
+      }).join('')}
+    </tr>`;
+  }).join('');
+}
+
+async function dplaneOuvrirMenu(gestionnaireId, jour, creneau, btn) {
+  const existing = document.getElementById('dplane-ctx-menu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'dplane-ctx-menu';
+  menu.style.cssText = `position:fixed;background:white;border:1px solid var(--gray-200);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:6px;z-index:3000;min-width:160px;`;
+
+  const rect = btn.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 6) + 'px';
+  menu.style.left = rect.left + 'px';
+
+  const activitesHtml = dplaneActivites.map(a => `
+    <div onclick="dplaneAjouterPlanningUI(${gestionnaireId},'${jour}','${creneau}','${a.id}')" 
+      style="padding:7px 12px;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;font-size:13px;"
+      onmouseover="this.style.background='var(--gray-100)'" onmouseout="this.style.background=''">
+      <span style="width:10px;height:10px;border-radius:50%;background:${a.couleur_hex};flex-shrink:0;display:inline-block;"></span>
+      ${a.nom}
+    </div>
+  `).join('');
+
+  const absenceHtml = `
+    <div style="border-top:1px solid var(--gray-200);margin:4px 0;"></div>
+    <div onclick="dplaneAjouterAbsenceUI(${gestionnaireId},'${jour}','${creneau}')" 
+      style="padding:7px 12px;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;font-size:13px;"
+      onmouseover="this.style.background='var(--gray-100)'" onmouseout="this.style.background=''">
+      🏖 Absence
+    </div>
+  `;
+
+  menu.innerHTML = activitesHtml + absenceHtml;
+  document.body.appendChild(menu);
+
+  setTimeout(() => document.addEventListener('click', function closeMenu(e) {
+    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', closeMenu); }
+  }), 100);
+}
+
+async function dplaneAjouterPlanningUI(gestionnaireId, jour, creneau, activiteId) {
+  document.getElementById('dplane-ctx-menu')?.remove();
+  const conflit = await dplaneVerifierConflit(jour, creneau, activiteId);
+  if (conflit && !confirm(conflit)) return;
+  const result = await dplaneAjouterPlanning(currentUserData.id, gestionnaireId, jour, creneau, activiteId);
+  if (result) { showNotif('Activité ajoutée ✅', 'success'); await renderDplaneGrille(); }
+  else showNotif('Erreur lors de l\'ajout', 'error');
+}
+
+async function dplaneSupprimerPlanningUI(planningId) {
+  if (!confirm('Supprimer cette activité ?')) return;
+  const ok = await dplaneSupprimerPlanning(planningId);
+  if (ok) { showNotif('Activité supprimée', 'success'); await renderDplaneGrille(); }
+  else showNotif('Erreur lors de la suppression', 'error');
+}
+
+async function dplaneAjouterAbsenceUI(gestionnaireId, jour, creneau) {
+  document.getElementById('dplane-ctx-menu')?.remove();
+  const types = ['conge', 'maladie', 'formation', 'absence'];
+  const labels = { conge: 'Congé', maladie: 'Maladie', formation: 'Formation', absence: 'Absence' };
+  const choix = prompt(`Type d'absence :\n${types.map((t,i) => `${i+1}. ${labels[t]}`).join('\n')}\n\nEntrez le numéro :`);
+  if (!choix) return;
+  const type = types[parseInt(choix) - 1];
+  if (!type) return;
+  const result = await dplaneAjouterAbsence(currentUserData.id, gestionnaireId, jour, creneau, type);
+  if (result) { showNotif('Absence ajoutée ✅', 'success'); await renderDplaneGrille(); }
+  else showNotif('Erreur lors de l\'ajout', 'error');
+}
+
+async function dplaneSupprimerAbsenceUI(absenceId) {
+  if (!confirm('Supprimer cette absence ?')) return;
+  const ok = await dplaneSupprimerAbsence(absenceId);
+  if (ok) { showNotif('Absence supprimée', 'success'); await renderDplaneGrille(); }
+  else showNotif('Erreur lors de la suppression', 'error');
+}
+
+async function dplaneCopierSemaineUI() {
+  const lundi = dplaneGetLundiSemaine(dplaneSemaineOffset);
+  const vendredi = new Date(lundi); vendredi.setDate(lundi.getDate() + 4);
+  if (!confirm(`Copier le planning de cette semaine vers la semaine suivante ?`)) return;
+  const result = await dplaneCopierSemaine(dplaneDateStr(lundi), dplaneDateStr(vendredi), currentUserData.id);
+  showNotif(`✅ ${result.succes} entrée(s) copiée(s)${result.erreurs ? `, ${result.erreurs} erreur(s)` : ''}`, result.erreurs ? 'error' : 'success');
+  await renderDplaneGrille();
+}
+
+// FIN DPLANE
 
   async function doLogout() {
   await auditLog('DECONNEXION', 'Déconnexion utilisateur');
