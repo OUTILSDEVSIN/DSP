@@ -5,41 +5,25 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <h1>Test connexion</h1>
-  <input id="email" placeholder="email" />
-  <input id="pwd" type="password" placeholder="mot de passe" />
-  <button onclick="testLogin()">Connexion</button>
+  <h1>Test Magic Link</h1>
+  <input id="email" placeholder="julien@..." />
+  <!-- SUPPRIME LE PASSWORD -->
+  <button onclick="testMagicLink()">Envoyer Magic Link</button>
   <div id="result"></div>
 
   <script>
     const SUPABASE_URL = 'https://eqyqcslfvcyxdgjhvmry.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // ta clé anon
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeXFjc2xmdmN5eGRnamh2bXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTYwNzQsImV4cCI6MjA4OTU5MjA3NH0.1OaRZHo45JcMMdQCgR0wrqS13irrP1wBUuNe8SHrqU';
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    async function testLogin() {
+    async function testMagicLink() {
       const email = document.getElementById('email').value;
-      const pwd = document.getElementById('pwd').value;
       const result = document.getElementById('result');
-
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pwd });
-      
+      const { error } = await supabase.auth.signInWithOtp({ email });
       if (error) {
         result.innerHTML = '<p style="color:red">' + error.message + '</p>';
       } else {
-        result.innerHTML = '<p style="color:green">✅ Connecté ! User ID: ' + data.user.id + '</p>';
-        
-        // Test table utilisateurs
-        const { data: userData, error: userError } = await supabase
-          .from('utilisateurs')
-          .select('*, last_password_change')
-          .eq('email', email)
-          .single();
-          
-        if (userError) {
-          result.innerHTML += '<p style="color:orange">Erreur utilisateurs: ' + userError.message + '</p>';
-        } else {
-          result.innerHTML += '<p>last_password_change: ' + (userData.last_password_change || 'NULL') + '</p>';
-        }
+        result.innerHTML = '<p style="color:green">✅ Lien envoyé ! Vérifie tes mails</p>';
       }
     }
   </script>
