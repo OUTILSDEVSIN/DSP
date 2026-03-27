@@ -438,7 +438,7 @@
 </div>
 
 <script>
-const SUPABASE_URL = 'https://xwiguxvmlqskzamapyzf.supabase.co'; // DPLANE v1.0
+const SUPABASE_URL = 'https://xwiguxvmlqskzamapyzf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aWd1eHZtbHFza3phbWFweXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODUwMTMsImV4cCI6MjA4ODc2MTAxM30.6on-JPw82PY3LZlUiHDwWlSkOt2l_rmfIsDwGPo137M';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -773,6 +773,7 @@ function buildTabs() {
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'import', label: '📂 Importer Excel' });
   tabs.push({ id: 'attribution', label: '📋 Attribution' });
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
+  tabs.push({ id: 'dplane', label: '📅 Dplane' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
   tabs.push({ id: 'stats', label: '📊 Stats' });
@@ -800,6 +801,7 @@ function showTab(id) {
   else if (id === 'utilisateurs') renderUtilisateurs();
   else if (id === 'audit') renderAuditLogs();
   else if (id === 'stats') renderStats();
+  else if (id === 'dplane') { if(typeof renderDplane === 'function') renderDplane(); else document.getElementById('main-content').innerHTML = '<div class="loading">⏳ Module Dplane en cours de chargement...</div>'; }
 }
 
 // ===== LOAD DATA =====
@@ -1341,7 +1343,21 @@ async function renderAttribution() {
     if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
     return new Date(s);
   };
+  // === PRIORITÉ 5 NIVEAUX ===
+  function _priLevel(d) {
+    var pf  = (d.portefeuille||'').toUpperCase();
+    var tp  = (d.type||'').toUpperCase();
+    var nat = (d.nature_label||d.nature||'').toUpperCase();
+    var hasHisto = window.historiqueActif && window.historiqueMap && window.historiqueMap[d.ref_sinistre];
+    if (hasHisto) return 1;          // N1 Référent historique
+    if (pf.includes('OPTINEO')) return 2;  // N2 Optineo
+    if (tp.includes('MRH') || tp.includes('HABITATION')) return 3; // N3 MRH
+    if (nat.includes('BDG') || nat.includes('BRIS DE GLACE')) return 4; // N4 BDG
+    return 5;                        // N5 Reste
+  }
   filtered.sort(function(a, b) {
+    var la = _priLevel(a), lb = _priLevel(b);
+    if (la !== lb) return la - lb;
     var da = parseDateEtat(a.date_etat);
     var db2 = parseDateEtat(b.date_etat);
     if (!da && !db2) return 0;
@@ -1613,7 +1629,7 @@ async function renderMesDossiers() {
   <div class="table-container">
     <div class="table-toolbar"><h2>Mes dossiers</h2><button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button></div>
     <table><thead><tr>
-      <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
+      <th>Réf. Sinistre</th><th style="white-space:nowrap">Date état</th><th>Réf. Contrat</th><th>Nature</th>
       <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
@@ -1629,8 +1645,11 @@ async function renderMesDossiers() {
       var tp  = (d.type||'').toUpperCase();
       var nat = (d.nature_label||d.nature||'').toUpperCase();
       var hasRef = histoActifMD && histoMapMD[d.ref_sinistre] && histoMapMD[d.ref_sinistre].gestionnaire === monNomMD;
-      return pf.includes('OPTINEO') || tp.includes('MRH') || tp.includes('HABITATION')
-          || nat.includes('BRIS DE GLACE') || nat.includes('BDG') || hasRef;
+      if (hasRef) return 1;
+      if (pf.includes('OPTINEO')) return 2;
+      if (tp.includes('MRH') || tp.includes('HABITATION')) return 3;
+      if (nat.includes('BDG') || nat.includes('BRIS DE GLACE')) return 4;
+      return 5;
     }
     // Dossiers récupérés manuellement en cours de session → mis en bas
     var _recuperesMD = JSON.parse(safeSession.getItem('_recuperesMD') || '[]');
@@ -1640,8 +1659,21 @@ async function renderMesDossiers() {
       var aR = _recuperesSetMD.has(a.id) ? 1 : 0;
       var bR = _recuperesSetMD.has(b.id) ? 1 : 0;
       if (aR !== bR) return aR - bR;
-      // Ordre fixe par ID (ordre d'import) — jamais modifié par statut traité
-      return (a.id || 0) - (b.id || 0);
+      // Priorité 5 niveaux
+      var la = _isPrioMD(a), lb = _isPrioMD(b);
+      if (la !== lb) return la - lb;
+      // Date état : plus vieux en premier
+      var _parseDMD = function(s) {
+        if (!s) return null;
+        var p = s.split('/');
+        if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+        return new Date(s);
+      };
+      var dA = _parseDMD(a.date_etat), dB = _parseDMD(b.date_etat);
+      if (!dA && !dB) return 0;
+      if (!dA) return 1;
+      if (!dB) return -1;
+      return dA - dB;
     });
     // Récupérer refs relancées depuis sessionStorage
     const relancesRefs = JSON.parse(safeSession.getItem('relances_notif') || '[]');
@@ -1683,6 +1715,7 @@ async function renderMesDossiers() {
           ${isRelance ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}
           ${dejaTraiteParMoi ? `<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">📌 Déjà traité le ${new Date(histoEntryMD.date_traitement).toLocaleDateString('fr-FR')}</div>` : ''}
         </td>
+        <td style="white-space:nowrap;font-size:12px;font-weight:600;color:#1B3461">${d.date_etat ? '<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">' + d.date_etat + '</span>' : '<span style="color:#bbb">—</span>'}</td>
         <td>${d.ref_contrat}</td>
         <td>${d.nature_label || d.nature}</td>
         <td>${d.portefeuille}</td>
@@ -3469,5 +3502,6 @@ function getEffectiveRole() {
 // ===== FIN GOD SWITCH =====
 
 </script>
+<script src="./dplane.js"></script>
 </body>
 </html>
