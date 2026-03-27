@@ -3503,31 +3503,23 @@ function getEffectiveRole() {
 async function renderDplane() {
   const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   const container = document.getElementById('main-content');
-  container.innerHTML = '<div class="loading">⏳ Chargement du planning...</div>';
+  container.innerHTML = '<div class="loading">Chargement du planning...</div>';
 
-  // Charger les utilisateurs
   await loadAllUsers();
   const gestionnaires = allUsers.filter(u => ['gestionnaire','manager','admin'].includes(u.role));
 
-  // Semaine courante
   if (!window._dplaneWeekOffset) window._dplaneWeekOffset = 0;
   const offset = window._dplaneWeekOffset;
   const now = new Date();
-  const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+  const dow = now.getDay() === 0 ? 7 : now.getDay();
   const monday = new Date(now);
-  monday.setDate(now.getDate() - (dayOfWeek - 1) + (offset * 7));
+  monday.setDate(now.getDate() - (dow - 1) + (offset * 7));
 
-  const days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
-  const dates = days.map((_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
+  const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+  const dates = DAYS.map((_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+  const fmt  = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+  const iso  = d => d.toISOString().split('T')[0];
 
-  const fmtDate = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-  const fmtISO  = d => d.toISOString().split('T')[0];
-
-  // Charger planning et absences depuis Supabase (si tables existent)
   let planningData = [], absencesData = [];
   try {
     const r1 = await db.from('dplane_planning').select('*');
@@ -3537,111 +3529,96 @@ async function renderDplane() {
   } catch(e) {}
 
   const canEdit = ['admin','manager'].includes(role);
-
-  // Légende activités
   const ACTIVITES = {
-    'VACANCES': { color: '#27ae60', bg: '#eafaf1', emoji: '🏖️' },
-    'FORMATION': { color: '#2980b9', bg: '#ebf5fb', emoji: '📚' },
-    'ABSENCE':   { color: '#e74c3c', bg: '#fdf2f2', emoji: '🏥' },
-    'TELETRAVAIL':{ color: '#8e44ad', bg: '#f5eef8', emoji: '🏠' },
-    'TERRAIN':   { color: '#d35400', bg: '#fef5e7', emoji: '🚗' },
+    'VACANCES':   { color: '#27ae60', bg: '#eafaf1', emoji: '\u{1F3D6}' },
+    'FORMATION':  { color: '#2980b9', bg: '#ebf5fb', emoji: '\u{1F4DA}' },
+    'ABSENCE':    { color: '#e74c3c', bg: '#fdf2f2', emoji: '\u{1F3E5}' },
+    'TELETRAVAIL':{ color: '#8e44ad', bg: '#f5eef8', emoji: '\u{1F3E0}' },
+    'TERRAIN':    { color: '#d35400', bg: '#fef5e7', emoji: '\u{1F697}' },
   };
 
-  let html = `
-  <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <h2 style="color:var(--navy);margin:0;font-size:16px">📅 Planning hebdomadaire</h2>
-    <div style="display:flex;align-items:center;gap:8px">
-      <button class="btn btn-secondary" onclick="window._dplaneWeekOffset=(window._dplaneWeekOffset||0)-1;renderDplane()">◀ Semaine préc.</button>
-      <span style="font-weight:700;color:var(--navy);font-size:13px">
-        Sem. du ${fmtDate(dates[0])} au ${fmtDate(dates[4])}
-        ${offset === 0 ? '<span style="background:#e8f0fb;border-radius:10px;padding:2px 8px;font-size:11px;color:#1a56c4;margin-left:6px">Cette semaine</span>' : ''}
-      </span>
-      <button class="btn btn-secondary" onclick="window._dplaneWeekOffset=(window._dplaneWeekOffset||0)+1;renderDplane()">Semaine suiv. ▶</button>
-      ${offset !== 0 ? '<button class="btn btn-primary" onclick="window._dplaneWeekOffset=0;renderDplane()">Aujourd'hui</button>' : ''}
-    </div>
-  </div>
+  const semLabel = 'Sem. du ' + fmt(dates[0]) + ' au ' + fmt(dates[4]);
+  const btnPrev  = '<button class="btn btn-secondary" onclick="window._dplaneWeekOffset=(window._dplaneWeekOffset||0)-1;renderDplane()">\u25C0 Semaine pr\u00E9c.</button>';
+  const btnNext  = '<button class="btn btn-secondary" onclick="window._dplaneWeekOffset=(window._dplaneWeekOffset||0)+1;renderDplane()">Semaine suiv. \u25B6</button>';
+  const btnToday = offset !== 0 ? '<button class="btn btn-primary" onclick="window._dplaneWeekOffset=0;renderDplane()">Aujourd\u2019hui</button>' : '';
+  const badgeSem = offset === 0 ? '<span style="background:#e8f0fb;border-radius:10px;padding:2px 8px;font-size:11px;color:#1a56c4;margin-left:6px">Cette semaine</span>' : '';
 
-  <!-- Légende -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-    ${Object.entries(ACTIVITES).map(([k,v]) => `<span style="background:${v.bg};color:${v.color};border:1px solid ${v.color}30;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">${v.emoji} ${k}</span>`).join('')}
-    <span style="background:#fff3cd;color:#856404;border:1px solid #ffc10730;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">🚫 ABSENT</span>
-  </div>
+  let html = '<div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+    + '<h2 style="color:var(--navy);margin:0;font-size:16px">\u{1F4C5} Planning hebdomadaire</h2>'
+    + '<div style="display:flex;align-items:center;gap:8px">' + btnPrev
+    + '<span style="font-weight:700;color:var(--navy);font-size:13px">' + semLabel + badgeSem + '</span>'
+    + btnNext + btnToday + '</div></div>';
 
-  <div class="table-container" style="overflow-x:auto">
-  <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px">
-    <thead>
-      <tr style="background:var(--gray-100)">
-        <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--gray-600);border-bottom:2px solid var(--gray-200);white-space:nowrap;min-width:130px">Gestionnaire</th>
-        ${dates.map((d, i) => `
-        <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:${d.toDateString()===new Date().toDateString()?'var(--rose)':'var(--gray-600)'};border-bottom:2px solid var(--gray-200);border-left:1px solid var(--gray-200)">
-          ${days[i]}<br><span style="font-weight:400;font-size:10px">${fmtDate(d)}</span>
-        </th>`).join('')}
-      </tr>
-    </thead>
-    <tbody>`;
+  // Légende
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  Object.entries(ACTIVITES).forEach(([k,v]) => {
+    html += '<span style="background:' + v.bg + ';color:' + v.color + ';border:1px solid ' + v.color + '30;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">' + v.emoji + ' ' + k + '</span>';
+  });
+  html += '<span style="background:#fff3cd;color:#856404;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">\uD83D\uDEAB ABSENT</span></div>';
+
+  // Table
+  html += '<div class="table-container" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px"><thead><tr style="background:var(--gray-100)">'
+    + '<th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--gray-600);border-bottom:2px solid var(--gray-200);min-width:140px">Gestionnaire</th>';
+  dates.forEach((d, i) => {
+    const isToday = d.toDateString() === new Date().toDateString();
+    html += '<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:' + (isToday ? 'var(--rose)' : 'var(--gray-600)') + ';border-bottom:2px solid var(--gray-200);border-left:1px solid var(--gray-200)">'
+      + DAYS[i] + '<br><span style="font-weight:400;font-size:10px">' + fmt(d) + '</span></th>';
+  });
+  html += '</tr></thead><tbody>';
 
   gestionnaires.forEach((g, gi) => {
-    const nom = `${g.prenom} ${g.nom}`;
-    html += `<tr style="background:${gi%2===0?'white':'#fafbff'}">
-      <td style="padding:10px 14px;font-weight:600;color:var(--navy);border-bottom:1px solid var(--gray-200);white-space:nowrap">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:28px;height:28px;border-radius:50%;background:${g.role==='admin'?'var(--navy)':g.role==='manager'?'#6b21a8':'#16a34a'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0">
-            ${g.prenom[0]}${g.nom[0]}
-          </div>
-          <span style="font-size:12px">${g.prenom} ${g.nom}</span>
-        </div>
-      </td>`;
+    const nom = g.prenom + ' ' + g.nom;
+    const avatarBg = g.role==='admin' ? 'var(--navy)' : g.role==='manager' ? '#6b21a8' : '#16a34a';
+    html += '<tr style="background:' + (gi%2===0?'white':'#fafbff') + '">'
+      + '<td style="padding:10px 14px;font-weight:600;color:var(--navy);border-bottom:1px solid var(--gray-200);white-space:nowrap">'
+      + '<div style="display:flex;align-items:center;gap:8px">'
+      + '<div style="width:28px;height:28px;border-radius:50%;background:' + avatarBg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0">'
+      + g.prenom[0] + g.nom[0] + '</div>'
+      + '<span style="font-size:12px">' + nom + '</span></div></td>';
 
     dates.forEach(d => {
-      const iso = fmtISO(d);
-      const planning = planningData.filter(p => p.gestionnaire === nom && p.date === iso);
-      const absence  = absencesData.find(a => a.gestionnaire === nom && a.date_debut <= iso && a.date_fin >= iso);
-
-      let cellContent = '';
+      const isoDate = iso(d);
+      const planning = planningData.filter(p => p.gestionnaire === nom && p.date === isoDate);
+      const absence  = absencesData.find(a => a.gestionnaire === nom && a.date_debut <= isoDate && a.date_fin >= isoDate);
+      let cell = '';
       if (absence) {
-        cellContent = `<div style="background:#fdf2f2;color:#e74c3c;border-radius:6px;padding:3px 6px;font-size:11px;font-weight:700;text-align:center">🚫 ${absence.type||'Absent'}</div>`;
+        cell = '<div style="background:#fdf2f2;color:#e74c3c;border-radius:6px;padding:3px 6px;font-size:11px;font-weight:700;text-align:center">\uD83D\uDEAB ' + (absence.type||'Absent') + '</div>';
       } else if (planning.length > 0) {
-        cellContent = planning.map(p => {
-          const act = ACTIVITES[p.activite] || { color:'#666', bg:'#f0f0f0', emoji:'📋' };
-          return `<div style="background:${act.bg};color:${act.color};border-radius:6px;padding:3px 6px;font-size:11px;font-weight:600;margin-bottom:2px">${act.emoji} ${p.activite||p.type||'Activité'}</div>`;
-        }).join('');
+        planning.forEach(p => {
+          const act = ACTIVITES[p.activite] || { color:'#666', bg:'#f0f0f0', emoji:'\u{1F4CB}' };
+          cell += '<div style="background:' + act.bg + ';color:' + act.color + ';border-radius:6px;padding:3px 6px;font-size:11px;font-weight:600;margin-bottom:2px">' + act.emoji + ' ' + (p.activite||'Activit\u00E9') + '</div>';
+        });
+      } else if (canEdit) {
+        cell = '<button onclick="showDplaneAddModal(\'' + nom.replace(/'/g, "\\'") + '\',\'' + isoDate + '\')" style="background:none;border:1px dashed var(--gray-300);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--gray-400);cursor:pointer;width:100%">+ Ajouter</button>';
+      } else {
+        cell = '<span style="color:#ddd;font-size:11px">\u2014</span>';
       }
-
-      html += `<td style="padding:6px 8px;border-bottom:1px solid var(--gray-200);border-left:1px solid var(--gray-200);vertical-align:middle;min-width:110px;text-align:center">
-        ${cellContent || (canEdit ? `<button onclick="showDplaneAddModal('${nom}','${iso}')" style="background:none;border:1px dashed var(--gray-300);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--gray-400);cursor:pointer;width:100%">+ Ajouter</button>` : '<span style="color:#ddd;font-size:11px">—</span>')}
-      </td>`;
+      html += '<td style="padding:6px 8px;border-bottom:1px solid var(--gray-200);border-left:1px solid var(--gray-200);vertical-align:middle;min-width:110px;text-align:center">' + cell + '</td>';
     });
     html += '</tr>';
   });
 
-  html += `</tbody></table></div>`;
-
-  if (gestionnaires.length === 0) {
-    html += '<div class="empty-state"><div class="icon">📅</div><p>Aucun gestionnaire trouvé.</p></div>';
-  }
-
+  if (!gestionnaires.length) html += '<tr><td colspan="6" style="text-align:center;padding:40px;color:#aaa">Aucun gestionnaire trouv\u00E9.</td></tr>';
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 }
 
 function showDplaneAddModal(gestionnaire, date) {
-  const ACTIVITES = ['VACANCES','FORMATION','ABSENCE','TELETRAVAIL','TERRAIN'];
-  const existing = document.getElementById('dplane-add-modal');
-  if (existing) existing.remove();
+  const ACTES = ['VACANCES','FORMATION','ABSENCE','TELETRAVAIL','TERRAIN'];
+  const ex = document.getElementById('dplane-add-modal'); if (ex) ex.remove();
   const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'dplane-add-modal';
-  modal.innerHTML = `<div class="modal" style="max-width:380px">
-    <h2 style="color:var(--navy)">📅 Ajouter une activité</h2>
-    <p style="font-size:13px;color:#666;margin-bottom:16px"><strong>${gestionnaire}</strong> — ${date}</p>
-    <label>Type d'activité</label>
-    <select id="dplane-type-select" style="width:100%;padding:9px 12px;border:1.5px solid #e0e3e8;border-radius:8px;font-size:13px;margin-bottom:16px">
-      ${ACTIVITES.map(a => `<option value="${a}">${a}</option>`).join('')}
-    </select>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-secondary" onclick="closeModal('dplane-add-modal')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveDplaneActivite('${gestionnaire}','${date}')">Enregistrer</button>
-    </div>
-  </div>`;
+  modal.className = 'modal-overlay'; modal.id = 'dplane-add-modal';
+  modal.innerHTML = '<div class="modal" style="max-width:380px">'
+    + '<h2 style="color:var(--navy)">\u{1F4C5} Ajouter une activit\u00E9</h2>'
+    + '<p style="font-size:13px;color:#666;margin-bottom:16px"><strong>' + gestionnaire + '</strong> \u2014 ' + date + '</p>'
+    + '<label>Type d\'activit\u00E9</label>'
+    + '<select id="dplane-type-select" style="width:100%;padding:9px 12px;border:1.5px solid #e0e3e8;border-radius:8px;font-size:13px;margin-bottom:16px">'
+    + ACTES.map(a => '<option value="' + a + '">' + a + '</option>').join('')
+    + '</select>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+    + '<button class="btn btn-secondary" onclick="closeModal(\'dplane-add-modal\')">Annuler</button>'
+    + '<button class="btn btn-primary" onclick="saveDplaneActivite(\'' + gestionnaire.replace(/'/g, "\\'") + '\',\'' + date + '\')">Enregistrer</button>'
+    + '</div></div>';
   document.body.appendChild(modal);
 }
 
@@ -3650,7 +3627,7 @@ async function saveDplaneActivite(gestionnaire, date) {
   const { error } = await db.from('dplane_planning').insert({ gestionnaire, date, activite });
   closeModal('dplane-add-modal');
   if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-  showNotif('Activité ajoutée !', 'success');
+  showNotif('Activit\u00E9 ajout\u00E9e !', 'success');
   renderDplane();
 }
 // ===== FIN DPLANE =====
