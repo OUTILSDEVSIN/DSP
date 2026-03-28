@@ -460,6 +460,10 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
   /* ── Confirm modal joli ── */
   #dplane-confirm-modal .dplane-popup { animation:dpl-pop .2s ease; }
   @keyframes dpl-pop { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+
+  /* ── Journée entière (colspan=2) ── */
+  .dplane-cell-journee { min-height:36px; }
+  .dplane-grid tbody td[colspan="2"] { border-right:2px solid var(--navy); }
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
@@ -3607,7 +3611,7 @@ function getEffectiveRole() {
 
 
 // ============================================================
-// DPLANE v4.4 — confirm custom / légende retirée / journée entière / menu smart pos / null fix
+// DPLANE v4.5 — menu compact 📅 / journée = 1 record colspan=2 / semaine = 5×journee
 // ============================================================
 
 let dplaneSemaineOffset = 0;
@@ -3778,22 +3782,36 @@ async function renderDplaneGrille() {
         </div>
       </td>
       ${jours.map(jour => {
-        const dateJ=dplaneDateStr(jour);
+        const dateJ = dplaneDateStr(jour);
+        const renderTag = (p) => {
+          const act = dplaneActivites.find(a => a.id === p.activite_id);
+          return `<span class="dplane-tag" style="background:${act?.couleur_hex||'#666'};${p.is_brouillon?'opacity:.6;border:1.5px dashed rgba(0,0,0,.25);':''}">
+            ${p.is_brouillon?'✏️ ':''}${act?.nom||'?'}
+            ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerPlanningUI('${p.id}')">×</span>`:''}
+          </span>`;
+        };
+        // ── Entrées "journée" : 1 seul TD colspan=2 ──
+        const journeeTags = planning.filter(p => p.gestionnaire_id===m.id && p.jour===dateJ && p.creneau==='journee');
+        const hasJournee = journeeTags.length > 0;
+        const matinAbs  = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau==='matin');
+        const amAbs     = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau==='apresmidi');
+
+        if (hasJournee && !matinAbs && !amAbs) {
+          const tagsHtml = journeeTags.map(renderTag).join('');
+          const addBtn = canEdit ? `<button class="dplane-cell-add" title="Ajouter" onclick="dplaneOuvrirMenu('${m.id}','${dateJ}','matin',this)">+</button>` : '';
+          return `<td colspan="2" style="background:rgba(74,126,199,0.04);"><div class="dplane-cell" style="justify-content:center;">${tagsHtml}${addBtn}</div></td>`;
+        }
+
+        // ── Cellules normales Matin + Après-midi ──
         return creneaux.map(creneau => {
-          const abs=absences.find(a=>a.gestionnaire_id===m.id&&a.jour===dateJ&&a.creneau===creneau);
-          if(abs) return `<td style="background:#fff8f0;"><div class="dplane-cell">
+          const abs = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau===creneau);
+          if (abs) return `<td style="background:#fff8f0;"><div class="dplane-cell">
             <span class="dplane-absence">${absLabels[abs.type_absence]||abs.type_absence}
               ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerAbsenceUI('${abs.id}')" style="cursor:pointer;margin-left:4px;opacity:.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">×</span>`:''}
             </span></div></td>`;
-          const tags=planning.filter(p=>p.gestionnaire_id===m.id&&p.jour===dateJ&&p.creneau===creneau);
-          const tagsHtml=tags.map(p=>{
-            const act=dplaneActivites.find(a=>a.id===p.activite_id);
-            return `<span class="dplane-tag" style="background:${act?.couleur_hex||'#666'};${p.is_brouillon?'opacity:.6;border:1.5px dashed rgba(0,0,0,.25);':''}">
-              ${p.is_brouillon?'✏️ ':''}${act?.nom||'?'}
-              ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerPlanningUI('${p.id}')">×</span>`:''}
-            </span>`;
-          }).join('');
-          const addBtn=canEdit?`<button class="dplane-cell-add" title="Ajouter" onclick="dplaneOuvrirMenu('${m.id}','${dateJ}','${creneau}',this)">+</button>`:'';
+          const tags = planning.filter(p => p.gestionnaire_id===m.id && p.jour===dateJ && p.creneau===creneau);
+          const tagsHtml = tags.map(renderTag).join('');
+          const addBtn = canEdit ? `<button class="dplane-cell-add" title="Ajouter" onclick="dplaneOuvrirMenu('${m.id}','${dateJ}','${creneau}',this)">+</button>` : '';
           return `<td><div class="dplane-cell">${tagsHtml}${addBtn}</div></td>`;
         }).join('');
       }).join('')}
@@ -3814,23 +3832,23 @@ function dplaneOuvrirMenu(gestionnaireId, jour, creneau, btn) {
 
   const crLabel = creneau === 'matin' ? 'Matin' : 'Après-midi';
 
-  // Activités — avec option "journée entière"
+  // Activités — bouton 📅 compact inline
   const actsHtml = dplaneActivites.map(a => `
-    <div style="padding:2px 0;">
+    <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--gray-100);">
       <div onclick="dplaneAjouterPlanningUI('${gestionnaireId}','${jour}','${creneau}','${a.id}',false)"
-           style="padding:7px 12px 4px;cursor:pointer;border-radius:6px 6px 0 0;display:flex;align-items:center;gap:8px;font-size:13px;"
+           style="flex:1;padding:9px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;border-radius:6px 0 0 6px;transition:background .1s;"
            onmouseover="this.style.background='var(--gray-100)'" onmouseout="this.style.background=''">
         <span style="width:10px;height:10px;border-radius:50%;background:${a.couleur_hex};flex-shrink:0;"></span>
         <span style="flex:1;">${a.nom}</span>
-        <span style="font-size:10px;color:var(--gray-400);">${crLabel}</span>
       </div>
-      <div onclick="dplaneAjouterPlanningUI('${gestionnaireId}','${jour}','${creneau}','${a.id}',true)"
-           style="padding:3px 12px 7px 30px;cursor:pointer;border-radius:0 0 6px 6px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gray-500);"
-           onmouseover="this.style.background='var(--gray-100)';this.style.color='var(--rose)'" onmouseout="this.style.background='';this.style.color='var(--gray-500)'">
-        📅 Toute la journée
-      </div>
-    </div>
-    <div style="border-top:1px solid var(--gray-200);margin:0 8px;"></div>`).join('');
+      <button onclick="dplaneAjouterPlanningUI('${gestionnaireId}','${jour}','${creneau}','${a.id}',true)"
+              title="Ajouter pour toute la journée (Matin + Après-midi)"
+              style="padding:0 12px;border:none;border-left:1px solid var(--gray-100);background:transparent;cursor:pointer;font-size:13px;color:var(--gray-400);border-radius:0 6px 6px 0;transition:all .15s;white-space:nowrap;"
+              onmouseover="this.parentElement.style.background='';this.style.background='var(--rose)';this.style.color='white';this.style.borderColor='var(--rose)'"
+              onmouseout="this.style.background='transparent';this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-100)'">
+        📅
+      </button>
+    </div>`).join('');
 
   const absItem = `
     <div onclick="dplaneAjouterAbsenceUI('${gestionnaireId}','${jour}','${creneau}')"
@@ -3861,27 +3879,25 @@ function dplaneOuvrirMenu(gestionnaireId, jour, creneau, btn) {
   }, 100);
 }
 
-// ── Ajouter activité (+ journée entière) ──
+// ── Ajouter activité (journeeEntiere = creneau 'journee' = 1 seul record + colspan) ──
 async function dplaneAjouterPlanningUI(gestionnaireId, jour, creneau, activiteId, journeeEntiere) {
   document.getElementById('dplane-ctx-menu')?.remove();
   if (!currentUserData) { showNotif('Session expirée, reconnectez-vous', 'error'); return; }
   const managerId = currentUserData.id;
+  const crCible = journeeEntiere ? 'journee' : creneau;
 
-  const creneaux = journeeEntiere ? ['matin','apresmidi'] : [creneau];
-  let succesTotal = 0;
-  for (const cr of creneaux) {
-    const { data: ex } = await db.from('dplane_planning').select('id')
-      .eq('gestionnaire_id',gestionnaireId).eq('jour',jour).eq('creneau',cr).eq('activite_id',activiteId).maybeSingle();
-    if (!ex) {
-      const ok = await dplaneAjouterPlanning(managerId, gestionnaireId, jour, cr, activiteId, dplaneBrouillonMode);
-      if (ok) succesTotal++;
-    }
-  }
-  if (succesTotal > 0) {
-    showNotif(journeeEntiere ? (dplaneBrouillonMode?'✏️ Journée ajoutée en brouillon':'📅 Activité ajoutée pour la journée ✓') : (dplaneBrouillonMode?'✏️ Ajouté en brouillon':'Activité ajoutée ✓'), 'success');
+  // Vérifier doublon
+  const { data: ex } = await db.from('dplane_planning').select('id')
+    .eq('gestionnaire_id',gestionnaireId).eq('jour',jour).eq('creneau',crCible).eq('activite_id',activiteId).maybeSingle();
+  if (ex) { showNotif('Activité déjà présente sur ce créneau', 'info'); return; }
+
+  const ok = await dplaneAjouterPlanning(managerId, gestionnaireId, jour, crCible, activiteId, dplaneBrouillonMode);
+  if (ok) {
+    const label = journeeEntiere ? '📅 Activité ajoutée pour la journée ✓' : 'Activité ajoutée ✓';
+    showNotif(dplaneBrouillonMode ? `✏️ Brouillon : ${label}` : label, 'success');
     await renderDplaneGrille();
   } else {
-    showNotif('Activité déjà présente sur ce(s) créneau(x)', 'info');
+    showNotif('Erreur lors de l\'ajout', 'error');
   }
 }
 
@@ -4086,7 +4102,7 @@ function switchTool(tool) {
     bd?.classList.add('active'); bpl?.classList.remove('active');
   }
 }
-// FIN DPLANE v4.4
+// FIN DPLANE v4.5
 
 
 
