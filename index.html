@@ -549,6 +549,7 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
         <button class="btn btn-secondary" onclick="dplaneToggleBrouillon()" id="btn-brouillon" style="display:none;" title="Mode brouillon">✏️ Mode brouillon</button>
         <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" style="display:none;" title="Publier les brouillons">📢 Publier</button>
         <button class="btn btn-primary" onclick="dplaneCopierSemaineUI()" id="btn-copier-semaine" style="display:none;">📋 Copier semaine</button>
+        <button class="btn btn-danger" onclick="dplaneReinitialiserSemaineUI()" id="btn-reinit-semaine" style="display:none;" title="Remettre à zéro le planning de cette semaine">🗑️ Réinitialiser</button>
       </div>
     </div>
     <div class="dplane-nav">
@@ -1258,8 +1259,35 @@ async function handleFile(event) {
 }
 
 // ===== DISPATCH =====
-// AUTO ASSIGN
-function showAutoAssignModal(totalImported) {
+// AUTO ASSIGN — enrichi avec Dplane planning du jour
+async function showAutoAssignModal(totalImported) {
+  // Récupérer le planning Dplane du jour pour pré-cocher les gestionnaires "Préouvertures"
+  const today = new Date().toISOString().split('T')[0];
+  const { data: planningDuJour } = await db.from('dplane_planning')
+    .select('gestionnaire_id, activite_id, is_brouillon')
+    .eq('jour', today).eq('is_brouillon', false);
+  const { data: absencesDuJour } = await db.from('dplane_absences')
+    .select('gestionnaire_id').eq('jour', today);
+  const { data: activitesDplane } = await db.from('dplane_activites').select('id, nom');
+
+  // IDs des gestionnaires absents
+  const absentsIds = new Set((absencesDuJour||[]).map(a => a.gestionnaire_id));
+  // IDs avec activité "Préouvertures" aujourd'hui
+  const actPreouv = (activitesDplane||[]).find(a => a.nom.toLowerCase().includes('préouverture') || a.nom.toLowerCase().includes('preouvetur'));
+  const preouverturesIds = new Set((planningDuJour||[])
+    .filter(p => actPreouv && p.activite_id === actPreouv.id)
+    .map(p => p.gestionnaire_id));
+
+  // Construire résumé planning du jour
+  const resumePlanning = allUsers
+    .filter(u => u.role === 'gestionnaire' && u.actif !== false)
+    .map(u => {
+      const acts = (planningDuJour||[]).filter(p => p.gestionnaire_id === u.id)
+        .map(p => (activitesDplane||[]).find(a => a.id === p.activite_id)?.nom || '?');
+      const absent = absentsIds.has(u.id);
+      return { user: u, acts, absent, preouv: preouverturesIds.has(u.id) };
+    });
+
   const gestionnaires = allUsers.filter(u => ['gestionnaire','manager'].includes(u.role));
   if (!gestionnaires.length) return;
   const modal = document.createElement('div');
@@ -1273,20 +1301,37 @@ function showAutoAssignModal(totalImported) {
       <p style="color:#666;font-size:14px;text-align:center;margin-bottom:20px">
         <strong>${totalImported}</strong> dossiers importés. Souhaitez-vous les attribuer maintenant ?
       </p>
+      <!-- Résumé planning Dplane du jour -->
+      ${resumePlanning.some(r => r.acts.length || r.absent) ? `
+      <div style="background:#f0f4ff;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
+        <div style="font-weight:700;color:var(--navy);margin-bottom:8px;">📅 Planning Dplane du jour</div>
+        ${resumePlanning.map(r => r.acts.length || r.absent ? `
+          <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);">
+            <span style="font-weight:600;min-width:130px;">${r.user.prenom} ${r.user.nom}</span>
+            ${r.absent ? '<span style="color:#e5195e;font-size:11px;">🚫 Absent</span>' : 
+              r.acts.map(a => `<span style="background:${r.preouv?'var(--rose)':'#666'};color:white;padding:2px 6px;border-radius:10px;font-size:10px;">${a}</span>`).join('')}
+          </div>` : '').join('')}
+      </div>` : ''}
       <div style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:16px">
-        ${gestionnaires.map(g => `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
+        ${gestionnaires.map(g => {
+          const rp = resumePlanning.find(r => r.user.id === g.id);
+          const isPreouv = rp?.preouv || false;
+          const isAbsent = rp?.absent || false;
+          const isChecked = isPreouv && !isAbsent;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5;${isAbsent?'opacity:.45;':''}">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:normal;margin:0">
-              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" style="width:16px;height:16px;accent-color:var(--rose)">
+              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" ${isChecked?'checked':''} ${isAbsent?'disabled':''} style="width:16px;height:16px;accent-color:var(--rose)">
               <span>${g.prenom} ${g.nom}</span>
+              ${isPreouv ? '<span style="background:var(--rose);color:white;font-size:10px;padding:1px 5px;border-radius:8px;">Préouvertures ✓</span>' : ''}
+              ${isAbsent ? '<span style="color:#e5195e;font-size:10px;">🚫 Absent</span>' : ''}
               <span class="badge role-${g.role}" style="font-size:10px">${g.role}</span>
             </label>
             <div style="display:flex;align-items:center;gap:6px">
               <span style="font-size:12px;color:#888">Nb dossiers :</span>
               <input type="number" class="gest-nb" data-nom="${g.prenom} ${g.nom}" value="10" min="1" max="${totalImported}"
-                style="width:60px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center">
+                style="width:60px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center" ${isAbsent?'disabled':''}>
             </div>
-          </div>`).join('')}
+          </div>`;}).join('')}
       </div>
       <div id="auto-assign-error" style="color:#e74c3c;font-size:13px;background:#fff5f5;padding:10px;border-radius:8px;display:none;margin-bottom:12px"></div>
       <div style="display:flex;gap:10px;justify-content:center">
@@ -3605,6 +3650,101 @@ function getEffectiveRole() {
         return currentUserData ? currentUserData.role : 'gestionnaire';
     }
 }
+
+// ===== DPLANE FONCTIONS COMPLÉMENTAIRES v4.6 =====
+
+// ── Réinitialiser la semaine ──
+async function dplaneReinitialiserSemaineUI() {
+  if (!currentUserData) return;
+  const lundi    = dplaneGetLundiSemaine(dplaneSemaineOffset);
+  const vendredi = new Date(lundi); vendredi.setDate(lundi.getDate() + 4);
+  const dateDebut = dplaneDateStr(lundi), dateFin = dplaneDateStr(vendredi);
+  dplaneConfirm(
+    `Supprimer TOUT le planning et les absences<br>du ${lundi.toLocaleDateString('fr-FR', {day:'numeric',month:'long'})} au ${vendredi.toLocaleDateString('fr-FR', {day:'numeric',month:'long'})} ?`,
+    '🗑️',
+    async () => {
+      await db.from('dplane_planning').delete().gte('jour', dateDebut).lte('jour', dateFin);
+      await db.from('dplane_absences').delete().gte('jour', dateDebut).lte('jour', dateFin);
+      showNotif('Planning de la semaine réinitialisé ✓', 'success');
+      await renderDplaneGrille();
+    }
+  );
+}
+
+// ── Briefing quotidien gestionnaire ──
+async function dplaneBriefingGestionnaire() {
+  if (!currentUserData) return;
+  const today = new Date().toISOString().split('T')[0];
+  // Afficher une seule fois par jour
+  const lastShown = localStorage.getItem('dplane_briefing_' + currentUserData.id);
+  if (lastShown === today) return;
+  localStorage.setItem('dplane_briefing_' + currentUserData.id, today);
+
+  const { data: planning } = await db.from('dplane_planning')
+    .select('creneau, activite_id').eq('gestionnaire_id', currentUserData.id)
+    .eq('jour', today).eq('is_brouillon', false);
+  const { data: absences } = await db.from('dplane_absences')
+    .select('creneau, type_absence').eq('gestionnaire_id', currentUserData.id).eq('jour', today);
+  const { data: dossiersPending } = await db.from('dossiers')
+    .select('id', { count: 'exact', head: true })
+    .eq('gestionnaire', currentUserData.prenom + ' ' + currentUserData.nom)
+    .in('statut', ['nonattribue', 'en cours', 'ouvert']);
+
+  const actsDplane = await dplaneGetActivites();
+  const actsAujourd = (planning || []).map(p => {
+    const act = actsDplane.find(a => a.id === p.activite_id);
+    return `<span style="background:${act?.couleur_hex||'#666'};color:white;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${act?.nom||'?'}</span>`;
+  });
+  const absAujourd = (absences || []);
+  const absLabels = {conge:'🏖️ Congé', maladie:'🤒 Maladie', formation:'📚 Formation', absence:'❌ Absence'};
+  const nbDossiers = dossiersPending?.length || 0;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'dplane-popup-overlay';
+  overlay.id = 'dplane-briefing-modal';
+  overlay.innerHTML = `
+    <div class="dplane-popup" style="max-width:420px;width:95vw;text-align:center;">
+      <div style="font-size:42px;margin-bottom:8px;">☀️</div>
+      <h2 style="margin:0 0 4px;">Bonjour ${currentUserData.prenom} !</h2>
+      <div style="color:var(--gray-500);font-size:13px;margin-bottom:20px;">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+
+      ${absAujourd.length ? `
+        <div style="background:#fff3e0;border:1px solid #f97316;border-radius:10px;padding:12px;margin-bottom:14px;">
+          <div style="font-weight:700;color:#e65100;margin-bottom:6px;">⚠️ Absence aujourd'hui</div>
+          ${absAujourd.map(a=>`<div style="color:#bf360c;font-size:13px;">${absLabels[a.type_absence]||a.type_absence} — ${a.creneau==='journee'?'Journée entière':a.creneau==='matin'?'Matin':'Après-midi'}</div>`).join('')}
+        </div>` : ''}
+
+      ${actsAujourd.length ? `
+        <div style="background:var(--gray-50,#f9f9f9);border-radius:10px;padding:12px;margin-bottom:14px;">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:10px;">📋 Vos activités du jour</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">${actsAujourd.join('')}</div>
+        </div>` : 
+        `<div style="background:var(--gray-50,#f9f9f9);border-radius:10px;padding:12px;margin-bottom:14px;color:var(--gray-500);">
+          Aucune activité planifiée aujourd'hui
+        </div>`}
+
+      <div style="background:#e8f5e9;border-radius:10px;padding:12px;margin-bottom:20px;">
+        <div style="font-size:28px;font-weight:800;color:#2e7d32;">${nbDossiers}</div>
+        <div style="font-size:13px;color:#388e3c;font-weight:600;">dossier${nbDossiers>1?'s':''} à traiter</div>
+      </div>
+
+      <button class="btn btn-primary" onclick="document.getElementById('dplane-briefing-modal').remove()" style="width:100%;">
+        Bonne journée ! 🚀
+      </button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+// ── Initialisation bouton reset (admin/manager seulement) ──
+async function dplaneInitBoutonsRole() {
+  if (!currentUserData) return;
+  const canEdit = ['admin','manager'].includes(dplaneGetRole());
+  const btn = document.getElementById('btn-reinit-semaine');
+  if (btn) btn.style.display = canEdit ? '' : 'none';
+}
+
+// ===== FIN DPLANE FONCTIONS COMPLÉMENTAIRES v4.6 =====
+
 // ===== FIN GOD SWITCH =====
 
 
@@ -3616,7 +3756,7 @@ function getEffectiveRole() {
 
 let dplaneSemaineOffset = 0;
 let dplaneActivites     = [];
-let dplaneBrouillonMode = false;
+let dplaneBrouillonMode = true;
 
 function dplaneGetRole() {
   if (!currentUserData) return null;
@@ -3790,7 +3930,20 @@ async function renderDplaneGrille() {
             ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerPlanningUI('${p.id}')">×</span>`:''}
           </span>`;
         };
-        // ── Entrées "journée" : 1 seul TD colspan=2 ──
+        // ── Absence journée entière → 1 seul TD colspan=2 ──
+        const absJournee = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau==='journee');
+        if (absJournee) {
+          const absLabelsJ = {conge:'🏖️ Congé',maladie:'🤒 Maladie',formation:'📚 Formation',absence:'❌ Absence'};
+          const addBtn = canEdit ? `<button class="dplane-cell-add" title="Ajouter" onclick="dplaneOuvrirMenu('${m.id}','${dateJ}','matin',this)" style="margin-left:6px;">+</button>` : '';
+          return `<td colspan="2" style="background:#fff8f0;">
+            <div class="dplane-cell" style="justify-content:center;">
+              <span class="dplane-absence">${absLabelsJ[absJournee.type_absence]||absJournee.type_absence} <span style="font-size:10px;opacity:.7;">(journée)</span>
+                ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerAbsenceUI('${absJournee.id}')" style="cursor:pointer;margin-left:4px;">×</span>`:''}
+              </span>${addBtn}
+            </div>
+          </td>`;
+        }
+        // ── Entrées "journée" activité : 1 seul TD colspan=2 ──
         const journeeTags = planning.filter(p => p.gestionnaire_id===m.id && p.jour===dateJ && p.creneau==='journee');
         const hasJournee = journeeTags.length > 0;
         const matinAbs  = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau==='matin');
@@ -3965,9 +4118,18 @@ async function dplaneConfirmerAbsence() {
   const type=typeEl.value, portee=porteeEl?.value||'creneau', managerId=currentUserData.id;
   document.getElementById('dplane-absence-modal')?.remove();
   let ok=false;
-  if(portee==='creneau') ok=await dplaneAjouterAbsence(managerId,gestionnaireId,jour,creneau,type);
-  else if(portee==='journee') ok=(await dplaneAjouterAbsence(managerId,gestionnaireId,jour,'matin',type))&&(await dplaneAjouterAbsence(managerId,gestionnaireId,jour,'apresmidi',type));
-  else { ok=true; for(const j of joursSemaine){if(!(await dplaneAjouterAbsence(managerId,gestionnaireId,j,'matin',type)))ok=false;if(!(await dplaneAjouterAbsence(managerId,gestionnaireId,j,'apresmidi',type)))ok=false;} }
+  if (portee==='creneau') {
+    ok = await dplaneAjouterAbsence(managerId, gestionnaireId, jour, creneau, type);
+  } else if (portee==='journee') {
+    // 1 seul record avec creneau='journee'
+    ok = await dplaneAjouterAbsence(managerId, gestionnaireId, jour, 'journee', type);
+  } else {
+    // semaine = 5 records journee (un par jour)
+    ok = true;
+    for (const j of joursSemaine) {
+      if (!(await dplaneAjouterAbsence(managerId, gestionnaireId, j, 'journee', type))) ok = false;
+    }
+  }
   if(ok){showNotif('Absence ajoutée ✓','success');await renderDplaneGrille();}
   else showNotif('Erreur lors de l\'ajout','error');
 }
@@ -4079,11 +4241,19 @@ async function dplaneInit() {
   if(!currentUserData){setTimeout(dplaneInit,300);return;}
   dplaneActivites=await dplaneGetActivites();
   const role=dplaneGetRole(), canEdit=role==='admin'||role==='manager';
-  ['btn-copier-semaine','btn-brouillon','btn-gerer-activites'].forEach(id=>{
+  ['btn-copier-semaine','btn-brouillon','btn-gerer-activites','btn-reinit-semaine'].forEach(id=>{
     const b=document.getElementById(id); if(b) b.style.display=canEdit?'':'none';
   });
   document.getElementById('btn-publier-brouillon').style.display='none';
+  // Brouillon actif par défaut : mettre à jour le bouton UI
+  const btnBrou=document.getElementById('btn-brouillon');
+  if(btnBrou && dplaneBrouillonMode) {
+    btnBrou.textContent='✏️ Mode brouillon actif';
+    btnBrou.style.cssText='background:var(--rose);color:white;border-color:var(--rose);';
+  }
   await renderDplaneGrille();
+  // Briefing gestionnaire (1x par jour)
+  if(role==='gestionnaire') setTimeout(dplaneBriefingGestionnaire, 1200);
 }
 
 // ── Switcher ──
