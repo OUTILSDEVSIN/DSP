@@ -4321,8 +4321,14 @@ async function dplaneCreerActivite() {
   const couleur = document.getElementById('dplane-new-act-couleur')?.value || '#4A7EC7';
   if (!nom) { showNotif("Entrez un nom pour l'activité", "error"); return; }
 
-  // Insert minimal : seulement les colonnes sûres (pas de permet_multiples ni ordre)
-  const payload = { nom, couleur_hex: couleur, actif: true };
+  // Générer un code unique depuis le nom (ex: "Pré-ouvertures" → "prouvertures")
+  const code = nom.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // supprimer accents
+    .replace(/[^a-z0-9]/g, '_')                          // remplacer non-alphanum
+    .replace(/_+/g, '_').replace(/^_|_$/g, '');          // nettoyer underscores
+  const codeUnique = code + '_' + Date.now().toString(36); // anti-doublon
+
+  const payload = { nom, code: codeUnique, couleur_hex: couleur, actif: true };
   const { error } = await db.from('dplane_activites').insert(payload);
 
   if (error) {
