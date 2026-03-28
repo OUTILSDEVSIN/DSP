@@ -4167,6 +4167,10 @@ async function dplaneSupprimerAbsenceUI(absenceId) {
     // Il y a d'autres jours → proposer choix
     document.getElementById('dplane-abs-del-modal')?.remove();
     const absLabels = {conge:'Congé',maladie:'Maladie',formation:'Formation',absence:'Absence'};
+    // Stocker les IDs dans window pour éviter les guillemets cassés dans onclick
+    window._dplAbsSingleId = absenceId;
+    window._dplAbsWeekIds  = (semaine || []).map(a => a.id);
+
     const overlay = document.createElement('div');
     overlay.className = 'dplane-popup-overlay';
     overlay.id = 'dplane-abs-del-modal';
@@ -4175,19 +4179,19 @@ async function dplaneSupprimerAbsenceUI(absenceId) {
         <div style="font-size:36px;margin-bottom:12px;">🗑️</div>
         <h3 style="color:var(--navy);margin-bottom:8px;">Supprimer l'absence</h3>
         <p style="color:var(--gray-500);font-size:13px;margin-bottom:20px;">
-          Cette absence <strong>${absLabels[abs.type_absence]||abs.type_absence}</strong> existe sur 
+          Cette absence <strong>${absLabels[abs.type_absence]||abs.type_absence}</strong> est présente sur 
           <strong>${(semaine||[]).length} jour${(semaine||[]).length>1?'s':''}</strong> cette semaine.
         </p>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <button class="btn btn-secondary" style="padding:12px;" onclick="
-            document.getElementById('dplane-abs-del-modal').remove();
-            dplaneSupprimerAbsenceConfirm(['${absenceId}'], 'Ce jour uniquement supprimé ✓');
-          ">📅 Ce jour uniquement</button>
-          <button class="btn btn-primary" style="padding:12px;background:#e5195e;border-color:#e5195e;" onclick="
-            document.getElementById('dplane-abs-del-modal').remove();
-            dplaneSupprimerAbsenceConfirm([${JSON.stringify((semaine||[]).map(a=>a.id))}], 'Semaine entière supprimée ✓');
-          ">🗓️ Toute la semaine (${(semaine||[]).length} jours)</button>
-          <button class="btn btn-secondary" style="font-weight:400;" onclick="document.getElementById('dplane-abs-del-modal').remove()">Annuler</button>
+          <button class="btn btn-secondary" style="padding:12px;" onclick="_dplAbsSupprJour()">
+            📅 Ce jour uniquement
+          </button>
+          <button class="btn btn-primary" style="padding:12px;background:#e5195e;border-color:#e5195e;" onclick="_dplAbsSupprSemaine()">
+            🗓️ Toute la semaine (${(semaine||[]).length} jour${(semaine||[]).length>1?'s':''})
+          </button>
+          <button class="btn btn-secondary" style="font-weight:400;color:var(--gray-500);" onclick="document.getElementById('dplane-abs-del-modal').remove()">
+            Annuler
+          </button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -4207,6 +4211,16 @@ async function dplaneSupprimerAbsenceConfirm(ids, msg) {
   }
   if (ok) { showNotif(msg, 'success'); await renderDplaneGrille(); }
   else showNotif('Erreur lors de la suppression', 'error');
+}
+
+// Helpers appelés depuis les boutons du modal (évite les guillemets dans onclick)
+async function _dplAbsSupprJour() {
+  document.getElementById('dplane-abs-del-modal')?.remove();
+  await dplaneSupprimerAbsenceConfirm([window._dplAbsSingleId], 'Absence du jour supprimée ✓');
+}
+async function _dplAbsSupprSemaine() {
+  document.getElementById('dplane-abs-del-modal')?.remove();
+  await dplaneSupprimerAbsenceConfirm(window._dplAbsWeekIds || [], 'Absences de la semaine supprimées ✓');
 }
 
 // ── Copier semaine ──
