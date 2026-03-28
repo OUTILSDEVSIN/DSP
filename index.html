@@ -550,6 +550,7 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
         <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" disabled title="Rien à publier" style="opacity:.4;cursor:default;">📢 Publier</button>
         <button class="btn btn-primary" onclick="dplaneCopierSemaineUI()" id="btn-copier-semaine" style="display:none;">📋 Copier semaine</button>
         <button class="btn btn-danger" onclick="dplaneReinitialiserSemaineUI()" id="btn-reinit-semaine" style="display:none;" title="Remettre à zéro le planning de cette semaine">🗑️ Réinitialiser</button>
+        <button class="btn btn-secondary" onclick="dplaneToggleMonPlanning()" id="btn-mon-planning" style="display:none;" title="Voir uniquement mon planning">👤 Mon planning</button>
       </div>
     </div>
     <div class="dplane-nav">
@@ -3743,6 +3744,22 @@ async function dplaneInitBoutonsRole() {
   if (btn) btn.style.display = canEdit ? '' : 'none';
 }
 
+
+// ── Toggle Mon planning (gestionnaire) ──
+function dplaneToggleMonPlanning() {
+  window._dplaneMonPlanning = !window._dplaneMonPlanning;
+  const btn = document.getElementById('btn-mon-planning');
+  if (btn) {
+    if (window._dplaneMonPlanning) {
+      btn.textContent = '👥 Tout voir';
+      btn.style.cssText = 'background:var(--navy);color:white;border-color:var(--navy);';
+    } else {
+      btn.textContent = '👤 Mon planning';
+      btn.style.cssText = '';
+    }
+  }
+  renderDplaneGrille();
+}
 // ===== FIN DPLANE FONCTIONS COMPLÉMENTAIRES v4.6 =====
 
 // ===== FIN GOD SWITCH =====
@@ -3880,9 +3897,13 @@ async function renderDplaneGrille() {
     dplaneGetAbsencesSemaine(dateDebut, dateFin)
   ]);
 
-  const membres = (allUsers||[]).filter(u => u.actif!==false).sort((a,b)=>{
+  // Mode "Mon planning" : filtre sur l'utilisateur courant si activé
+  let membres = (allUsers||[]).filter(u => u.actif!==false).sort((a,b)=>{
     const o={gestionnaire:0,manager:1,admin:2}; return (o[a.role]??3)-(o[b.role]??3);
   });
+  if (window._dplaneMonPlanning && currentUserData) {
+    membres = membres.filter(m => m.id === currentUserData.id);
+  }
   const joursLabels=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
   const creneaux=['matin','apresmidi'], creneauxLabels={matin:'Matin',apresmidi:'Après-midi'};
   const today=dplaneDateStr(new Date()), role=dplaneGetRole(), canEdit=role==='admin'||role==='manager';
@@ -4296,16 +4317,29 @@ async function dplaneOuvrirGestionActivites() {
 }
 
 async function dplaneCreerActivite() {
-  const nom=document.getElementById('dplane-new-act-nom')?.value?.trim();
-  const couleur=document.getElementById('dplane-new-act-couleur')?.value||'#4A7EC7';
-  if(!nom){showNotif('Entrez un nom pour l\'activité','error');return;}
-  const maxOrdre=Math.max(0,...dplaneActivites.map(a=>a.ordre||0));
-  const {error}=await db.from('dplane_activites').insert({nom,couleur_hex:couleur,actif:true,ordre:maxOrdre+1,permet_multiples:true});
-  if(error){showNotif('Erreur création activité','error');return;}
+  const nom = document.getElementById('dplane-new-act-nom')?.value?.trim();
+  const couleur = document.getElementById('dplane-new-act-couleur')?.value || '#4A7EC7';
+  if (!nom) { showNotif('Entrez un nom pour l'activité', 'error'); return; }
+
+  // Insert minimal : seulement les colonnes sûres (pas de permet_multiples ni ordre)
+  const payload = { nom, couleur_hex: couleur, actif: true };
+  const { error } = await db.from('dplane_activites').insert(payload);
+
+  if (error) {
+    console.error('dplaneCreerActivite error:', error);
+    // Si couleur_hex échoue aussi, essayer couleurhex (ancien schéma)
+    if (error.message?.includes('couleur_hex') || error.code === '42703') {
+      const { error: error2 } = await db.from('dplane_activites').insert({ nom, couleurhex: couleur, actif: true });
+      if (error2) { showNotif('Erreur : ' + (error2.message || 'colonne inconnue'), 'error'); return; }
+    } else {
+      showNotif('Erreur : ' + (error.message || 'impossible'), 'error');
+      return;
+    }
+  }
   document.getElementById('dplane-activites-modal')?.remove();
-  dplaneActivites=await dplaneGetActivites();
+  dplaneActivites = await dplaneGetActivites();
   await renderDplaneGrille();
-  showNotif(`Activité "${nom}" créée ✓`,'success');
+  showNotif(`Activité "${nom}" créée ✓`, 'success');
 }
 
 async function dplaneToggleActivite(activiteId, actuelActif) {
@@ -4319,24 +4353,38 @@ async function dplaneToggleActivite(activiteId, actuelActif) {
 
 // ── Init ──
 async function dplaneInit() {
-  if(!currentUserData){setTimeout(dplaneInit,300);return;}
-  dplaneActivites=await dplaneGetActivites();
-  const role=dplaneGetRole(), canEdit=role==='admin'||role==='manager';
-  ['btn-copier-semaine','btn-brouillon','btn-gerer-activites','btn-reinit-semaine'].forEach(id=>{
-    const b=document.getElementById(id); if(b) b.style.display=canEdit?'':'none';
+  if (!currentUserData) { setTimeout(dplaneInit, 300); return; }
+  dplaneActivites = await dplaneGetActivites();
+  const role = dplaneGetRole();
+  const canEdit = role === 'admin' || role === 'manager';
+  const isGest = role === 'gestionnaire';
+
+  // Boutons manager/admin uniquement
+  ['btn-copier-semaine','btn-brouillon','btn-gerer-activites','btn-reinit-semaine'].forEach(id => {
+    const b = document.getElementById(id); if (b) b.style.display = canEdit ? '' : 'none';
   });
-  // Publier : toujours visible, désactivé par défaut jusqu'au render
-  const btnPInit = document.getElementById('btn-publier-brouillon');
-  if (btnPInit) { btnPInit.disabled=true; btnPInit.style.opacity='.35'; btnPInit.style.cursor='default'; }
-  // Brouillon actif par défaut : mettre à jour le bouton UI
-  const btnBrou=document.getElementById('btn-brouillon');
-  if(btnBrou && dplaneBrouillonMode) {
-    btnBrou.textContent='✏️ Mode brouillon actif';
-    btnBrou.style.cssText='background:var(--rose);color:white;border-color:var(--rose);';
+  // Publier : visible managers/admin, grisé par défaut
+  const btnP = document.getElementById('btn-publier-brouillon');
+  if (btnP) {
+    btnP.style.display = canEdit ? '' : 'none';
+    btnP.disabled = true; btnP.style.opacity = '.35'; btnP.style.cursor = 'default';
   }
+  // Bouton "Mon planning" : visible gestionnaires uniquement
+  const btnMon = document.getElementById('btn-mon-planning');
+  if (btnMon) btnMon.style.display = isGest ? '' : 'none';
+
+  // Brouillon actif par défaut → UI du bouton
+  if (canEdit) {
+    const btnBrou = document.getElementById('btn-brouillon');
+    if (btnBrou && dplaneBrouillonMode) {
+      btnBrou.textContent = '✏️ Mode brouillon actif';
+      btnBrou.style.cssText = 'background:var(--rose);color:white;border-color:var(--rose);';
+    }
+  }
+
   await renderDplaneGrille();
   // Briefing gestionnaire (1x par jour)
-  if(role==='gestionnaire') setTimeout(dplaneBriefingGestionnaire, 1200);
+  if (isGest) setTimeout(dplaneBriefingGestionnaire, 1200);
 }
 
 // ── Switcher ──
