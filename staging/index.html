@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.41">
+  <meta name="version" content="2.5.53">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -512,6 +512,11 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
 </head>
 <body>
 
+  <div id="staging-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:6px;font-size:13px;font-weight:700;">
+    ⚠️ ENVIRONNEMENT STAGING — Ne pas utiliser en production
+  </div>
+  <div style="height:36px"></div>
+
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
@@ -601,7 +606,7 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
 
 
 <script>
-const SUPABASE_URL = 'https://xwiguxvmlqskzamapyzf.supabase.co';
+const SUPABASE_URL = 'https://eqyqcslfvcyxdgjhvmry.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aWd1eHZtbHFza3phbWFweXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODUwMTMsImV4cCI6MjA4ODc2MTAxM30.6on-JPw82PY3LZlUiHDwWlSkOt2l_rmfIsDwGPo137M';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
