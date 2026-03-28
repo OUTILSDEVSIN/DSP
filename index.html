@@ -388,34 +388,53 @@
   .tool-btn.active .d-letter { color:white; }
   #dplane-screen { display:none; }
   .dplane-grid { background:var(--white);border-radius:var(--radius-md);border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);overflow:auto;margin-bottom:14px; }
+  /* ── Grille Dplane v5 — design compact et lisible ── */
+  .dplane-grid { overflow-x:auto; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
   .dplane-grid table { 
-    width:100%;border-collapse:collapse;font-size:13px;
-    table-layout:fixed; /* colonnes égales */
+    width:100%; border-collapse:collapse; font-size:12px;
+    table-layout:fixed;
   }
-  .dplane-grid col.col-membre { width:155px; }
-  .dplane-grid col.col-cr { width:calc((100% - 155px)/10); min-width:80px; }
-  .dplane-grid thead th { 
-    background:var(--navy);color:white;padding:8px 6px;text-align:center;
-    font-weight:600;font-size:12px;border-right:1px solid rgba(255,255,255,0.1);
-    overflow:hidden;white-space:nowrap;
+  .dplane-grid col.col-membre { width:145px; }
+  .dplane-grid col.col-cr     { width:calc((100% - 145px)/10); min-width:72px; }
+
+  /* ── Thead ── */
+  .dplane-grid thead tr:first-child th {
+    background:var(--navy); color:white; padding:7px 4px; text-align:center;
+    font-weight:700; font-size:11px; letter-spacing:.4px; text-transform:uppercase;
+    border-right:1px solid rgba(255,255,255,0.08);
   }
-  .dplane-grid thead th:first-child { text-align:left; }
+  .dplane-grid thead tr:first-child th:first-child { text-align:left; padding-left:10px; }
+  .dplane-grid thead tr:nth-child(2) th {
+    background:#1e293b; color:rgba(255,255,255,.55); padding:4px 2px;
+    font-size:9px; font-weight:500; letter-spacing:.5px; text-transform:uppercase;
+    border-right:1px solid rgba(255,255,255,.05); border-bottom:2px solid rgba(229,25,94,.4);
+  }
+
+  /* ── Tbody ── */
+  .dplane-grid tbody tr:nth-child(even) td { background:rgba(0,0,0,.015); }
+  .dplane-grid tbody tr:hover td { background:rgba(229,25,94,.04) !important; transition:background .12s; }
   .dplane-grid tbody td { 
-    padding:5px 6px;border-bottom:1px solid var(--gray-200);
-    border-right:1px solid var(--gray-200);vertical-align:middle;
-    text-align:center;overflow:hidden;
+    padding:4px 3px; border-bottom:1px solid var(--gray-200);
+    border-right:1px solid rgba(0,0,0,.06); vertical-align:middle;
+    text-align:center; overflow:hidden;
   }
+  .dplane-grid tbody td:first-child { 
+    padding:4px 6px 4px 8px; text-align:left; 
+    border-right:2px solid rgba(0,0,0,.08);
+    background:white !important;
+  }
+  .dplane-grid tbody tr:hover td:first-child { background:#fafafa !important; }
   .dplane-grid thead th { background:var(--navy);color:white;padding:10px 8px;text-align:center;font-weight:600;font-size:12px;border-right:1px solid rgba(255,255,255,0.1); }
   .dplane-grid thead th:first-child { text-align:left;min-width:150px; }
   .dplane-grid tbody td { padding:6px 8px;border-bottom:1px solid var(--gray-200);border-right:1px solid var(--gray-200);vertical-align:middle;text-align:center; }
   .dplane-grid tbody td:first-child { text-align:left;font-weight:600;color:var(--navy); }
   .dplane-grid tbody tr:last-child td { border-bottom:none; }
   .dplane-grid tbody tr:hover td { background:#fafbff; }
-  .dplane-cell { display:flex;flex-wrap:wrap;gap:3px;justify-content:center;min-height:30px;align-items:center; }
-  .dplane-tag { display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600;color:white;cursor:default;white-space:nowrap; }
-  .dplane-tag .tag-remove { cursor:pointer;opacity:0.7;font-size:13px;line-height:1;margin-left:2px; }
+  .dplane-cell { display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-start;min-height:24px;align-items:center;padding:2px 1px; }
+  .dplane-tag { display:inline-flex;align-items:center;gap:1px;padding:2px 6px;border-radius:20px;font-size:10px;font-weight:700;color:white;cursor:default;white-space:nowrap;max-width:88px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,.18); }
+  .dplane-tag .tag-remove { cursor:pointer;opacity:0.5;font-size:10px;line-height:1;margin-left:1px;flex-shrink:0; }
   .dplane-tag .tag-remove:hover { opacity:1; }
-  .dplane-cell-add { width:22px;height:22px;border-radius:50%;border:1.5px dashed var(--gray-400);background:none;cursor:pointer;color:var(--gray-400);font-size:15px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0; }
+  .dplane-cell-add { width:18px;height:18px;border-radius:50%;border:1.5px dashed var(--gray-300);background:none;cursor:pointer;color:var(--gray-300);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0; }
   .dplane-cell-add:hover { border-color:var(--rose);color:var(--rose); }
   .dplane-absence { background:#fef3e2;border:1px solid #f97316;border-radius:20px;padding:2px 7px;font-size:11px;font-weight:600;color:#92540a;white-space:nowrap;display:inline-flex;align-items:center;gap:4px; }
   .dplane-nav { display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap; }
@@ -464,6 +483,20 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
   /* ── Journée entière (colspan=2) ── */
   .dplane-cell-journee { min-height:36px; }
   .dplane-grid tbody td[colspan="2"] { border-right:2px solid var(--navy); }
+
+  /* ── Dplane v5 : lisibilité ── */
+  .dplane-grid { overflow-x:auto; border-radius:10px; box-shadow:0 2px 16px rgba(0,0,0,.08); }
+  .dplane-grid table { table-layout:fixed; border-collapse:collapse; font-size:12px; width:100%; }
+  .dplane-grid col.col-membre { width:145px; }
+  .dplane-grid col.col-cr { width:calc((100% - 145px)/10); min-width:70px; }
+  .dplane-grid tbody tr:nth-child(even) > td { background:rgba(15,23,42,.025); }
+  .dplane-grid tbody tr:hover > td { background:rgba(229,25,94,.04) !important; transition:background .1s; }
+  .dplane-grid tbody td:first-child { background:white !important; border-right:2px solid rgba(0,0,0,.07); padding:4px 6px 4px 8px; }
+  .dplane-grid tbody tr:hover td:first-child { background:#fafafa !important; }
+  .dplane-grid thead th { font-size:10px; letter-spacing:.5px; text-transform:uppercase; }
+  .dplane-grid thead tr:nth-child(2) th { background:#1e293b; color:rgba(255,255,255,.5); font-size:9px; padding:3px; border-bottom:2px solid rgba(229,25,94,.35); }
+  .dplane-tag .tag-remove:hover { opacity:1; }
+  .dplane-absence { font-size:10px; padding:2px 6px; border-radius:20px; background:#fff3e0; color:#c2410c; border:1px solid #fed7aa; font-weight:600; display:inline-flex; align-items:center; gap:3px; }
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
@@ -3768,7 +3801,7 @@ function dplaneToggleMonPlanning() {
 
 
 // ============================================================
-// DPLANE v4.7 — navbar stable / suppression semaine intelligente
+// DPLANE v5.0 — lisibilité améliorée / 2e activité journée visible
 // ============================================================
 
 let dplaneSemaineOffset = 0;
@@ -3971,9 +4004,13 @@ async function renderDplaneGrille() {
         const amAbs     = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau==='apresmidi');
 
         if (hasJournee && !matinAbs && !amAbs) {
-          const tagsHtml = journeeTags.map(renderTag).join('');
+          // Afficher TOUS les tags du jour : journee + matin + apresmidi
+          const matinTags = planning.filter(p => p.gestionnaire_id===m.id && p.jour===dateJ && p.creneau==='matin');
+          const amTags    = planning.filter(p => p.gestionnaire_id===m.id && p.jour===dateJ && p.creneau==='apresmidi');
+          const allDayTags = [...journeeTags, ...matinTags, ...amTags];
+          const tagsHtml = allDayTags.map(renderTag).join('');
           const addBtn = canEdit ? `<button class="dplane-cell-add" title="Ajouter" onclick="dplaneOuvrirMenu('${m.id}','${dateJ}','matin',this)">+</button>` : '';
-          return `<td colspan="2" style="background:rgba(74,126,199,0.04);"><div class="dplane-cell" style="justify-content:center;">${tagsHtml}${addBtn}</div></td>`;
+          return `<td colspan="2" style="background:rgba(74,126,199,0.04);"><div class="dplane-cell" style="justify-content:center;flex-wrap:wrap;">${tagsHtml}${addBtn}</div></td>`;
         }
 
         // ── Cellules normales Matin + Après-midi ──
@@ -4409,7 +4446,7 @@ function switchTool(tool) {
     bd?.classList.add('active'); bpl?.classList.remove('active');
   }
 }
-// FIN DPLANE v4.7
+// FIN DPLANE v5.0
 
 
 
