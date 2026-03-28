@@ -388,7 +388,23 @@
   .tool-btn.active .d-letter { color:white; }
   #dplane-screen { display:none; }
   .dplane-grid { background:var(--white);border-radius:var(--radius-md);border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);overflow:auto;margin-bottom:14px; }
-  .dplane-grid table { width:100%;border-collapse:collapse;font-size:13px; }
+  .dplane-grid table { 
+    width:100%;border-collapse:collapse;font-size:13px;
+    table-layout:fixed; /* colonnes égales */
+  }
+  .dplane-grid col.col-membre { width:155px; }
+  .dplane-grid col.col-cr { width:calc((100% - 155px)/10); min-width:80px; }
+  .dplane-grid thead th { 
+    background:var(--navy);color:white;padding:8px 6px;text-align:center;
+    font-weight:600;font-size:12px;border-right:1px solid rgba(255,255,255,0.1);
+    overflow:hidden;white-space:nowrap;
+  }
+  .dplane-grid thead th:first-child { text-align:left; }
+  .dplane-grid tbody td { 
+    padding:5px 6px;border-bottom:1px solid var(--gray-200);
+    border-right:1px solid var(--gray-200);vertical-align:middle;
+    text-align:center;overflow:hidden;
+  }
   .dplane-grid thead th { background:var(--navy);color:white;padding:10px 8px;text-align:center;font-weight:600;font-size:12px;border-right:1px solid rgba(255,255,255,0.1); }
   .dplane-grid thead th:first-child { text-align:left;min-width:150px; }
   .dplane-grid tbody td { padding:6px 8px;border-bottom:1px solid var(--gray-200);border-right:1px solid var(--gray-200);vertical-align:middle;text-align:center; }
@@ -3696,8 +3712,14 @@ function dplaneGetLundiSemaine(offset) {
 }
 
 function dplaneDateStr(date) { return date.toISOString().split('T')[0]; }
-function dplaneNavSemaine(dir) { dplaneSemaineOffset += dir; renderDplaneGrille(); }
-function dplaneGoToday() { dplaneSemaineOffset = 0; renderDplaneGrille(); }
+function dplaneNavSemaine(dir) { 
+  if (!currentUserData) return; 
+  dplaneSemaineOffset += dir; renderDplaneGrille(); 
+}
+function dplaneGoToday() { 
+  if (!currentUserData) return; 
+  dplaneSemaineOffset = 0; renderDplaneGrille(); 
+}
 
 // ── Légende ──
 
@@ -3741,18 +3763,24 @@ async function renderDplaneGrille() {
   const role           = dplaneGetRole();
   const canEdit        = role === 'admin' || role === 'manager';
 
+  // ── COLGROUP (colonnes égales) ──
+  const table = document.getElementById('dplane-table');
+  let cg = table.querySelector('colgroup');
+  if (!cg) { cg = document.createElement('colgroup'); table.prepend(cg); }
+  cg.innerHTML = `<col class="col-membre">` + Array(10).fill('<col class="col-cr">').join('');
+
   // ── THEAD ──
   document.getElementById('dplane-thead').innerHTML = `
     <tr>
-      <th rowspan="2" style="text-align:left;min-width:150px;vertical-align:middle;">Membre</th>
+      <th rowspan="2" style="text-align:left;vertical-align:middle;">Membre</th>
       ${jours.map((j, i) => `
-        <th colspan="2" style="${dplaneDateStr(j) === today ? 'background:var(--rose);' : ''}text-align:center;">
-          ${joursLabels[i]}<br>
-          <small style="font-weight:400;opacity:.85;">${j.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</small>
+        <th colspan="2" style="${dplaneDateStr(j) === today ? 'background:var(--rose);' : ''}text-align:center;padding:8px 4px;">
+          <div style="font-size:12px;font-weight:700;">${joursLabels[i]}</div>
+          <div style="font-size:10px;font-weight:400;opacity:.85;">${j.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</div>
         </th>`).join('')}
     </tr>
     <tr>${jours.map(() => creneaux.map(c =>
-      `<th style="font-size:10px;opacity:.8;font-weight:500;text-align:center;padding:4px 6px;">${creneauxLabels[c]}</th>`
+      `<th style="font-size:10px;opacity:.8;font-weight:500;text-align:center;padding:4px 2px;border-top:1px solid rgba(255,255,255,.15);">${creneauxLabels[c]}</th>`
     ).join('')).join('')}</tr>`;
 
   // ── TBODY ──
