@@ -547,7 +547,7 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
         <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(1)">Semaine suiv. ▶</button>
         <button class="btn btn-secondary" onclick="dplaneOuvrirGestionActivites()" id="btn-gerer-activites" style="display:none;" title="Gérer les activités">⚙️ Activités</button>
         <button class="btn btn-secondary" onclick="dplaneToggleBrouillon()" id="btn-brouillon" style="display:none;" title="Mode brouillon">✏️ Mode brouillon</button>
-        <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" style="display:none;" title="Publier les brouillons">📢 Publier</button>
+        <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" disabled title="Rien à publier" style="opacity:.4;cursor:default;">📢 Publier</button>
         <button class="btn btn-primary" onclick="dplaneCopierSemaineUI()" id="btn-copier-semaine" style="display:none;">📋 Copier semaine</button>
         <button class="btn btn-danger" onclick="dplaneReinitialiserSemaineUI()" id="btn-reinit-semaine" style="display:none;" title="Remettre à zéro le planning de cette semaine">🗑️ Réinitialiser</button>
       </div>
@@ -3751,7 +3751,7 @@ async function dplaneInitBoutonsRole() {
 
 
 // ============================================================
-// DPLANE v4.5 — menu compact 📅 / journée = 1 record colspan=2 / semaine = 5×journee
+// DPLANE v4.7 — navbar stable / suppression semaine intelligente
 // ============================================================
 
 let dplaneSemaineOffset = 0;
@@ -3971,9 +3971,21 @@ async function renderDplaneGrille() {
     </tr>`;
   }).join('');
 
-  const hasBrou=planning.some(p=>p.is_brouillon);
-  const btnP=document.getElementById('btn-publier-brouillon');
-  if(btnP) btnP.style.display=(canEdit&&hasBrou)?'':'none';
+  const hasBrou = planning.some(p => p.is_brouillon);
+  const btnP = document.getElementById('btn-publier-brouillon');
+  if (btnP && canEdit) {
+    if (hasBrou) {
+      btnP.disabled = false;
+      btnP.title = '📢 Publier les brouillons de la semaine';
+      btnP.style.opacity = '1';
+      btnP.style.cursor = 'pointer';
+    } else {
+      btnP.disabled = true;
+      btnP.title = 'Rien à publier cette semaine';
+      btnP.style.opacity = '.35';
+      btnP.style.cursor = 'default';
+    }
+  }
 }
 
 // ── Menu contextuel smart (position auto haut/bas) ──
@@ -4135,11 +4147,66 @@ async function dplaneConfirmerAbsence() {
 }
 
 async function dplaneSupprimerAbsenceUI(absenceId) {
-  dplaneConfirm('Supprimer cette absence ?', '🗑️', async () => {
-    const ok = await dplaneSupprimerAbsence(absenceId);
-    if (ok) { showNotif('Absence supprimée','success'); await renderDplaneGrille(); }
-    else showNotif('Erreur','error');
-  });
+  // Récupérer l'absence pour savoir si elle fait partie d'une série semaine
+  const { data: abs } = await db.from('dplane_absences').select('*').eq('id', absenceId).maybeSingle();
+  if (!abs) return;
+
+  // Chercher d'autres absences identiques (même gestionnaire + même type) dans la semaine courante
+  const lundi    = dplaneGetLundiSemaine(dplaneSemaineOffset);
+  const vendredi = new Date(lundi); vendredi.setDate(lundi.getDate() + 4);
+  const { data: semaine } = await db.from('dplane_absences')
+    .select('id, jour')
+    .eq('gestionnaire_id', abs.gestionnaire_id)
+    .eq('type_absence', abs.type_absence)
+    .gte('jour', dplaneDateStr(lundi))
+    .lte('jour', dplaneDateStr(vendredi));
+
+  const autresJours = (semaine || []).filter(a => a.id !== absenceId);
+
+  if (autresJours.length >= 1) {
+    // Il y a d'autres jours → proposer choix
+    document.getElementById('dplane-abs-del-modal')?.remove();
+    const absLabels = {conge:'Congé',maladie:'Maladie',formation:'Formation',absence:'Absence'};
+    const overlay = document.createElement('div');
+    overlay.className = 'dplane-popup-overlay';
+    overlay.id = 'dplane-abs-del-modal';
+    overlay.innerHTML = `
+      <div class="dplane-popup" style="max-width:380px;text-align:center;padding:28px;">
+        <div style="font-size:36px;margin-bottom:12px;">🗑️</div>
+        <h3 style="color:var(--navy);margin-bottom:8px;">Supprimer l'absence</h3>
+        <p style="color:var(--gray-500);font-size:13px;margin-bottom:20px;">
+          Cette absence <strong>${absLabels[abs.type_absence]||abs.type_absence}</strong> existe sur 
+          <strong>${(semaine||[]).length} jour${(semaine||[]).length>1?'s':''}</strong> cette semaine.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-secondary" style="padding:12px;" onclick="
+            document.getElementById('dplane-abs-del-modal').remove();
+            dplaneSupprimerAbsenceConfirm(['${absenceId}'], 'Ce jour uniquement supprimé ✓');
+          ">📅 Ce jour uniquement</button>
+          <button class="btn btn-primary" style="padding:12px;background:#e5195e;border-color:#e5195e;" onclick="
+            document.getElementById('dplane-abs-del-modal').remove();
+            dplaneSupprimerAbsenceConfirm([${JSON.stringify((semaine||[]).map(a=>a.id))}], 'Semaine entière supprimée ✓');
+          ">🗓️ Toute la semaine (${(semaine||[]).length} jours)</button>
+          <button class="btn btn-secondary" style="font-weight:400;" onclick="document.getElementById('dplane-abs-del-modal').remove()">Annuler</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
+  } else {
+    // Une seule absence → suppression directe
+    dplaneConfirm('Supprimer cette absence ?', '🗑️', async () => {
+      await dplaneSupprimerAbsenceConfirm([absenceId], 'Absence supprimée ✓');
+    });
+  }
+}
+
+async function dplaneSupprimerAbsenceConfirm(ids, msg) {
+  let ok = true;
+  for (const id of ids) {
+    if (!(await dplaneSupprimerAbsence(id))) ok = false;
+  }
+  if (ok) { showNotif(msg, 'success'); await renderDplaneGrille(); }
+  else showNotif('Erreur lors de la suppression', 'error');
 }
 
 // ── Copier semaine ──
@@ -4244,7 +4311,9 @@ async function dplaneInit() {
   ['btn-copier-semaine','btn-brouillon','btn-gerer-activites','btn-reinit-semaine'].forEach(id=>{
     const b=document.getElementById(id); if(b) b.style.display=canEdit?'':'none';
   });
-  document.getElementById('btn-publier-brouillon').style.display='none';
+  // Publier : toujours visible, désactivé par défaut jusqu'au render
+  const btnPInit = document.getElementById('btn-publier-brouillon');
+  if (btnPInit) { btnPInit.disabled=true; btnPInit.style.opacity='.35'; btnPInit.style.cursor='default'; }
   // Brouillon actif par défaut : mettre à jour le bouton UI
   const btnBrou=document.getElementById('btn-brouillon');
   if(btnBrou && dplaneBrouillonMode) {
@@ -4272,7 +4341,7 @@ function switchTool(tool) {
     bd?.classList.add('active'); bpl?.classList.remove('active');
   }
 }
-// FIN DPLANE v4.5
+// FIN DPLANE v4.7
 
 
 
