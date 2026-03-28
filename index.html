@@ -4319,7 +4319,7 @@ async function dplaneOuvrirGestionActivites() {
 async function dplaneCreerActivite() {
   const nom = document.getElementById('dplane-new-act-nom')?.value?.trim();
   const couleur = document.getElementById('dplane-new-act-couleur')?.value || '#4A7EC7';
-  if (!nom) { showNotif('Entrez un nom pour l'activité', 'error'); return; }
+  if (!nom) { showNotif("Entrez un nom pour l'activité", "error"); return; }
 
   // Insert minimal : seulement les colonnes sûres (pas de permet_multiples ni ordre)
   const payload = { nom, couleur_hex: couleur, actif: true };
