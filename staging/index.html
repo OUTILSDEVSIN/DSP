@@ -4982,7 +4982,91 @@ async function dvolOuvrirNouveauDossier() {
 }
 
 async function dvolOuvrirDossier(id) {
-  showNotif('Détail du dossier DVOL — à venir.', 'info');
+  // Charger le dossier + ses étapes
+  const { data: dossier, error: errD } = await db.from('dvol_dossiers').select('*').eq('id', id).single();
+  if (errD || !dossier) { showNotif('Erreur chargement dossier.', 'error'); return; }
+
+  const { data: etapes } = await db.from('dvol_suivi_etapes')
+    .select('*, dvol_etapes_template(ordre, label, description, delai_jours)')
+    .eq('dossier_id', id).order('date_prevue');
+
+  const existing = document.getElementById('dvol-detail-modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'dvol-detail-modal';
+
+  const statutColors = { declare:'#3498db', en_cours:'#f39c12', cloture:'#27ae60', vehicule_retrouve:'#8e44ad' };
+  const etapeStatutBadge = function(s) {
+    if (s === 'realise') return '<span style="color:#27ae60;font-weight:700;">✅ Réalisé</span>';
+    if (s === 'en_attente') return '<span style="color:#f39c12;font-weight:700;">⏳ En attente</span>';
+    return '<span style="color:#888;">'+s+'</span>';
+  };
+
+  const etapesHTML = (etapes && etapes.length > 0) ? etapes.map(function(e, i) {
+    const tpl = e.dvol_etapes_template || {};
+    const isPast = e.date_prevue && e.date_prevue < new Date().toISOString().split('T')[0];
+    const isRealise = e.statut === 'realise';
+    return '<tr style="border-bottom:1px solid #f0f0f0;' + (isRealise ? 'opacity:0.6;' : '') + '">' +
+      '<td style="padding:8px 12px;font-size:12px;color:#888;">' + (tpl.ordre||i+1) + '</td>' +
+      '<td style="padding:8px 12px;font-size:13px;">' + (tpl.label||'—') + '</td>' +
+      '<td style="padding:8px 12px;font-size:12px;color:' + (isPast && !isRealise ? '#e74c3c' : '#666') + ';">' + (e.date_prevue||'—') + '</td>' +
+      '<td style="padding:8px 12px;">' + etapeStatutBadge(e.statut) + '</td>' +
+      '<td style="padding:8px 12px;text-align:center;">' +
+        (!isRealise ? '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px;" onclick="dvolMarquerEtapeUI(\'' + e.id + '\', \'' + id + '\')">✔ Réalisé</button>' : '') +
+      '</td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="5" style="padding:20px;text-align:center;color:#888;">Aucune étape trouvée.</td></tr>';
+
+  overlay.innerHTML =
+    '<div class="modal" style="max-width:680px;text-align:left;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+      '<h2 style="margin:0;font-size:17px;color:var(--navy);">🚗 Dossier ' + dossier.numero_dossier + '</h2>' +
+      '<button class="btn btn-secondary" style="font-size:12px;" onclick="closeModal('dvol-detail-modal')">✕ Fermer</button>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">' +
+      '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">' +
+        '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Assuré</div>' +
+        '<div style="font-size:13px;font-weight:700;">' + (dossier.assure_nom||'—') + '</div>' +
+      '</div>' +
+      '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">' +
+        '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Compagnie</div>' +
+        '<div style="font-size:13px;font-weight:700;">' + (dossier.compagnie||'—') + '</div>' +
+      '</div>' +
+      '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">' +
+        '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Déclaration</div>' +
+        '<div style="font-size:13px;font-weight:700;">' + (dossier.date_declaration||'—') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<h3 style="font-size:14px;margin:0 0 10px;color:var(--navy);">📋 Étapes de suivi</h3>' +
+    '<div style="overflow-x:auto;">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+      '<thead><tr style="background:var(--navy);color:white;">' +
+        '<th style="padding:8px 12px;text-align:left;">#</th>' +
+        '<th style="padding:8px 12px;text-align:left;">Étape</th>' +
+        '<th style="padding:8px 12px;text-align:left;">Date prévue</th>' +
+        '<th style="padding:8px 12px;text-align:left;">Statut</th>' +
+        '<th style="padding:8px 12px;text-align:center;">Action</th>' +
+      '</tr></thead>' +
+      '<tbody>' + etapesHTML + '</tbody>' +
+    '</table></div>' +
+    '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">' +
+      '<button class="btn btn-danger" style="font-size:12px;" onclick="dvolCloturerVehiculeRetrouve(\'' + id + '\')">🚗 Véhicule retrouvé</button>' +
+    '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+}
+
+async function dvolMarquerEtapeUI(etapeId, dossierId) {
+  const ok = await dvolMarquerEtapeRealisee(etapeId);
+  if (ok) {
+    showNotif('✅ Étape marquée comme réalisée.', 'success');
+    closeModal('dvol-detail-modal');
+    await dvolInit();
+    dvolOuvrirDossier(dossierId);
+  }
 }
 // ===== FIN DVOL INIT & RENDER =====
 
@@ -5046,45 +5130,53 @@ async function transfererVersDvol(id, ref) {
     statut: 'traite',
     traite_at: new Date().toISOString()
   }).eq('id', id);
-
   if (errUpdate) { showNotif('Erreur mise à jour dossier : ' + errUpdate.message, 'error'); return; }
 
-  // 2. Créer l'entrée dans dvol_dossiers avec les bonnes colonnes
+  // 2. Créer l'entrée dans dvol_dossiers
   const dossier = (allDossiers || []).find(function(d){ return String(d.id) === String(id); });
-  if (dossier) {
-    // Construire une date valide (format YYYY-MM-DD obligatoire)
-    let dateDecl = new Date().toISOString().split('T')[0];
-    if (dossier.date_etat) {
-      // date_etat peut être "DD/MM/YYYY" ou ISO
-      const parts = String(dossier.date_etat).split('/');
-      if (parts.length === 3) {
-        dateDecl = parts[2] + '-' + parts[1] + '-' + parts[0];
-      } else if (dossier.date_etat.includes('-')) {
-        dateDecl = dossier.date_etat.split('T')[0];
-      }
-    }
+  if (!dossier) { showNotif('Dossier introuvable.', 'error'); return; }
 
-    const payload = {
-      numero_dossier: dossier.ref_sinistre || ref,
-      gestionnaire_id: currentUserData.id || null,
-      compagnie: dossier.portefeuille || dossier.type || 'N/A',
-      date_declaration: dateDecl,
-      assure_nom: dossier.ref_contrat || '',
-      assure_email: '',
-      statut: 'declare'
-    };
-
-    const { error: errDvol } = await db.from('dvol_dossiers').insert(payload);
-    if (errDvol) {
-      showNotif('Erreur création DVOL : ' + errDvol.message, 'error');
-      return;
-    }
+  let dateDecl = new Date().toISOString().split('T')[0];
+  if (dossier.date_etat) {
+    const parts = String(dossier.date_etat).split('/');
+    if (parts.length === 3) dateDecl = parts[2] + '-' + parts[1] + '-' + parts[0];
+    else if (String(dossier.date_etat).includes('-')) dateDecl = String(dossier.date_etat).split('T')[0];
   }
 
-  // 3. Audit log
+  const { data: dvolDossier, error: errDvol } = await db.from('dvol_dossiers').insert({
+    numero_dossier: dossier.ref_sinistre || ref,
+    gestionnaire_id: currentUserData.id || null,
+    compagnie: dossier.portefeuille || dossier.type || 'N/A',
+    date_declaration: dateDecl,
+    assure_nom: dossier.ref_contrat || '',
+    assure_email: '',
+    statut: 'declare'
+  }).select().single();
+
+  if (errDvol) { showNotif('Erreur création DVOL : ' + errDvol.message, 'error'); return; }
+
+  // 3. Créer les étapes de suivi depuis le template générique
+  const { data: templates } = await db.from('dvol_etapes_template')
+    .select('*').eq('compagnie', 'generique').eq('actif', true).order('ordre');
+
+  if (templates && templates.length > 0) {
+    const etapes = templates.map(function(t) {
+      const datePrevue = new Date(dateDecl);
+      datePrevue.setDate(datePrevue.getDate() + (t.delai_jours || 0));
+      return {
+        dossier_id: dvolDossier.id,
+        etape_template_id: t.id,
+        date_prevue: datePrevue.toISOString().split('T')[0],
+        statut: 'en_attente'
+      };
+    });
+    const { error: errEtapes } = await db.from('dvol_suivi_etapes').insert(etapes);
+    if (errEtapes) console.warn('Erreur création étapes DVOL:', errEtapes.message);
+  }
+
+  // 4. Audit log
   await auditLog('TRANSFERT_DVOL', 'Dossier transféré vers DVOL — Réf. ' + ref);
   showNotif('🚗 Dossier ' + ref + ' transféré vers DVOL.', 'success');
-
   await loadDossiers();
   renderMesDossiers();
 }
