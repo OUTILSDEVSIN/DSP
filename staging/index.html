@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.41">
+  <meta name="version" content="2.5.42">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -1966,7 +1966,7 @@ async function renderMesDossiers() {
         <td style="text-align:center">
           ${d.traite
             ? '<span style="color:#16a34a;font-size:12px;font-weight:700;">✅ Traité</span>'
-            : '<button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;" onclick="ouvrirDialogTransfert(\'' + d.id + '\', \'' + (d.ref_sinistre||'') + '\')" >↗ Transférer</button>'
+            : '<button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;" onclick="ouvrirDialogTransfertDvolComplet(\'' + d.id + '\', \'' + (d.ref_sinistre||'') + '\')" >↗ Transférer</button>'
           }
         </td>
       </tr>`;
@@ -4951,28 +4951,37 @@ async function dvolInit() {
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead>
         <tr style="background:var(--navy);color:white;">
-          <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">N° Dossier</th>
-          <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Assuré</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Réf. Sinistre</th>
           <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Compagnie</th>
+          <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Gestionnaire</th>
           <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Déclaration</th>
           <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Prochaine étape</th>
           <th style="padding:10px 14px;text-align:left;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Statut</th>
-          <th style="padding:10px 14px;text-align:center;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Actions</th>
+          <th style="padding:10px 14px;text-align:center;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">Action</th>
         </tr>
       </thead>
       <tbody>
-        ${dossiers.map((d,i) => `
-        <tr style="border-bottom:1px solid #f0f0f0;${i%2===1?'background:#fafafa':''}">
-          <td style="padding:10px 14px;font-weight:700;color:var(--navy);">${d.numero_dossier||'-'}</td>
-          <td style="padding:10px 14px;">${d.assure_nom||'-'}</td>
-          <td style="padding:10px 14px;">${d.compagnie||'-'}</td>
-          <td style="padding:10px 14px;color:#666;">${d.date_declaration ? new Date(d.date_declaration).toLocaleDateString('fr-FR') : '-'}</td>
-          <td style="padding:10px 14px;font-size:12px;">${d.prochaine_etape ? `<span style="color:${d.date_prochaine_etape && d.date_prochaine_etape <= new Date().toISOString().split('T')[0] ? '#e74c3c' : '#333'}">${d.prochaine_etape}</span>` : '<span style="color:#aaa">—</span>'}</td>
-          <td style="padding:10px 14px;">${statutBadge(d.statut)}</td>
-          <td style="padding:10px 14px;text-align:center;">
-            <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;" onclick="dvolOuvrirDossier('${d.id}')">Voir</button>
-          </td>
-        </tr>`).join('')}
+        ${dossiers.map((d,i) => {
+        const _today = new Date().toISOString().split('T')[0];
+        const _dp = d.date_prochaine_etape;
+        const _diff = _dp ? Math.floor((new Date(_dp) - new Date(_today)) / (1000*60*60*24)) : 999;
+        const _cloture = ['cloture','vehicule_retrouve'].includes(d.statut);
+        const _actionReq = _dp && _diff <= 0 && !_cloture;
+        const _retard = _actionReq && _diff < -2;
+        const _rowBg = _actionReq ? (i%2===1 ? 'background:#fffbeb;' : 'background:#fef9c3;') : (i%2===1 ? 'background:#fafafa;' : '');
+        const _rowBorder = _actionReq ? 'border-left:4px solid #f59e0b;' : 'border-left:4px solid transparent;';
+        const _btnLabel = _retard ? '⚠ RETARD' : _actionReq ? 'Action nécessaire' : 'Voir';
+        const _btnStyle = _actionReq ? 'font-size:11px;padding:4px 10px;background:#f59e0b;color:white;border-color:#f59e0b;font-weight:700;' : 'font-size:11px;padding:4px 10px;';
+        return '<tr style="border-bottom:1px solid #f0f0f0;' + _rowBg + _rowBorder + '">'
+          + '<td style="padding:10px 14px;font-weight:700;color:var(--navy);">' + (d.numero_dossier||'-') + '</td>'
+          + '<td style="padding:10px 14px;">' + (d.compagnie||'-') + '</td>'
+          + '<td style="padding:10px 14px;font-size:12px;">' + (d.gestionnaire||'-') + '</td>'
+          + '<td style="padding:10px 14px;color:#666;">' + (d.date_declaration ? new Date(d.date_declaration).toLocaleDateString('fr-FR') : '-') + '</td>'
+          + '<td style="padding:10px 14px;font-size:12px;">' + (d.prochaine_etape ? '<span style="color:' + (_actionReq ? '#b45309' : '#333') + '">' + d.prochaine_etape + '</span>' : '<span style="color:#aaa">—</span>') + '</td>'
+          + '<td style="padding:10px 14px;">' + statutBadge(d.statut) + '</td>'
+          + '<td style="padding:10px 14px;text-align:center;"><button class="btn btn-secondary" style="' + _btnStyle + '" onclick="dvolOuvrirDossier(\'' + d.id + '\')">' + _btnLabel + '</button></td>'
+          + '</tr>';
+      }).join('')}
       </tbody>
     </table>`;
 }
@@ -4985,74 +4994,90 @@ async function dvolOuvrirDossier(id) {
   const { data: dossier, error: errD } = await db.from('dvol_dossiers').select('*').eq('id', id).single();
   if (errD || !dossier) { showNotif('Erreur chargement dossier.', 'error'); return; }
 
-  const { data: etapes } = await db.from('dvol_suivi_etapes')
-    .select('*, dvol_etapes_template(ordre, label, description, delai_jours)')
-    .eq('dossier_id', id).order('date_prevue');
+  const { data: etapesEnAttente } = await db.from('dvol_suivi_etapes')
+    .select('*, dvol_etapes_template(label, description)')
+    .eq('dossier_id', id).eq('statut', 'en_attente').order('date_prevue');
 
   const existing = document.getElementById('dvol-detail-modal');
   if (existing) existing.remove();
 
   const today = new Date().toISOString().split('T')[0];
-
-  function etapeStatutBadge(s) {
-    if (s === 'realise') return '<span style="color:#27ae60;font-weight:700;">&#x2705; Réalisé</span>';
-    return '<span style="color:#f39c12;font-weight:700;">&#x23F3; En attente</span>';
-  }
-
-  let etapesRows = '';
-  if (etapes && etapes.length > 0) {
-    etapes.forEach(function(e, i) {
-      const tpl = e.dvol_etapes_template || {};
-      const isPast = e.date_prevue && e.date_prevue < today;
-      const isRealise = e.statut === 'realise';
-      const dateColor = (isPast && !isRealise) ? '#e74c3c' : '#666';
-      const actionBtn = !isRealise
-        ? '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px;" onclick="dvolMarquerEtapeUI(\'' + e.id + '\',\'' + id + '\')">&#x2714; Réalisé</button>'
-        : '';
-      etapesRows += '<tr style="border-bottom:1px solid #f0f0f0;' + (isRealise ? 'opacity:0.6;' : '') + '">'
-        + '<td style="padding:8px 12px;font-size:12px;color:#888;">' + (tpl.ordre || i+1) + '</td>'
-        + '<td style="padding:8px 12px;font-size:13px;">' + (tpl.label || '—') + '</td>'
-        + '<td style="padding:8px 12px;font-size:12px;color:' + dateColor + ';">' + (e.date_prevue || '—') + '</td>'
-        + '<td style="padding:8px 12px;">' + etapeStatutBadge(e.statut) + '</td>'
-        + '<td style="padding:8px 12px;text-align:center;">' + actionBtn + '</td>'
-        + '</tr>';
-    });
-  } else {
-    etapesRows = '<tr><td colspan="5" style="padding:20px;text-align:center;color:#888;">Aucune étape trouvée.</td></tr>';
-  }
+  const etapeActuelle = etapesEnAttente && etapesEnAttente.length > 0 ? etapesEnAttente[0] : null;
+  const prochaineEtape = etapesEnAttente && etapesEnAttente.length > 1 ? etapesEnAttente[1] : null;
+  const etapeLabel = etapeActuelle ? (etapeActuelle.dvol_etapes_template?.label || '—') : null;
+  const etapeDesc = etapeActuelle ? (etapeActuelle.dvol_etapes_template?.description || '') : '';
+  const etapeDate = etapeActuelle ? etapeActuelle.date_prevue : null;
+  const prochaineLabel = prochaineEtape ? (prochaineEtape.dvol_etapes_template?.label || '—') : 'Clôture';
+  const isTropTot = etapeDate && etapeDate > today;
+  const joursRestants = etapeDate ? Math.floor((new Date(etapeDate) - new Date(today)) / (1000*60*60*24)) : 0;
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'dvol-detail-modal';
-  overlay.innerHTML = ''
-    + '<div class="modal" style="max-width:680px;text-align:left;">'
+
+  let actionBlock = '';
+  if (etapeActuelle) {
+    actionBlock = '<div style="margin-bottom:20px;">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">🎯 Action à réaliser</div>'
+      + '<div style="font-size:15px;font-weight:700;color:#92400e;padding:14px 16px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;">' + etapeLabel + '</div>'
+      + (etapeDesc ? '<div style="font-size:13px;color:#666;margin-top:8px;padding:0 4px;">' + etapeDesc + '</div>' : '')
+      + (etapeDate ? '<div style="font-size:12px;color:#888;margin-top:6px;padding:0 4px;">📅 Prévu le ' + new Date(etapeDate).toLocaleDateString('fr-FR') + (isTropTot ? ' <span style="color:#e67e22;font-weight:600;">(' + joursRestants + ' jour' + (joursRestants>1?'s':'') + ' restant' + (joursRestants>1?'s':'') + ')</span>' : '') + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px;">'
+      + '<button class="btn btn-primary" style="padding:10px 24px;font-weight:700;" onclick="dvolMarquerEtapeAvecVerif(\'' + etapeActuelle.id + '\',\'' + id + '\',\'' + (etapeDate||'') + '\')">'
+      + '✅ Action réalisée</button>'
+      + '<button class="btn btn-secondary" onclick="closeModal(\'dvol-detail-modal\')">Fermer</button>'
+      + '</div>'
+      + '<div style="padding:10px 14px;background:#f0fdf4;border-radius:6px;font-size:12px;color:#166534;">'
+      + '<strong>Prochaine étape :</strong> ' + prochaineLabel
+      + '</div>';
+  } else {
+    actionBlock = '<div style="text-align:center;padding:24px;color:#27ae60;font-size:14px;">'
+      + '<div style="font-size:32px;margin-bottom:8px;">✅</div>'
+      + '<strong>Toutes les étapes sont réalisées.</strong></div>'
+      + '<div style="display:flex;justify-content:flex-end;">'
+      + '<button class="btn btn-secondary" onclick="closeModal(\'dvol-detail-modal\')">Fermer</button></div>';
+  }
+
+  overlay.innerHTML = '<div class="modal" style="max-width:480px;text-align:left;">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
-    + '<h2 style="margin:0;font-size:17px;color:var(--navy);">&#x1F697; Dossier ' + dossier.numero_dossier + '</h2>'
-    + "<button class=\"btn btn-secondary\" style=\"font-size:12px;\" onclick=\"closeModal('dvol-detail-modal')\">&#x2715; Fermer</button>" 
+    + '<h2 style="margin:0;font-size:17px;color:var(--navy);">🚗 ' + dossier.numero_dossier + '</h2>'
+    + '<button class="btn btn-secondary" style="font-size:12px;" onclick="closeModal(\'dvol-detail-modal\')">✕ Fermer</button>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">'
-    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Assuré</div><div style="font-size:13px;font-weight:700;">' + (dossier.assure_nom || '—') + '</div></div>'
-    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Compagnie</div><div style="font-size:13px;font-weight:700;">' + (dossier.compagnie || '—') + '</div></div>'
-    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Déclaration</div><div style="font-size:13px;font-weight:700;">' + (dossier.date_declaration || '—') + '</div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">'
+    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">'
+    + '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Compagnie</div>'
+    + '<div style="font-size:13px;font-weight:700;">' + (dossier.compagnie||'—') + '</div></div>'
+    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">'
+    + '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Déclaration</div>'
+    + '<div style="font-size:13px;font-weight:700;">' + (dossier.date_declaration ? new Date(dossier.date_declaration).toLocaleDateString('fr-FR') : '—') + '</div></div>'
     + '</div>'
-    + '<h3 style="font-size:14px;margin:0 0 10px;color:var(--navy);">&#x1F4CB; Étapes de suivi</h3>'
-    + '<div style="overflow-x:auto;">'
-    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
-    + '<thead><tr style="background:var(--navy);color:white;">'
-    + '<th style="padding:8px 12px;text-align:left;">#</th>'
-    + '<th style="padding:8px 12px;text-align:left;">Étape</th>'
-    + '<th style="padding:8px 12px;text-align:left;">Date prévue</th>'
-    + '<th style="padding:8px 12px;text-align:left;">Statut</th>'
-    + '<th style="padding:8px 12px;text-align:center;">Action</th>'
-    + '</tr></thead>'
-    + '<tbody>' + etapesRows + '</tbody>'
-    + '</table></div>'
-    + '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">'
-    + '<button class="btn btn-danger" style="font-size:12px;" onclick="dvolCloturerVehiculeRetrouve(&apos;' + id + '&apos;)">&#x1F697; Véhicule retrouvé</button>'
-    + '</div>'
-    + '</div>';
+    + actionBlock
+    + '<div style="margin-top:16px;border-top:1px solid #f0f0f0;padding-top:12px;">'
+    + '<button class="btn btn-danger" style="font-size:12px;" onclick="dvolCloturerVehiculeRetrouve(\'' + id + '\')">🚗 Véhicule retrouvé</button>'
+    + '</div></div>';
 
   document.body.appendChild(overlay);
+}
+
+async function dvolMarquerEtapeAvecVerif(etapeId, dossierId, datePrevue) {
+  const today = new Date().toISOString().split('T')[0];
+  if (datePrevue && datePrevue > today) {
+    const joursR = Math.floor((new Date(datePrevue) - new Date(today)) / (1000*60*60*24));
+    const dateLabel = new Date(datePrevue).toLocaleDateString('fr-FR');
+    const ok = await dvolAfficherDialogConfirmation(
+      '⏳ Trop tôt pour cette action',
+      'Cette étape n\'est prévue que le <strong>' + dateLabel + '</strong> (dans ' + joursR + ' jour' + (joursR>1?'s':'') + ').<br><br>Souhaitez-vous quand même la marquer comme réalisée ?',
+      'Oui, marquer quand même'
+    );
+    if (!ok) return;
+  }
+  const ok = await dvolMarquerEtapeRealisee(etapeId);
+  if (ok) {
+    showNotif('✅ Étape marquée réalisée.', 'success');
+    closeModal('dvol-detail-modal');
+    await dvolInit();
+  }
 }
 
 async function dvolMarquerEtapeUI(etapeId, dossierId) {
@@ -5068,7 +5093,143 @@ async function dvolMarquerEtapeUI(etapeId, dossierId) {
 
 
 // ===== TRANSFERT DOSSIER (Mes Dossiers) =====
-function ouvrirDialogTransfert(id, ref) {
+// ===== TRANSFERT DVOL COMPLET (Mes Dossiers) =====
+function ouvrirDialogTransfertDvolComplet(id, ref) {
+  const existing = document.getElementById('transfert-dvol-modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'transfert-dvol-modal';
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:520px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h2 style="margin:0;font-size:17px;color:var(--navy);">🚗 Transférer vers DVOL</h2>
+        <button class="btn btn-secondary" onclick="closeModal('transfert-dvol-modal')" style="font-size:12px;">✕</button>
+      </div>
+      <p style="margin:0 0 20px;font-size:13px;color:#666;">Réf. <strong>${ref}</strong></p>
+
+      <!-- Date déclaration -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;">📅 Date déclaration vol</label>
+        <input type="date" id="dvol-date-decl" style="width:100%;padding:10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;" required>
+      </div>
+
+      <!-- Compagnie -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;">🏢 Compagnie porteuse</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:13px;">
+            <input type="radio" name="dvol-compagnie" value="CMAM" style="accent-color:var(--rose);"> CMAM
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:13px;">
+            <input type="radio" name="dvol-compagnie" value="ÉQUITE" style="accent-color:var(--rose);"> ÉQUITE
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:13px;">
+            <input type="radio" name="dvol-compagnie" value="ALLIANZ" style="accent-color:var(--rose);"> ALLIANZ
+          </label>
+        </div>
+      </div>
+
+      <!-- Documents -->
+      <div style="margin-bottom:24px;">
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">📋 Documents reçus</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" class="dvol-docs" value="plainte" style="margin-top:2px;accent-color:var(--rose);"> Plainte police
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" class="dvol-docs" value="cng" style="margin-top:2px;accent-color:var(--rose);"> CNG
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" class="dvol-docs" value="formulaire" style="margin-top:2px;accent-color:var(--rose);"> Formulaire vol
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" class="dvol-docs" value="ct" style="margin-top:2px;accent-color:var(--rose);"> CT
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" class="dvol-docs" value="facture" style="margin-top:2px;accent-color:var(--rose);"> Facture d'achat
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" class="dvol-docs" value="argos" style="margin-top:2px;accent-color:var(--rose);"> Argos
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeModal('transfert-dvol-modal')">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmerTransfertDvolComplet('${id}', '${ref}')">Confirmer ↗</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Set today's date
+  document.getElementById('dvol-date-decl').value = new Date().toISOString().split('T')[0];
+}
+
+// ===== CONFIRMATION TRANSFERT DVOL =====
+async function confirmerTransfertDvolComplet(id, ref) {
+  const dateDecl = document.getElementById('dvol-date-decl').value;
+  const compagnie = document.querySelector('input[name="dvol-compagnie"]:checked')?.value;
+  const docsChecked = document.querySelectorAll('.dvol-docs:checked');
+
+  if (!dateDecl) { showNotif('Veuillez saisir la date de déclaration.', 'error'); return; }
+  if (!compagnie) { showNotif('Veuillez choisir la compagnie.', 'error'); return; }
+
+  closeModal('transfert-dvol-modal');
+  await transfererVersDvolComplet(id, ref, dateDecl, compagnie, docsChecked.length > 0);
+}
+
+// ===== TRANSFERT DVOL COMPLET =====
+async function transfererVersDvolComplet(id, ref, dateDecl, compagnie, hasDocs) {
+  // 1. Marquer traité dans dossiers
+  const { error: errDossier } = await db.from('dossiers').update({
+    traite: true,
+    statut: 'traite',
+    traite_at: new Date().toISOString()
+  }).eq('id', id);
+  if (errDossier) { showNotif('Erreur dossier : ' + errDossier.message, 'error'); return; }
+
+  // 2. Créer dvol_dossier
+  const dossier = (allDossiers || []).find(d => String(d.id) === String(id));
+  const { data: dvolDossier, error: errDvol } = await db.from('dvol_dossiers').insert({
+    numero_dossier: dossier?.ref_sinistre || ref,
+    gestionnaire_id: currentUserData.id || null,
+    compagnie: compagnie,
+    date_declaration: dateDecl,
+    assure_nom: dossier?.ref_contrat || '',
+    documents_recus: hasDocs,
+    date_reception_documents: hasDocs ? new Date().toISOString().split('T')[0] : null,
+    statut: 'declare'
+  }).select().single();
+
+  if (errDvol) { showNotif('Erreur DVOL : ' + errDvol.message, 'error'); return; }
+
+  // 3. Créer étapes selon template compagnie
+  const { data: templates } = await db.from('dvol_etapes_template')
+    .select('*').eq('compagnie', compagnie).eq('actif', true).order('ordre');
+
+  if (templates && templates.length > 0) {
+    const etapes = templates.map(t => {
+      const datePrevue = new Date(dateDecl);
+      datePrevue.setDate(datePrevue.getDate() + (t.delai_jours || 0));
+      return {
+        dossier_id: dvolDossier.id,
+        etape_template_id: t.id,
+        date_prevue: datePrevue.toISOString().split('T')[0],
+        statut: 'en_attente'
+      };
+    });
+    await db.from('dvol_suivi_etapes').insert(etapes);
+  }
+
+  await auditLog('TRANSFERT_DVOL_COMPLET', `Dossier ${ref} vers ${compagnie} (${hasDocs ? 'docs OK' : 'docs manquants'})`);
+  showNotif(`🚗 Dossier ${ref} transféré vers DVOL ${compagnie}.`, 'success');
+  await loadDossiers(); renderMesDossiers();
+}
+// ===== FIN TRANSFERT DVOL =====
   // Supprimer modale existante si présente
   const existing = document.getElementById('transfert-modal');
   if (existing) existing.remove();
@@ -5105,8 +5266,6 @@ function ouvrirDialogTransfert(id, ref) {
 
   document.body.appendChild(overlay);
 }
-
-async function confirmerTransfert(id, ref) {
   const selected = document.querySelector('input[name="transfert-dest"]:checked');
   if (!selected) { showNotif('Veuillez choisir une destination.', 'error'); return; }
   const dest = selected.value;
@@ -5118,8 +5277,6 @@ async function confirmerTransfert(id, ref) {
     await transfererVersDvol(id, ref);
   }
 }
-
-async function transfererVersDvol(id, ref) {
   // 1. Marquer le dossier comme traité pour le gestionnaire
   const { error: errUpdate } = await db.from('dossiers').update({
     traite: true,
