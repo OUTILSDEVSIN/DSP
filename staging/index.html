@@ -4695,8 +4695,8 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
 
 // ─── RÉCUPÉRER LE TABLEAU DE BORD DVOL ──────────────────────
 async function dvolGetTableauDeBord() {
-  const { data, error } = await db
-    .from('dvol_tableau_de_bord')
+const { data, error } = await db.from('dvol_tableau_de_bord')
+
     .select('*');
 
   if (error) { console.error('dvolGetTableauDeBord:', error); return []; }
