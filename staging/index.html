@@ -4982,7 +4982,6 @@ async function dvolOuvrirNouveauDossier() {
 }
 
 async function dvolOuvrirDossier(id) {
-  // Charger le dossier + ses étapes
   const { data: dossier, error: errD } = await db.from('dvol_dossiers').select('*').eq('id', id).single();
   if (errD || !dossier) { showNotif('Erreur chargement dossier.', 'error'); return; }
 
@@ -4993,68 +4992,65 @@ async function dvolOuvrirDossier(id) {
   const existing = document.getElementById('dvol-detail-modal');
   if (existing) existing.remove();
 
+  const today = new Date().toISOString().split('T')[0];
+
+  function etapeStatutBadge(s) {
+    if (s === 'realise') return '<span style="color:#27ae60;font-weight:700;">&#x2705; Réalisé</span>';
+    return '<span style="color:#f39c12;font-weight:700;">&#x23F3; En attente</span>';
+  }
+
+  let etapesRows = '';
+  if (etapes && etapes.length > 0) {
+    etapes.forEach(function(e, i) {
+      const tpl = e.dvol_etapes_template || {};
+      const isPast = e.date_prevue && e.date_prevue < today;
+      const isRealise = e.statut === 'realise';
+      const dateColor = (isPast && !isRealise) ? '#e74c3c' : '#666';
+      const actionBtn = !isRealise
+        ? '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px;" onclick="dvolMarquerEtapeUI(\'' + e.id + '\',\'' + id + '\')">&#x2714; Réalisé</button>'
+        : '';
+      etapesRows += '<tr style="border-bottom:1px solid #f0f0f0;' + (isRealise ? 'opacity:0.6;' : '') + '">'
+        + '<td style="padding:8px 12px;font-size:12px;color:#888;">' + (tpl.ordre || i+1) + '</td>'
+        + '<td style="padding:8px 12px;font-size:13px;">' + (tpl.label || '—') + '</td>'
+        + '<td style="padding:8px 12px;font-size:12px;color:' + dateColor + ';">' + (e.date_prevue || '—') + '</td>'
+        + '<td style="padding:8px 12px;">' + etapeStatutBadge(e.statut) + '</td>'
+        + '<td style="padding:8px 12px;text-align:center;">' + actionBtn + '</td>'
+        + '</tr>';
+    });
+  } else {
+    etapesRows = '<tr><td colspan="5" style="padding:20px;text-align:center;color:#888;">Aucune étape trouvée.</td></tr>';
+  }
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'dvol-detail-modal';
-
-  const statutColors = { declare:'#3498db', en_cours:'#f39c12', cloture:'#27ae60', vehicule_retrouve:'#8e44ad' };
-  const etapeStatutBadge = function(s) {
-    if (s === 'realise') return '<span style="color:#27ae60;font-weight:700;">✅ Réalisé</span>';
-    if (s === 'en_attente') return '<span style="color:#f39c12;font-weight:700;">⏳ En attente</span>';
-    return '<span style="color:#888;">'+s+'</span>';
-  };
-
-  const etapesHTML = (etapes && etapes.length > 0) ? etapes.map(function(e, i) {
-    const tpl = e.dvol_etapes_template || {};
-    const isPast = e.date_prevue && e.date_prevue < new Date().toISOString().split('T')[0];
-    const isRealise = e.statut === 'realise';
-    return '<tr style="border-bottom:1px solid #f0f0f0;' + (isRealise ? 'opacity:0.6;' : '') + '">' +
-      '<td style="padding:8px 12px;font-size:12px;color:#888;">' + (tpl.ordre||i+1) + '</td>' +
-      '<td style="padding:8px 12px;font-size:13px;">' + (tpl.label||'—') + '</td>' +
-      '<td style="padding:8px 12px;font-size:12px;color:' + (isPast && !isRealise ? '#e74c3c' : '#666') + ';">' + (e.date_prevue||'—') + '</td>' +
-      '<td style="padding:8px 12px;">' + etapeStatutBadge(e.statut) + '</td>' +
-      '<td style="padding:8px 12px;text-align:center;">' +
-        (!isRealise ? '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px;" onclick="dvolMarquerEtapeUI(\'' + e.id + '\', \'' + id + '\')">✔ Réalisé</button>' : '') +
-      '</td>' +
-    '</tr>';
-  }).join('') : '<tr><td colspan="5" style="padding:20px;text-align:center;color:#888;">Aucune étape trouvée.</td></tr>';
-
-  overlay.innerHTML =
-    '<div class="modal" style="max-width:680px;text-align:left;">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
-      '<h2 style="margin:0;font-size:17px;color:var(--navy);">🚗 Dossier ' + dossier.numero_dossier + '</h2>' +
-      '<button class="btn btn-secondary" style="font-size:12px;" onclick="closeModal('dvol-detail-modal')">✕ Fermer</button>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">' +
-      '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">' +
-        '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Assuré</div>' +
-        '<div style="font-size:13px;font-weight:700;">' + (dossier.assure_nom||'—') + '</div>' +
-      '</div>' +
-      '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">' +
-        '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Compagnie</div>' +
-        '<div style="font-size:13px;font-weight:700;">' + (dossier.compagnie||'—') + '</div>' +
-      '</div>' +
-      '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">' +
-        '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Déclaration</div>' +
-        '<div style="font-size:13px;font-weight:700;">' + (dossier.date_declaration||'—') + '</div>' +
-      '</div>' +
-    '</div>' +
-    '<h3 style="font-size:14px;margin:0 0 10px;color:var(--navy);">📋 Étapes de suivi</h3>' +
-    '<div style="overflow-x:auto;">' +
-    '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
-      '<thead><tr style="background:var(--navy);color:white;">' +
-        '<th style="padding:8px 12px;text-align:left;">#</th>' +
-        '<th style="padding:8px 12px;text-align:left;">Étape</th>' +
-        '<th style="padding:8px 12px;text-align:left;">Date prévue</th>' +
-        '<th style="padding:8px 12px;text-align:left;">Statut</th>' +
-        '<th style="padding:8px 12px;text-align:center;">Action</th>' +
-      '</tr></thead>' +
-      '<tbody>' + etapesHTML + '</tbody>' +
-    '</table></div>' +
-    '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">' +
-      '<button class="btn btn-danger" style="font-size:12px;" onclick="dvolCloturerVehiculeRetrouve(\'' + id + '\')">🚗 Véhicule retrouvé</button>' +
-    '</div>' +
-    '</div>';
+  overlay.innerHTML = ''
+    + '<div class="modal" style="max-width:680px;text-align:left;">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
+    + '<h2 style="margin:0;font-size:17px;color:var(--navy);">&#x1F697; Dossier ' + dossier.numero_dossier + '</h2>'
+    + "<button class=\"btn btn-secondary\" style=\"font-size:12px;\" onclick=\"closeModal('dvol-detail-modal')\">&#x2715; Fermer</button>" 
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">'
+    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Assuré</div><div style="font-size:13px;font-weight:700;">' + (dossier.assure_nom || '—') + '</div></div>'
+    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Compagnie</div><div style="font-size:13px;font-weight:700;">' + (dossier.compagnie || '—') + '</div></div>'
+    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Déclaration</div><div style="font-size:13px;font-weight:700;">' + (dossier.date_declaration || '—') + '</div></div>'
+    + '</div>'
+    + '<h3 style="font-size:14px;margin:0 0 10px;color:var(--navy);">&#x1F4CB; Étapes de suivi</h3>'
+    + '<div style="overflow-x:auto;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    + '<thead><tr style="background:var(--navy);color:white;">'
+    + '<th style="padding:8px 12px;text-align:left;">#</th>'
+    + '<th style="padding:8px 12px;text-align:left;">Étape</th>'
+    + '<th style="padding:8px 12px;text-align:left;">Date prévue</th>'
+    + '<th style="padding:8px 12px;text-align:left;">Statut</th>'
+    + '<th style="padding:8px 12px;text-align:center;">Action</th>'
+    + '</tr></thead>'
+    + '<tbody>' + etapesRows + '</tbody>'
+    + '</table></div>'
+    + '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">'
+    + '<button class="btn btn-danger" style="font-size:12px;" onclick="dvolCloturerVehiculeRetrouve(&apos;' + id + '&apos;)">&#x1F697; Véhicule retrouvé</button>'
+    + '</div>'
+    + '</div>';
 
   document.body.appendChild(overlay);
 }
@@ -5062,7 +5058,7 @@ async function dvolOuvrirDossier(id) {
 async function dvolMarquerEtapeUI(etapeId, dossierId) {
   const ok = await dvolMarquerEtapeRealisee(etapeId);
   if (ok) {
-    showNotif('✅ Étape marquée comme réalisée.', 'success');
+    showNotif('Étape marquée comme réalisée.', 'success');
     closeModal('dvol-detail-modal');
     await dvolInit();
     dvolOuvrirDossier(dossierId);
