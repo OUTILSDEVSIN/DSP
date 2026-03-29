@@ -5044,25 +5044,41 @@ async function transfererVersDvol(id, ref) {
   const { error: errUpdate } = await db.from('dossiers').update({
     traite: true,
     statut: 'traite',
-    traite_at: new Date().toISOString(),
-    is_dvol: true,
-    date_passage_dvol: new Date().toISOString()
+    traite_at: new Date().toISOString()
   }).eq('id', id);
 
-  if (errUpdate) { showNotif('Erreur : ' + errUpdate.message, 'error'); return; }
+  if (errUpdate) { showNotif('Erreur mise à jour dossier : ' + errUpdate.message, 'error'); return; }
 
-  // 2. Créer l'entrée dans dvol_dossiers
+  // 2. Créer l'entrée dans dvol_dossiers avec les bonnes colonnes
   const dossier = (allDossiers || []).find(function(d){ return String(d.id) === String(id); });
   if (dossier) {
-    const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-    await db.from('dvol_dossiers').insert({
-      numero_dossier: dossier.ref_sinistre,
+    // Construire une date valide (format YYYY-MM-DD obligatoire)
+    let dateDecl = new Date().toISOString().split('T')[0];
+    if (dossier.date_etat) {
+      // date_etat peut être "DD/MM/YYYY" ou ISO
+      const parts = String(dossier.date_etat).split('/');
+      if (parts.length === 3) {
+        dateDecl = parts[2] + '-' + parts[1] + '-' + parts[0];
+      } else if (dossier.date_etat.includes('-')) {
+        dateDecl = dossier.date_etat.split('T')[0];
+      }
+    }
+
+    const payload = {
+      numero_dossier: dossier.ref_sinistre || ref,
       gestionnaire_id: currentUserData.id || null,
-      compagnie: dossier.portefeuille || '',
-      date_declaration: dossier.date_etat || new Date().toISOString().split('T')[0],
+      compagnie: dossier.portefeuille || dossier.type || 'N/A',
+      date_declaration: dateDecl,
       assure_nom: dossier.ref_contrat || '',
+      assure_email: '',
       statut: 'declare'
-    });
+    };
+
+    const { error: errDvol } = await db.from('dvol_dossiers').insert(payload);
+    if (errDvol) {
+      showNotif('Erreur création DVOL : ' + errDvol.message, 'error');
+      return;
+    }
   }
 
   // 3. Audit log
