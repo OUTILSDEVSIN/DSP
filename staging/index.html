@@ -5167,10 +5167,19 @@ function ouvrirDialogTransfertDvolComplet(id, ref) {
 }
 
 async function confirmerTransfert(id, ref) {
-  const selected = document.querySelector(
-  document.getElementById('dvol-date-decl').value = new Date().toISOString().split('T')[0];
+  const selected = document.querySelector('input[name="transfert-dest"]:checked');
+  if (!selected) { showNotif('Veuillez choisir une destination.', 'error'); return; }
+  const dest = selected.value;
+  closeModal('transfert-modal');
+
+  if (dest === 'traite') {
+    await toggleTraiteMesDossiers(id, true);
+  } else if (dest === 'dvol') {
+    await transfererVersDvol(id, ref);
+  }
 }
 
+async function transfererVersDvol(id, ref) {
 // ===== CONFIRMATION TRANSFERT DVOL =====
 async function confirmerTransfertDvolComplet(id, ref) {
   const dateDecl = document.getElementById('dvol-date-decl').value;
