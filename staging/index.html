@@ -5164,8 +5164,10 @@ function ouvrirDialogTransfertDvolComplet(id, ref) {
     </div>`;
 
   document.body.appendChild(overlay);
+}
 
-  // Set today's date
+async function confirmerTransfert(id, ref) {
+  const selected = document.querySelector(
   document.getElementById('dvol-date-decl').value = new Date().toISOString().split('T')[0];
 }
 
@@ -5277,6 +5279,8 @@ async function transfererVersDvolComplet(id, ref, dateDecl, compagnie, hasDocs) 
     await transfererVersDvol(id, ref);
   }
 }
+
+async function transfererVersDvol(id, ref) {
   // 1. Marquer le dossier comme traité pour le gestionnaire
   const { error: errUpdate } = await db.from('dossiers').update({
     traite: true,
