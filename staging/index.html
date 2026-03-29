@@ -1890,7 +1890,7 @@ async function renderMesDossiers() {
     <div class="table-toolbar"><h2>Mes dossiers</h2><button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button></div>
     <table><thead><tr>
       <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
+      <th>Portefeuille</th><th>Statut</th><th style="text-align:center">Transférer</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
     html += '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
@@ -1964,9 +1964,10 @@ async function renderMesDossiers() {
         <td>${d.portefeuille}</td>
         <td>${statutBadge(d.statut, d.verrouille)}</td>
         <td style="text-align:center">
-          <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-            style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
-            onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">
+          ${d.traite
+            ? '<span style="color:#16a34a;font-size:12px;font-weight:700;">✅ Traité</span>'
+            : '<button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;" onclick="ouvrirDialogTransfert(\'' + d.id + '\', \'' + (d.ref_sinistre||'') + '\')" >↗ Transférer</button>'
+          }
         </td>
       </tr>`;
     });
@@ -4660,8 +4661,7 @@ function initTrocButton() {
 // ─── INITIALISER UN DOSSIER EN SUIVI DVOL ───────────────────
 async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, dateDeclaration, assureNom, assureEmail) {
   // 1. Créer le dossier dans dvol_dossiers
-  const { data: dossier, error: errDossier } = await db
-    .from('dvol_dossiers')
+  const { data: dossier, error: errDossier } = await db.from('dvol_dossiers')
     .insert({
       numero_dossier: numeroDossier,
       gestionnaire_id: gestionnaireId,
@@ -4677,8 +4677,7 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
   if (errDossier) { console.error('dvolInitialiserDossier:', errDossier); return null; }
 
   // 2. Activer le flag is_dvol sur la table dossiers principale
-  await db
-    .from('dossiers')
+  await db.from('dossiers')
     .update({ is_dvol: true, date_passage_dvol: new Date().toISOString() })
     .eq('numero', numeroDossier);
 
@@ -4695,8 +4694,7 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
 
 // ─── RÉCUPÉRER LE TABLEAU DE BORD DVOL ──────────────────────
 async function dvolGetTableauDeBord() {
-const { data, error } = await db.from('dvol_tableau_de_bord')
-
+  const { data, error } = await db.from('dvol_tableau_de_bord')
     .select('*');
 
   if (error) { console.error('dvolGetTableauDeBord:', error); return []; }
@@ -4705,8 +4703,7 @@ const { data, error } = await db.from('dvol_tableau_de_bord')
 
 // ─── RÉCUPÉRER UN DOSSIER DVOL ───────────────────────────────
 async function dvolGetDossier(dossierId) {
-  const { data, error } = await db
-    .from('dvol_dossiers')
+  const { data, error } = await db.from('dvol_dossiers')
     .select(`
       *,
       utilisateurs!dvol_dossiers_gestionnaire_id_fkey ( id, nom, prenom )
@@ -4720,8 +4717,7 @@ async function dvolGetDossier(dossierId) {
 
 // ─── RÉCUPÉRER LES ÉTAPES D'UN DOSSIER ──────────────────────
 async function dvolGetEtapesDossier(dossierId) {
-  const { data, error } = await db
-    .from('dvol_suivi_etapes')
+  const { data, error } = await db.from('dvol_suivi_etapes')
     .select(`
       *,
       dvol_etapes_template ( ordre, label, description, delai_jours )
@@ -4766,8 +4762,7 @@ async function dvolChangerStatut(dossierId, nouveauStatut, dateCloturePrevue = n
   const update = { statut: nouveauStatut, updated_at: new Date().toISOString() };
   if (dateCloturePrevue) update.date_cloture_prevue = dateCloturePrevue;
 
-  const { error } = await db
-    .from('dvol_dossiers')
+  const { error } = await db.from('dvol_dossiers')
     .update(update)
     .eq('id', dossierId);
 
@@ -4777,8 +4772,7 @@ async function dvolChangerStatut(dossierId, nouveauStatut, dateCloturePrevue = n
 
 // ─── MARQUER UNE ÉTAPE COMME RÉALISÉE ───────────────────────
 async function dvolMarquerEtapeRealisee(suiviEtapeId, commentaire = null) {
-  const { error } = await db
-    .from('dvol_suivi_etapes')
+  const { error } = await db.from('dvol_suivi_etapes')
     .update({
       statut: 'realise',
       date_realisee: new Date().toISOString().split('T')[0],
@@ -4793,8 +4787,7 @@ async function dvolMarquerEtapeRealisee(suiviEtapeId, commentaire = null) {
 
 // ─── RÉCUPÉRER LES NOTIFICATIONS NON LUES ───────────────────
 async function dvolGetNotificationsNonLues(gestionnaireId) {
-  const { data, error } = await db
-    .from('dvol_notifications')
+  const { data, error } = await db.from('dvol_notifications')
     .select(`
       *,
       dvol_dossiers ( numero_dossier, assure_nom, compagnie )
@@ -4809,8 +4802,7 @@ async function dvolGetNotificationsNonLues(gestionnaireId) {
 
 // ─── MARQUER UNE NOTIFICATION COMME LUE ─────────────────────
 async function dvolMarquerNotificationLue(notifId) {
-  const { error } = await db
-    .from('dvol_notifications')
+  const { error } = await db.from('dvol_notifications')
     .update({ lu: true })
     .eq('id', notifId);
 
@@ -4994,6 +4986,93 @@ async function dvolOuvrirDossier(id) {
 }
 // ===== FIN DVOL INIT & RENDER =====
 
+
+// ===== TRANSFERT DOSSIER (Mes Dossiers) =====
+function ouvrirDialogTransfert(id, ref) {
+  // Supprimer modale existante si présente
+  const existing = document.getElementById('transfert-modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'transfert-modal';
+
+  const destinations = [
+    { key: 'traite',  icon: '✅', label: 'Marquer comme Traité',  desc: 'Le dossier sera clôturé et retiré de vos dossiers.' },
+    { key: 'dvol',    icon: '🚗', label: 'Transférer vers DVOL',   desc: 'Le dossier sera suivi dans le module vol de véhicule.' },
+  ];
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px;text-align:left;">
+      <h2 style="margin:0 0 6px;font-size:17px;color:var(--navy);">↗ Transférer le dossier</h2>
+      <p style="margin:0 0 20px;font-size:13px;color:#666;">Réf. <strong>${ref}</strong> — Choisissez la destination :</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+        ${destinations.map(d => `
+          <label style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid var(--gray-300);border-radius:8px;cursor:pointer;transition:border-color 0.15s;"
+            onmouseover="this.style.borderColor='var(--rose)'" onmouseout="this.style.borderColor='var(--gray-300)'">
+            <input type="radio" name="transfert-dest" value="${d.key}" style="margin-top:3px;accent-color:var(--rose);">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--navy);">${d.icon} ${d.label}</div>
+              <div style="font-size:12px;color:#888;margin-top:2px;">${d.desc}</div>
+            </div>
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeModal('transfert-modal')">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmerTransfert('${id}', '${ref}')">Confirmer ↗</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+async function confirmerTransfert(id, ref) {
+  const selected = document.querySelector('input[name="transfert-dest"]:checked');
+  if (!selected) { showNotif('Veuillez choisir une destination.', 'error'); return; }
+  const dest = selected.value;
+  closeModal('transfert-modal');
+
+  if (dest === 'traite') {
+    await toggleTraiteMesDossiers(id, true);
+  } else if (dest === 'dvol') {
+    await transfererVersDvol(id, ref);
+  }
+}
+
+async function transfererVersDvol(id, ref) {
+  // 1. Marquer le dossier comme traité pour le gestionnaire
+  const { error: errUpdate } = await db.from('dossiers').update({
+    traite: true,
+    statut: 'traite',
+    traite_at: new Date().toISOString(),
+    is_dvol: true,
+    date_passage_dvol: new Date().toISOString()
+  }).eq('id', id);
+
+  if (errUpdate) { showNotif('Erreur : ' + errUpdate.message, 'error'); return; }
+
+  // 2. Créer l'entrée dans dvol_dossiers
+  const dossier = (allDossiers || []).find(function(d){ return String(d.id) === String(id); });
+  if (dossier) {
+    const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
+    await db.from('dvol_dossiers').insert({
+      numero_dossier: dossier.ref_sinistre,
+      gestionnaire_id: currentUserData.id || null,
+      compagnie: dossier.portefeuille || '',
+      date_declaration: dossier.date_etat || new Date().toISOString().split('T')[0],
+      assure_nom: dossier.ref_contrat || '',
+      statut: 'declare'
+    });
+  }
+
+  // 3. Audit log
+  await auditLog('TRANSFERT_DVOL', 'Dossier transféré vers DVOL — Réf. ' + ref);
+  showNotif('🚗 Dossier ' + ref + ' transféré vers DVOL.', 'success');
+
+  await loadDossiers();
+  renderMesDossiers();
+}
+// ===== FIN TRANSFERT DOSSIER =====
 </script>
 </body>
 </html>
