@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.55">
+  <meta name="version" content="2.5.57">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -497,10 +497,41 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
   .dplane-grid thead tr:nth-child(2) th { background:#1e293b; color:rgba(255,255,255,.5); font-size:9px; padding:3px; border-bottom:2px solid rgba(229,25,94,.35); }
   .dplane-tag .tag-remove:hover { opacity:1; }
   .dplane-absence { font-size:10px; padding:2px 6px; border-radius:20px; background:#fff3e0; color:#c2410c; border:1px solid #fed7aa; font-weight:600; display:inline-flex; align-items:center; gap:3px; }
+
+  /* ===== DVOL CHIP CHECKBOXES ===== */
+  .dvol-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gray-800);
+    background: var(--white);
+    transition: all 0.12s;
+    user-select: none;
+    line-height: 1.6;
+  }
+  .dvol-chip:hover { border-color: var(--rose); color: var(--rose); }
+  .dvol-chip input[type="checkbox"] {
+    accent-color: var(--rose);
+    width: 12px; height: 12px;
+    margin: 0;
+    cursor: pointer;
+  }
+  .dvol-chip:has(input:checked) {
+    background: var(--rose-light);
+    border-color: var(--rose);
+    color: var(--rose);
+    font-weight: 700;
+  }
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.55';
+    const APP_VERSION = '2.5.57';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -4998,7 +5029,11 @@ async function dvolOuvrirDossier(id) {
     .select('*, dvol_etapes_template(label, description)')
     .eq('dossier_id', id).eq('statut', 'en_attente').order('date_prevue');
 
-  const existing = document.getElementById('dvol-detail-modal');
+
+  const { count: totalEtapes } = await db.from('dvol_suivi_etapes')
+    .select('id', { count: 'exact', head: true }).eq('dossier_id', id);
+
+
   if (existing) existing.remove();
 
   const today = new Date().toISOString().split('T')[0];
@@ -5149,28 +5184,17 @@ function ouvrirDialogTransfertDvolComplet(id, ref) {
         </div>
       </div>
 
+
       <!-- Documents -->
-      <div style="margin-bottom:24px;">
-        <label style="display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">📋 Documents reçus</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
-            <input type="checkbox" class="dvol-docs" value="plainte" style="margin-top:2px;accent-color:var(--rose);"> Plainte police
-          </label>
-          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
-            <input type="checkbox" class="dvol-docs" value="cng" style="margin-top:2px;accent-color:var(--rose);"> CNG
-          </label>
-          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
-            <input type="checkbox" class="dvol-docs" value="formulaire" style="margin-top:2px;accent-color:var(--rose);"> Formulaire vol
-          </label>
-          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
-            <input type="checkbox" class="dvol-docs" value="ct" style="margin-top:2px;accent-color:var(--rose);"> CT
-          </label>
-          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
-            <input type="checkbox" class="dvol-docs" value="facture" style="margin-top:2px;accent-color:var(--rose);"> Facture d'achat
-          </label>
-          <label style="display:flex;align-items:flex-start;gap:6px;padding:8px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;font-size:12px;">
-            <input type="checkbox" class="dvol-docs" value="argos" style="margin-top:2px;accent-color:var(--rose);"> Argos
-          </label>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px;">📋 Documents reçus</label>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          <label class="dvol-chip"><input type="checkbox" class="dvol-docs" value="plainte"><span>Plainte police</span></label>
+          <label class="dvol-chip"><input type="checkbox" class="dvol-docs" value="cng"><span>CNG</span></label>
+          <label class="dvol-chip"><input type="checkbox" class="dvol-docs" value="formulaire"><span>Formulaire vol</span></label>
+          <label class="dvol-chip"><input type="checkbox" class="dvol-docs" value="ct"><span>CT</span></label>
+          <label class="dvol-chip"><input type="checkbox" class="dvol-docs" value="facture"><span>Facture d'achat</span></label>
+          <label class="dvol-chip"><input type="checkbox" class="dvol-docs" value="argos"><span>Argos</span></label>
         </div>
       </div>
 
