@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.42">
+  <meta name="version" content="2.5.54">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -500,7 +500,7 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.53';
+    const APP_VERSION = '2.5.54';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -5164,22 +5164,11 @@ function ouvrirDialogTransfertDvolComplet(id, ref) {
     </div>`;
 
   document.body.appendChild(overlay);
+
+  // Set today's date
+  document.getElementById('dvol-date-decl').value = new Date().toISOString().split('T')[0];
 }
 
-async function confirmerTransfert(id, ref) {
-  const selected = document.querySelector('input[name="transfert-dest"]:checked');
-  if (!selected) { showNotif('Veuillez choisir une destination.', 'error'); return; }
-  const dest = selected.value;
-  closeModal('transfert-modal');
-
-  if (dest === 'traite') {
-    await toggleTraiteMesDossiers(id, true);
-  } else if (dest === 'dvol') {
-    await transfererVersDvol(id, ref);
-  }
-}
-
-async function transfererVersDvol(id, ref) {
 // ===== CONFIRMATION TRANSFERT DVOL =====
 async function confirmerTransfertDvolComplet(id, ref) {
   const dateDecl = document.getElementById('dvol-date-decl').value;
@@ -5277,6 +5266,8 @@ async function transfererVersDvolComplet(id, ref, dateDecl, compagnie, hasDocs) 
 
   document.body.appendChild(overlay);
 }
+
+async function confirmerTransfert(id, ref) {
   const selected = document.querySelector('input[name="transfert-dest"]:checked');
   if (!selected) { showNotif('Veuillez choisir une destination.', 'error'); return; }
   const dest = selected.value;
