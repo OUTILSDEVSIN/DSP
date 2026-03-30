@@ -5031,6 +5031,11 @@ async function dvolOuvrirDossier(id) {
       + '<div style="padding:10px 14px;background:#f0fdf4;border-radius:6px;font-size:12px;color:#166534;">'
       + '<strong>Prochaine étape :</strong> ' + prochaineLabel
       + '</div>';
+  } else if (totalEtapes === 0) {
+    actionBlock = '<div style="text-align:center;padding:24px;color:#92400e;font-size:13px;background:#fef3c7;border-radius:8px;margin-bottom:16px;">'
+      + '<div style="font-size:28px;margin-bottom:8px;">⚠️</div>'
+      + '<strong>Aucune étape initialisée.</strong><br><span style="font-size:12px;color:#b45309;margin-top:4px;display:block;">Vérifiez que la compagnie est bien configurée dans les templates.</span></div>'
+      + '<div style="display:flex;justify-content:flex-end;">'      + '<button class="btn btn-secondary" onclick="closeModal(\'dvol-detail-modal\')">Fermer</button></div>';
   } else {
     actionBlock = '<div style="text-align:center;padding:24px;color:#27ae60;font-size:14px;">'
       + '<div style="font-size:32px;margin-bottom:8px;">✅</div>'
@@ -5039,19 +5044,31 @@ async function dvolOuvrirDossier(id) {
       + '<button class="btn btn-secondary" onclick="closeModal(\'dvol-detail-modal\')">Fermer</button></div>';
   }
 
+  const docsListe = Array.isArray(dossier.documents_recus_liste) ? dossier.documents_recus_liste : [];
+  const docsLabels = { plainte: 'Plainte police', cng: 'CNG', formulaire: 'Formulaire vol', ct: 'CT', facture: "Facture d'achat", argos: 'Argos' };
+  const docsHtml = docsListe.length > 0
+    ? docsListe.map(d => '<span style="display:inline-block;background:#eef3fa;color:var(--navy);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;margin:2px;">' + (docsLabels[d]||d) + '</span>').join('')
+    : '<span style="font-size:12px;color:#aaa;">Aucun document enregistré</span>';
+
   overlay.innerHTML = '<div class="modal" style="max-width:480px;text-align:left;">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
     + '<h2 style="margin:0;font-size:17px;color:var(--navy);">🚗 ' + dossier.numero_dossier + '</h2>'
     + '<button class="btn btn-secondary" style="font-size:12px;" onclick="closeModal(\'dvol-detail-modal\')">✕ Fermer</button>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">'
     + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">'
-    + '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Compagnie</div>'
+    + '<div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">Portefeuille</div>'
+    + '<div style="font-size:13px;font-weight:700;">' + (dossier.portefeuille||'—') + '</div></div>'
+    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">'
+    + '<div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">Compagnie</div>'
     + '<div style="font-size:13px;font-weight:700;">' + (dossier.compagnie||'—') + '</div></div>'
     + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;">'
-    + '<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Déclaration</div>'
+    + '<div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">Déclaration</div>'
     + '<div style="font-size:13px;font-weight:700;">' + (dossier.date_declaration ? new Date(dossier.date_declaration).toLocaleDateString('fr-FR') : '—') + '</div></div>'
     + '</div>'
+    + '<div style="background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:16px;">'
+    + '<div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:6px;">📋 Documents reçus</div>'
+    + '<div>' + docsHtml + '</div></div>'
     + actionBlock
     + '<div style="margin-top:16px;border-top:1px solid #f0f0f0;padding-top:12px;">'
     + '<button class="btn btn-danger" style="font-size:12px;" onclick="dvolCloturerVehiculeRetrouve(\'' + id + '\')">🚗 Véhicule retrouvé</button>'
