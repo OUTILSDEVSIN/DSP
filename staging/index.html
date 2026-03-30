@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispatchis</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.54">
+  <meta name="version" content="2.5.55">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -500,7 +500,7 @@ body.dark-mode .troc-modal-content, body.dark-mode .troc-realtime-popup { backgr
 </style>
   <script>
     // Ticket 7 - Cache busting via version check
-    const APP_VERSION = '2.5.54';
+    const APP_VERSION = '2.5.55';
     var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
       sessionStorage.setItem('dispatchis_version', APP_VERSION);
@@ -5230,6 +5230,7 @@ async function transfererVersDvolComplet(id, ref, dateDecl, compagnie, hasDocs) 
   await loadDossiers(); renderMesDossiers();
 }
 // ===== FIN TRANSFERT DVOL =====
+function ouvrirDialogTransfert(id, ref) {
   // Supprimer modale existante si présente
   const existing = document.getElementById('transfert-modal');
   if (existing) existing.remove();
