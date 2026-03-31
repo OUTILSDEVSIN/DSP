@@ -1,1 +1,1 @@
-PLACEHOLDER
+/* config.js placeholder */
