@@ -157,3 +157,82 @@ function dvolCouleurStatut(statut) {
   const couleurs = { 'declare': '#3b82f6', 'en_attente_documents': '#f59e0b', 'relance': '#f97316', 'en_cours_expertise': '#8b5cf6', 'en_attente_cloture': '#06b6d4', 'vehicule_retrouve': '#22c55e', 'labtaf': '#6b7280', 'refuse': '#ef4444', 'clos': '#10b981' };
   return couleurs[statut] || '#6b7280';
 }
+// ===== RENDER DVOL — Tableau de bord =====
+async function renderDvol() {
+  document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
+
+  const dossiers = await dvolGetTableauDeBord();
+  const aujourd_hui = new Date().toISOString().split('T')[0];
+
+  const total   = dossiers.length;
+  const enCours = dossiers.filter(d => !['clos','vehicule_retrouve','labtaf','refuse'].includes(d.statut)).length;
+  const alertes = dossiers.filter(d => d.date_prochaine_etape && d.date_prochaine_etape <= aujourd_hui && !['clos','vehicule_retrouve','labtaf','refuse'].includes(d.statut)).length;
+  const clos    = dossiers.filter(d => ['clos','vehicule_retrouve'].includes(d.statut)).length;
+
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="color:var(--navy);margin:0">🚗 Suivi Dvol</h2>
+      <span style="font-size:12px;color:#888;background:#f0f4f8;padding:4px 12px;border-radius:12px">
+        📅 Mis à jour le ${new Date().toLocaleDateString('fr-FR')}
+      </span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="number">${total}</div><div class="label">Total dossiers Dvol</div></div>
+      <div class="stat-card"><div class="number" style="color:#e67e22">${enCours}</div><div class="label">En cours</div></div>
+      <div class="stat-card"><div class="number" style="color:#e74c3c">${alertes}</div><div class="label">⚠️ Action requise</div></div>
+      <div class="stat-card"><div class="number" style="color:#27ae60">${clos}</div><div class="label">Clôturés</div></div>
+    </div>
+    <div class="table-container">
+      <div class="table-toolbar">
+        <h2>Dossiers vol <span style="color:#888;font-weight:400;font-size:14px">(${total})</span></h2>
+      </div>`;
+
+  if (!total) {
+    html += `<div style="text-align:center;padding:60px;color:#aaa">
+      <div style="font-size:48px;margin-bottom:12px">🚗</div>
+      <p>Aucun dossier vol en suivi pour le moment.</p>
+    </div>`;
+  } else {
+    html += `<table>
+      <thead><tr>
+        <th>N° Dossier</th><th>Assuré</th><th>Compagnie</th><th>Gestionnaire</th>
+        <th>Déclaration</th><th>Prochaine étape</th><th>Statut</th><th>Action</th>
+      </tr></thead><tbody>`;
+
+    dossiers.forEach(d => {
+      const estActif  = !['clos','vehicule_retrouve','labtaf','refuse'].includes(d.statut);
+      const enRetard  = estActif && d.date_prochaine_etape && d.date_prochaine_etape <= aujourd_hui;
+      const rowStyle  = enRetard ? 'background:#fff5f5;border-left:3px solid #e74c3c'
+                      : estActif ? 'background:#fffde7;border-left:3px solid #f39c12' : '';
+      const gestNom   = d.utilisateurs ? (d.utilisateurs.prenom + ' ' + d.utilisateurs.nom) : '—';
+      const dateDecl  = d.date_declaration ? new Date(d.date_declaration).toLocaleDateString('fr-FR') : '—';
+      const dateEtape = d.date_prochaine_etape ? new Date(d.date_prochaine_etape).toLocaleDateString('fr-FR') : '—';
+      const btnAction = enRetard
+        ? `<button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="dvolOuvrirDossier('${d.id}')">⚠️ Retard</button>`
+        : estActif
+          ? `<button class="btn btn-primary" style="padding:4px 10px;font-size:11px" onclick="dvolOuvrirDossier('${d.id}')">📋 Voir</button>`
+          : `<button class="btn btn-secondary" style="padding:4px 10px;font-size:11px;opacity:.6" onclick="dvolOuvrirDossier('${d.id}')">📁 Archivé</button>`;
+
+      html += `<tr style="${rowStyle}">
+        <td><strong>${d.numero_dossier || d.id}</strong></td>
+        <td>${d.assure_nom || '—'}</td>
+        <td>${d.compagnie || '—'}</td>
+        <td>${gestNom}</td>
+        <td style="font-size:12px;color:#666">${dateDecl}</td>
+        <td style="font-size:12px;font-weight:600;color:${enRetard ? '#e74c3c' : '#1B3461'}">${dateEtape}</td>
+        <td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;color:white;background:${dvolCouleurStatut(d.statut)}">${dvolLabelStatut(d.statut)}</span></td>
+        <td>${btnAction}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function dvolOuvrirDossier(id) {
+  showNotif('📋 Dossier ' + id + ' — vue détail à venir.', 'info');
+}
+// ===== FIN RENDER DVOL =====
