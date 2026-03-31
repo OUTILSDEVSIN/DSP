@@ -9,6 +9,7 @@ function buildTabs() {
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
+  tabs.push({ id: 'dvol', label: '🚗 Dvol' });
   tabs.push({ id: 'stats', label: '📊 Stats' });
   const container = document.getElementById('tabs-container');
   container.innerHTML = tabs.map(t =>
@@ -33,6 +34,7 @@ function showTab(id) {
   else if (id === 'mesdossiers') renderMesDossiers();
   else if (id === 'utilisateurs') renderUtilisateurs();
   else if (id === 'audit') renderAuditLogs();
+  else if (id === 'dvol') renderDvol();
   else if (id === 'stats') renderStats();
 }
 
