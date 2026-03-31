@@ -5,7 +5,7 @@
 
 // ─── INITIALISER UN DOSSIER EN SUIVI DVOL ───────────────────
 async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, dateDeclaration, assureNom, assureEmail) {
-  const { data: dossier, error: errDossier } = await supabase
+  const { data: dossier, error: errDossier } = await db
     .from('dvol_dossiers')
     .insert({
       numero_dossier: numeroDossier,
@@ -21,12 +21,12 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
 
   if (errDossier) { console.error('dvolInitialiserDossier:', errDossier); return null; }
 
-  await supabase
+  await db
     .from('dossiers')
     .update({ is_dvol: true, date_passage_dvol: new Date().toISOString() })
     .eq('numero', numeroDossier);
 
-  const { error: errEtapes } = await supabase.rpc('initialiser_suivi_dvol', {
+  const { error: errEtapes } = await db.rpc('initialiser_suivi_dvol', {
     p_dossier_id: dossier.id,
     p_compagnie: compagnie
   });
@@ -36,13 +36,13 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
 }
 
 async function dvolGetTableauDeBord() {
-  const { data, error } = await supabase.from('dvol_tableau_de_bord').select('*');
+  const { data, error } = await db.from('dvol_tableau_de_bord').select('*');
   if (error) { console.error('dvolGetTableauDeBord:', error); return []; }
   return data;
 }
 
 async function dvolGetDossier(dossierId) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dvol_dossiers')
     .select(`*, utilisateurs!dvol_dossiers_gestionnaire_id_fkey ( id, nom, prenom )`)
     .eq('id', dossierId)
@@ -52,7 +52,7 @@ async function dvolGetDossier(dossierId) {
 }
 
 async function dvolGetEtapesDossier(dossierId) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dvol_suivi_etapes')
     .select(`*, dvol_etapes_template ( ordre, label, description, delai_jours )`)
     .eq('dossier_id', dossierId)
@@ -62,7 +62,7 @@ async function dvolGetEtapesDossier(dossierId) {
 }
 
 async function dvolConfirmerDocuments(dossierId) {
-  const { error } = await supabase.rpc('confirmer_documents_dvol', { p_dossier_id: dossierId });
+  const { error } = await db.rpc('confirmer_documents_dvol', { p_dossier_id: dossierId });
   if (error) { console.error('dvolConfirmerDocuments:', error); return false; }
   return true;
 }
@@ -74,7 +74,7 @@ async function dvolCloturerVehiculeRetrouve(dossierId) {
     'Oui, clôturer le dossier'
   );
   if (!confirmed) return false;
-  const { error } = await supabase.rpc('cloturer_dvol_vehicule_retrouve', { p_dossier_id: dossierId });
+  const { error } = await db.rpc('cloturer_dvol_vehicule_retrouve', { p_dossier_id: dossierId });
   if (error) { console.error('dvolCloturerVehiculeRetrouve:', error); return false; }
   return true;
 }
@@ -82,13 +82,13 @@ async function dvolCloturerVehiculeRetrouve(dossierId) {
 async function dvolChangerStatut(dossierId, nouveauStatut, dateCloturePrevue = null) {
   const update = { statut: nouveauStatut, updated_at: new Date().toISOString() };
   if (dateCloturePrevue) update.date_cloture_prevue = dateCloturePrevue;
-  const { error } = await supabase.from('dvol_dossiers').update(update).eq('id', dossierId);
+  const { error } = await db.from('dvol_dossiers').update(update).eq('id', dossierId);
   if (error) { console.error('dvolChangerStatut:', error); return false; }
   return true;
 }
 
 async function dvolMarquerEtapeRealisee(suiviEtapeId, commentaire = null) {
-  const { error } = await supabase
+  const { error } = await db
     .from('dvol_suivi_etapes')
     .update({ statut: 'realise', date_realisee: new Date().toISOString().split('T')[0], commentaire, updated_at: new Date().toISOString() })
     .eq('id', suiviEtapeId);
@@ -97,7 +97,7 @@ async function dvolMarquerEtapeRealisee(suiviEtapeId, commentaire = null) {
 }
 
 async function dvolGetNotificationsNonLues(gestionnaireId) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dvol_notifications')
     .select(`*, dvol_dossiers ( numero_dossier, assure_nom, compagnie )`)
     .eq('gestionnaire_id', gestionnaireId)
@@ -108,7 +108,7 @@ async function dvolGetNotificationsNonLues(gestionnaireId) {
 }
 
 async function dvolMarquerNotificationLue(notifId) {
-  const { error } = await supabase.from('dvol_notifications').update({ lu: true }).eq('id', notifId);
+  const { error } = await db.from('dvol_notifications').update({ lu: true }).eq('id', notifId);
   if (error) { console.error('dvolMarquerNotificationLue:', error); return false; }
   return true;
 }
