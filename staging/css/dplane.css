@@ -1,0 +1,79 @@
+/* ============================================================
+   dplane.css — Dispatchis v2.5.58
+   Styles spécifiques au module Dplane (planning équipe)
+   ============================================================ */
+
+/* ===== DPLANE STYLES ===== */
+  .tool-switcher { display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.08);border-radius:8px;padding:3px;margin-right:12px; }
+  .tool-btn { padding:5px 14px;border-radius:6px;border:none;background:transparent;color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.5px;transition:all 0.18s;white-space:nowrap; }
+  .tool-btn:hover { background:rgba(255,255,255,0.1);color:white; }
+  .tool-btn.active { background:var(--rose);color:white; }
+  .tool-btn .d-letter { color:var(--rose); }
+  .tool-btn.active .d-letter { color:white; }
+  #dplane-screen { display:none; }
+  .dplane-grid { background:var(--white);border-radius:var(--radius-md);border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);overflow:auto;margin-bottom:14px; }
+  /* ── Grille Dplane v5 — design compact et lisible ── */
+  .dplane-grid { overflow-x:auto; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+  .dplane-grid table { 
+    width:100%; border-collapse:collapse; font-size:12px;
+    table-layout:fixed;
+  }
+  .dplane-grid col.col-membre { width:185px; }
+  .dplane-grid col.col-cr     { width:calc((100% - 145px)/10); min-width:72px; }
+
+  /* ── Thead ── */
+  .dplane-grid thead tr:first-child th {
+    background:var(--navy); color:white; padding:7px 4px; text-align:center;
+    font-weight:700; font-size:11px; letter-spacing:.4px; text-transform:uppercase;
+    border-right:1px solid rgba(255,255,255,0.08);
+  }
+  .dplane-grid thead tr:first-child th:first-child { text-align:left; padding-left:10px; }
+  .dplane-grid thead tr:nth-child(2) th {
+    background:#1e293b; color:rgba(255,255,255,.55); padding:4px 2px;
+    font-size:9px; font-weight:500; letter-spacing:.5px; text-transform:uppercase;
+    border-right:1px solid rgba(255,255,255,.05); border-bottom:2px solid rgba(229,25,94,.4);
+  }
+
+  /* ── Tbody ── */
+  .dplane-grid tbody tr:nth-child(even) td { background:rgba(0,0,0,.015); }
+  .dplane-grid tbody tr:hover td { background:rgba(229,25,94,.04) !important; transition:background .12s; }
+  .dplane-grid tbody td { 
+    padding:4px 3px; border-bottom:1px solid var(--gray-200);
+    border-right:1px solid rgba(0,0,0,.06); vertical-align:middle;
+    text-align:center; overflow:hidden;
+  }
+  .dplane-grid tbody td:first-child { 
+    padding:4px 6px 4px 8px; text-align:left; 
+    border-right:2px solid rgba(0,0,0,.08);
+    background:white !important;
+  }
+  .dplane-grid tbody tr:hover td:first-child { background:#fafafa !important; }
+  .dplane-grid thead th { background:var(--navy);color:white;padding:10px 8px;text-align:center;font-weight:600;font-size:12px;border-right:1px solid rgba(255,255,255,0.1); }
+  .dplane-grid thead th:first-child { text-align:left;min-width:150px; }
+  .dplane-grid tbody td { padding:6px 8px;border-bottom:1px solid var(--gray-200);border-right:1px solid var(--gray-200);vertical-align:middle;text-align:center; }
+  .dplane-grid tbody td:first-child { text-align:left;font-weight:600;color:var(--navy); }
+  .dplane-grid tbody tr:last-child td { border-bottom:none; }
+  .dplane-grid tbody tr:hover td { background:#fafbff; }
+  .dplane-cell { display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-start;min-height:24px;align-items:center;padding:2px 1px; }
+  .dplane-tag { display:inline-flex;align-items:center;gap:1px;padding:2px 6px;border-radius:20px;font-size:10px;font-weight:700;color:white;cursor:default;white-space:nowrap;max-width:88px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,.18); }
+  .dplane-tag .tag-remove { cursor:pointer;opacity:0.5;font-size:10px;line-height:1;margin-left:1px;flex-shrink:0; }
+  .dplane-tag .tag-remove:hover { opacity:1; }
+  .dplane-cell-add { width:18px;height:18px;border-radius:50%;border:1.5px dashed var(--gray-300);background:none;cursor:pointer;color:var(--gray-300);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0; }
+  .dplane-cell-add:hover { border-color:var(--rose);color:var(--rose); }
+  .dplane-absence { background:#fef3e2;border:1px solid #f97316;border-radius:20px;padding:2px 7px;font-size:11px;font-weight:600;color:#92540a;white-space:nowrap;display:inline-flex;align-items:center;gap:4px; }
+  .dplane-nav { display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap; }
+  .dplane-nav-week { font-size:14px;font-weight:700;color:var(--navy);min-width:200px;text-align:center; }
+  .dplane-today-btn { padding:5px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--gray-300);background:var(--white);color:var(--navy);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s; }
+  .dplane-today-btn:hover { background:var(--gray-100);border-color:var(--gray-400); }
+  .dplane-legend { display:flex;gap:10px;flex-wrap:wrap;align-items:center; }
+  .dplane-legend-item { display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-600); }
+  .dplane-legend-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+  .dplane-popup-overlay { position:fixed;inset:0;background:rgba(15,27,45,0.5);display:flex;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(2px); }
+  .dplane-popup { background:var(--white);border-radius:var(--radius-lg);padding:28px;box-shadow:var(--shadow-md);max-height:90vh;overflow-y:auto; }
+  .dplane-popup h2 { color:var(--navy);font-size:17px;font-weight:700;margin-bottom:4px; }
+  .dplane-date { color:var(--gray-600);font-size:13px;margin-bottom:4px; }
+  body.dark-mode .dplane-grid { border-color:#2a2d3e !important; }
+  body.dark-mode .dplane-grid thead th { background:#0d1f3c; }
+  body.dark-mode .dplane-grid tbody td { border-color:#2a2d3e;color:#d0d5e0; }
+  body.dark-mode .dplane-popup { background:#1a1d27 !important; }
+  /* ===== FIN DPLANE STYLES ===== */
