@@ -848,18 +848,34 @@ async function dplaneInit() {
 
 // ── Switcher ──
 function switchTool(tool) {
-  const tabs=document.getElementById('tabs-container');
-  const mc=document.getElementById('main-content');
-  const dp=document.getElementById('dplane-screen');
-  const bd=document.getElementById('btn-tool-dispatch');
-  const bpl=document.getElementById('btn-tool-dplane');
-  if(tool==='dplane'){
-    if(tabs)tabs.style.display='none'; if(mc)mc.style.display='none'; if(dp)dp.style.display='block';
-    bd?.classList.remove('active'); bpl?.classList.add('active');
+  const tabs = document.getElementById('tabs-container');
+  const mc = document.getElementById('main-content');
+  const dp = document.getElementById('dplane-screen');
+  const dv = document.getElementById('dvol-screen');
+  const bd = document.getElementById('btn-tool-dispatch');
+  const bpl = document.getElementById('btn-tool-dplane');
+  const bdv = document.getElementById('btn-tool-dvol');
+
+  if (tool === 'dplane') {
+    if (tabs) tabs.style.display = 'none';
+    if (mc) mc.style.display = 'none';
+    if (dp) dp.style.display = 'block';
+    if (dv) dv.style.display = 'none';
+    bd?.classList.remove('active'); bpl?.classList.add('active'); bdv?.classList.remove('active');
     dplaneInit();
+  } else if (tool === 'dvol') {
+    if (tabs) tabs.style.display = 'none';
+    if (mc) mc.style.display = 'none';
+    if (dp) dp.style.display = 'none';
+    if (dv) dv.style.display = 'block';
+    bd?.classList.remove('active'); bpl?.classList.remove('active'); bdv?.classList.add('active');
+    renderDvol();
   } else {
-    if(tabs)tabs.style.display=''; if(mc)mc.style.display=''; if(dp)dp.style.display='none';
-    bd?.classList.add('active'); bpl?.classList.remove('active');
+    if (tabs) tabs.style.display = '';
+    if (mc) mc.style.display = '';
+    if (dp) dp.style.display = 'none';
+    if (dv) dv.style.display = 'none';
+    bd?.classList.add('active'); bpl?.classList.remove('active'); bdv?.classList.remove('active');
   }
 }
 // FIN DPLANE v5.0
