@@ -1,4 +1,4 @@
-/* core.js — Dispatchis v2.5.58 — Logique principale : tabs, dashboard, dispatch, attribution */
+/* core.js — Dispatchis v2.5.59 — Logique principale : tabs, dashboard, dispatch, attribution */
 
 // ===== TABS =====
 function buildTabs() {
@@ -987,4 +987,70 @@ async function renderMesDossiers() {
   }
   html += '</tbody></table></div>';
   document.getElementById('main-content').innerHTML = html;
+}
+
+// ===== SWITCHER OUTILS (Dispatch / Dplane / Dvol) =====
+// Garantit l'isolation complète entre les trois outils :
+// - #main-content + #tabs-container  → Dispatch
+// - #dplane-screen                   → Dplane
+// - #dvol-screen                     → Dvol (créé dynamiquement s'il n'existe pas)
+
+function switchTool(tool) {
+  const tabs = document.getElementById('tabs-container');
+  const mc   = document.getElementById('main-content');
+  const dp   = document.getElementById('dplane-screen');
+
+  // Créer #dvol-screen dynamiquement s'il n'existe pas encore
+  let dv = document.getElementById('dvol-screen');
+  if (!dv) {
+    dv = document.createElement('div');
+    dv.id = 'dvol-screen';
+    dv.style.display = 'none';
+    // Insérer après #main-content dans le même parent
+    if (mc && mc.parentNode) {
+      mc.parentNode.insertBefore(dv, mc.nextSibling);
+    } else {
+      document.getElementById('app-screen')?.appendChild(dv);
+    }
+  }
+
+  const bd  = document.getElementById('btn-tool-dispatch');
+  const bpl = document.getElementById('btn-tool-dplane');
+  const bdv = document.getElementById('btn-tool-dvol');
+
+  if (tool === 'dplane') {
+    if (tabs) tabs.style.display = 'none';
+    if (mc)   mc.style.display   = 'none';
+    if (dp)   dp.style.display   = 'block';
+    if (dv)   dv.style.display   = 'none';
+    bd?.classList.remove('active');
+    bpl?.classList.add('active');
+    bdv?.classList.remove('active');
+    if (typeof dplaneInit === 'function') dplaneInit();
+
+  } else if (tool === 'dvol') {
+    if (tabs) tabs.style.display = 'none';
+    if (mc)   mc.style.display   = 'none';
+    if (dp)   dp.style.display   = 'none';
+    if (dv)   dv.style.display   = 'block';
+    bd?.classList.remove('active');
+    bpl?.classList.remove('active');
+    bdv?.classList.add('active');
+    // renderDvol écrit dans #dvol-screen, pas dans #main-content
+    if (typeof renderDvol === 'function') renderDvol();
+
+  } else {
+    // tool === 'dispatch' (défaut)
+    if (tabs) tabs.style.display = '';
+    if (mc)   mc.style.display   = '';
+    if (dp)   dp.style.display   = 'none';
+    if (dv)   dv.style.display   = 'none';
+    bd?.classList.add('active');
+    bpl?.classList.remove('active');
+    bdv?.classList.remove('active');
+    // Re-rendre le dashboard dispatch si aucun onglet actif
+    if (!document.querySelector('.tab.active')) {
+      showTab('dashboard');
+    }
+  }
 }
