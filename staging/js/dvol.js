@@ -414,7 +414,7 @@ async function dvolSoumettreNouveauDossier() {
 
   if (!result) {
     if (btn) { btn.disabled = false; btn.textContent = 'Créer le dossier'; }
-    if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Erreur lors de la création. Vérifiez que le numéro de dossier n'existe pas déjà.'; }
+    if (errEl) { errEl.style.display = 'block'; errEl.textContent = "Erreur lors de la création. Vérifiez que le numéro de dossier n'existe pas déjà."; }
     return;
   }
 
