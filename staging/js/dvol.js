@@ -421,3 +421,9 @@ async function dvolSoumettreNouveauDossier() {
   document.getElementById('dvol-nouveau-modal')?.remove();
   await renderDvol();
 }
+
+// ─── EXPOSITION GLOBALE (appelées depuis onclick HTML) ───────────────────────
+window.dvolOuvrirNouveauDossier  = dvolOuvrirNouveauDossier;
+window.dvolSoumettreNouveauDossier = dvolSoumettreNouveauDossier;
+window.dvolOuvrirDossier         = dvolOuvrirDossier;
+window.renderDvol                = renderDvol;
