@@ -1048,9 +1048,10 @@ function switchTool(tool) {
     bd?.classList.add('active');
     bpl?.classList.remove('active');
     bdv?.classList.remove('active');
-    // Re-rendre le dashboard dispatch si aucun onglet actif
-    if (!document.querySelector('.tab.active')) {
-      showTab('dashboard');
-    }
+    // Toujours re-rendre l'onglet actif pour éviter le contenu vide
+    // (main-content était hidden pendant Dplane/Dvol, son innerHTML peut être obsolète)
+    const activeTab = document.querySelector('.tab.active');
+    const tabId = activeTab ? activeTab.id.replace('tab-', '') : 'dashboard';
+    showTab(tabId);
   }
 }
