@@ -615,7 +615,7 @@ async function dvolActionSauvegarderCommentaire(dossierId) {
   document.getElementById('dvol-comment-modal')?.remove();
   const { error } = await db.from('dvol_dossiers').update({ commentaire: text, updated_at: new Date().toISOString() }).eq('id', dossierId);
   if (!error) { showNotif('📝 Commentaire enregistré.', 'success'); await renderDvol(); }
-  else showNotif('Erreur lors de l'enregistrement.', 'error');
+  else showNotif('Erreur lors de l\'enregistrement.', 'error');
 }
 
 // ─── ACTION : Marquer étape réalisée ─────────────────────────────────────────
@@ -642,7 +642,7 @@ async function dvolActionCloturerSansRetrouve(dossierId) {
   document.getElementById('dvol-detail-modal')?.remove();
   const confirmed = await dvolAfficherDialogConfirmation(
     '📕 Clôture définitive',
-    'Le véhicule n'a pas été retrouvé. Cette action clôture le dossier pour indemnisation. Action irréversible.',
+    'Le véhicule n\'a pas été retrouvé. Cette action clôture le dossier pour indemnisation. Action irréversible.',
     'Confirmer la clôture'
   );
   if (!confirmed) return;
