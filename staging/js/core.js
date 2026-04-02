@@ -1,4 +1,4 @@
-/* core.js — Dispatchis v2.5.61 — Logique principale : tabs, dashboard, dispatch, attribution */
+/* core.js — Dispatchis v2.5.62 — Logique principale : tabs, dashboard, dispatch, attribution */
 
 // ===== TABS =====
 function buildTabs() {
@@ -9,6 +9,9 @@ function buildTabs() {
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
+    if (role === 'admin' || role === 'manager' || role === 'gestionnaire') {
+    tabs.push({ id: 'dvol', label: '🚗 DVOL' });
+  }
   tabs.push({ id: 'stats', label: '📊 Stats' });
   const container = document.getElementById('tabs-container');
   container.innerHTML = tabs.map(t =>
@@ -908,28 +911,99 @@ function showTraitementActionModal(dossierId) {
       <p style="color:#666;margin-bottom:6px">Réf. sinistre : <strong>${d.ref_sinistre || ''}</strong></p>
       <p style="color:#666;font-size:13px;margin-bottom:20px">Choisissez l'action à effectuer sur ce dossier.</p>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn btn-secondary" onclick="copyMesDossierReference('${d.id}')">📋 Copier la référence</button>
-        <button class="btn btn-primary" style="background:var(--navy);border-color:var(--navy)" onclick="markMesDossierTraiteFromAction('${d.id}')">✅ Marquer comme traité</button>
+        <button class="btn btn-primary" style="background:#27ae60;border-color:#27ae60;font-weight:600"
+          onclick="actionMesDossier('ouverture','${d.id}')">
+          📂 Ouverture
+        </button>
+        <button class="btn btn-primary" style="background:#f39c12;border-color:#f39c12;font-weight:600"
+          onclick="actionMesDossier('relance','${d.id}')">
+          🔁 Relance
+        </button>
+        <button class="btn btn-primary" style="background:#e74c3c;border-color:#e74c3c;font-weight:600"
+          onclick="actionMesDossier('cloture','${d.id}')">
+          ✅ Clôture
+        </button>
+        <button class="btn btn-primary" style="background:var(--rose);border-color:var(--rose);font-weight:600"
+          onclick="actionMesDossier('dvol','${d.id}')">
+          🚗 Dvol (transfert + clôture)
+        </button>
         <button class="btn btn-secondary" onclick="closeTraitementActionModal()">Annuler</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
 }
 
-async function copyMesDossierReference(dossierId) {
-  const d = getMesDossierById(dossierId);
-  if (!d || !d.ref_sinistre) { showNotif('Référence introuvable.', 'error'); return; }
-  try {
-    await navigator.clipboard.writeText(d.ref_sinistre);
-    showNotif('📋 Référence copiée : ' + d.ref_sinistre, 'success');
-  } catch (e) {
-    showNotif('Copie impossible.', 'error');
-  }
-}
-
-async function markMesDossierTraiteFromAction(dossierId) {
+// Actions : ouverture / relance / cloture / dvol
+async function actionMesDossier(type, dossierId) {
   closeTraitementActionModal();
-  await toggleTraiteMesDossiers(dossierId, true);
+  const d = getMesDossierById(dossierId);
+  if (!d) { showNotif('Dossier introuvable.', 'error'); return; }
+
+  if (type === 'ouverture') {
+    // Marque traité + statut 'ouvert' (dossier considéré traité — ouverture réalisée)
+    const { error } = await db.from('dossiers').update({
+      traite: true,
+      statut: 'traite',
+      traite_at: new Date().toISOString()
+    }).eq('id', d.id);
+    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await db.from('historique_sinistres').upsert(
+      { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
+      { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+    );
+    await auditLog('TRAITEMENT_OUVERTURE', 'Ouverture — id:' + d.id + ' ref:' + d.ref_sinistre);
+    showNotif('📂 Ouverture enregistrée — dossier traité.', 'success');
+
+  } else if (type === 'relance') {
+    // Marque traité + log relance
+    const { error } = await db.from('dossiers').update({
+      traite: true,
+      statut: 'traite',
+      traite_at: new Date().toISOString()
+    }).eq('id', d.id);
+    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await db.from('historique_sinistres').upsert(
+      { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
+      { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+    );
+    await auditLog('TRAITEMENT_RELANCE', 'Relance — id:' + d.id + ' ref:' + d.ref_sinistre);
+    showNotif('🔁 Relance enregistrée — dossier traité.', 'success');
+
+  } else if (type === 'cloture') {
+    // Marque traité
+    const { error } = await db.from('dossiers').update({
+      traite: true,
+      statut: 'traite',
+      traite_at: new Date().toISOString()
+    }).eq('id', d.id);
+    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await db.from('historique_sinistres').upsert(
+      { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
+      { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+    );
+    await auditLog('TRAITEMENT_CLOTURE', 'Clôture — id:' + d.id + ' ref:' + d.ref_sinistre);
+    showNotif('✅ Clôture enregistrée — dossier traité.', 'success');
+
+  } else if (type === 'dvol') {
+    // Transfert sur Dvol + marque traité
+    const { error } = await db.from('dossiers').update({
+      traite: true,
+      statut: 'traite',
+      traite_at: new Date().toISOString(),
+      is_dvol: true,
+      date_passage_dvol: new Date().toISOString()
+    }).eq('id', d.id);
+    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await db.from('historique_sinistres').upsert(
+      { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
+      { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+    );
+    await auditLog('TRAITEMENT_DVOL', 'Transfert Dvol + clôture — id:' + d.id + ' ref:' + d.ref_sinistre);
+    showNotif('🚗 Transféré sur Dvol et dossier traité.', 'success');
+  }
+
+  await loadDossiers();
+  renderMesDossiers();
 }
 // ===== FIN ACTION TRAITEMENT MES DOSSIERS =====
 
