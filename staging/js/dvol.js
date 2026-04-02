@@ -626,7 +626,7 @@ async function dvolActionMarquerEtape(suiviEtapeId, dossierId) {
     document.getElementById('dvol-detail-modal')?.remove();
     await renderDvol();
   } else {
-    showNotif('Erreur lors de la mise à jour de l'étape.', 'error');
+    showNotif("Erreur lors de la mise à jour de l'étape.", 'error');
   }
 }
 
