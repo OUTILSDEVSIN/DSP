@@ -1,4 +1,4 @@
-/* core.js — Dispatchis v2.5.59 — Logique principale : tabs, dashboard, dispatch, attribution */
+/* core.js — Dispatchis v2.5.61 — Logique principale : tabs, dashboard, dispatch, attribution */
 
 // ===== TABS =====
 function buildTabs() {
@@ -884,6 +884,55 @@ async function recupererDossier(dossierId) {
   renderAttribution();
 }
 // ===== FIN RÉCUPÉRER DOSSIER =====
+// ===== ACTION TRAITEMENT MES DOSSIERS =====
+function getMesDossierById(dossierId) {
+  return (allDossiers || []).find(function(d) { return String(d.id) === String(dossierId); }) || null;
+}
+
+function closeTraitementActionModal() {
+  closeModal('traitement-action-modal');
+}
+
+function showTraitementActionModal(dossierId) {
+  const d = getMesDossierById(dossierId);
+  if (!d) { showNotif('Dossier introuvable.', 'error'); return; }
+  closeTraitementActionModal();
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'traitement-action-modal';
+  modal.style.zIndex = 6000;
+  modal.innerHTML = `
+    <div class="modal" style="max-width:420px;text-align:center">
+      <div style="font-size:42px;margin-bottom:10px">📁</div>
+      <h2 style="color:var(--navy);margin-bottom:8px">Action dossier</h2>
+      <p style="color:#666;margin-bottom:6px">Réf. sinistre : <strong>${d.ref_sinistre || ''}</strong></p>
+      <p style="color:#666;font-size:13px;margin-bottom:20px">Choisissez l'action à effectuer sur ce dossier.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-secondary" onclick="copyMesDossierReference('${d.id}')">📋 Copier la référence</button>
+        <button class="btn btn-primary" style="background:var(--navy);border-color:var(--navy)" onclick="markMesDossierTraiteFromAction('${d.id}')">✅ Marquer comme traité</button>
+        <button class="btn btn-secondary" onclick="closeTraitementActionModal()">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function copyMesDossierReference(dossierId) {
+  const d = getMesDossierById(dossierId);
+  if (!d || !d.ref_sinistre) { showNotif('Référence introuvable.', 'error'); return; }
+  try {
+    await navigator.clipboard.writeText(d.ref_sinistre);
+    showNotif('📋 Référence copiée : ' + d.ref_sinistre, 'success');
+  } catch (e) {
+    showNotif('Copie impossible.', 'error');
+  }
+}
+
+async function markMesDossierTraiteFromAction(dossierId) {
+  closeTraitementActionModal();
+  await toggleTraiteMesDossiers(dossierId, true);
+}
+// ===== FIN ACTION TRAITEMENT MES DOSSIERS =====
+
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
@@ -904,7 +953,7 @@ async function renderMesDossiers() {
     <div class="table-toolbar"><h2>Mes dossiers</h2><button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button></div>
     <table><thead><tr>
       <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
+      <th>Portefeuille</th><th>Statut</th><th>TRAITEMENT</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
     html += '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
@@ -978,9 +1027,9 @@ async function renderMesDossiers() {
         <td>${d.portefeuille}</td>
         <td>${statutBadge(d.statut, d.verrouille)}</td>
         <td style="text-align:center">
-          <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-            style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
-            onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">
+          ${d.traite
+            ? '<span class="badge badge-traite2" style="font-size:12px;padding:6px 10px">✅ Traité</span>'
+            : `<button class="btn btn-primary" style="padding:6px 12px;font-size:12px;background:var(--navy);border-color:var(--navy)" onclick="showTraitementActionModal('${d.id}')">ACTION</button>`}
         </td>
       </tr>`;
     });

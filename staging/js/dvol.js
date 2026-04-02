@@ -29,7 +29,7 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
     .eq('numero', numeroDossier);
 
   // 3. Initialiser les étapes via la fonction SQL
-  const { error: errEtapes } = await supabase.rpc('initialiser_suivi_dvol', {
+  const { error: errEtapes } = await db.rpc('initialiser_suivi_dvol', {
     p_dossier_id: dossier.id,
     p_compagnie: compagnie
   });
@@ -81,7 +81,7 @@ async function dvolGetEtapesDossier(dossierId) {
 
 // ─── CONFIRMER RÉCEPTION DES DOCUMENTS ──────────────────────
 async function dvolConfirmerDocuments(dossierId) {
-  const { error } = await supabase.rpc('confirmer_documents_dvol', {
+  const { error } = await db.rpc('confirmer_documents_dvol', {
     p_dossier_id: dossierId
   });
 
@@ -99,7 +99,7 @@ async function dvolCloturerVehiculeRetrouve(dossierId) {
 
   if (!confirmed) return false;
 
-  const { error } = await supabase.rpc('cloturer_dvol_vehicule_retrouve', {
+  const { error } = await db.rpc('cloturer_dvol_vehicule_retrouve', {
     p_dossier_id: dossierId
   });
 
@@ -407,7 +407,7 @@ async function dvolSoumettreNouveauDossier() {
   const btn = document.querySelector('#dvol-nouveau-modal button[onclick="dvolSoumettreNouveauDossier()"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Création...'; }
 
-  const currentUser = window.currentUser || (await supabase.auth.getUser())?.data?.user;
+  const currentUser = window.currentUser || (await db.auth.getUser())?.data?.user;
   const gestionnaireId = currentUser?.id || null;
 
   const result = await dvolInitialiserDossier(numero, gestionnaireId, compagnie, date, assure, email);
