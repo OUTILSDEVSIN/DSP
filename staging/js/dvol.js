@@ -1,6 +1,6 @@
 // ============================================================
 // DVOL.JS — Module de suivi des dossiers vol pour Dispatchis
-// Version 1.1 — 02 avril 2026 — Patch: client DB unifié, dates locales, liaison ref_sinistre, UUID comparison
+// Version 1.2 — 02 avril 2026 — Section actions jaune, modal actions complet, bouton Action dans tableau
 // ============================================================
 
 // ─── INITIALISER UN DOSSIER EN SUIVI DVOL ───────────────────
@@ -259,94 +259,209 @@ function dvolCouleurStatut(statut) {
 // POINT D'ENTRÉE — appelé par switchTool('dvol') dans core.js
 // ═══════════════════════════════════════════════════════════════
 async function renderDvol() {
-  const tableau = document.getElementById('dvol-tableau');
-  const alertes = document.getElementById('dvol-alertes');
+  const container = document.getElementById('main-content');
+  if (!container) return;
 
-  if (!tableau) return;
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="color:var(--navy);margin:0;">🚗 Suivi DVOL</h2>
+      <button onclick="dvolOuvrirNouveauDossier()" style="background:var(--rose,#e5195e);color:white;border:none;border-radius:8px;padding:9px 18px;font-weight:600;cursor:pointer;font-size:14px;">+ Nouveau dossier vol</button>
+    </div>
+    <div id="dvol-alertes"></div>
+    <div id="dvol-actions-requises"></div>
+    <div id="dvol-tableau"></div>`;
 
-  tableau.innerHTML = '<div class="loading" style="padding:40px;text-align:center;">Chargement des dossiers vol...</div>';
-  if (alertes) alertes.innerHTML = '';
+  const alertesEl  = document.getElementById('dvol-alertes');
+  const actionsEl  = document.getElementById('dvol-actions-requises');
+  const tableauEl  = document.getElementById('dvol-tableau');
 
-  // Charger les relances en attente
-  const relances = await dvolVerifierRelances();
-  if (alertes && relances && relances.length > 0) {
-    alertes.innerHTML = `
-      <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
-        <span style="font-size:18px;">🔔</span>
-        <span style="color:#92400e;font-weight:600;">${relances.length} dossier(s) nécessitent une relance</span>
+  tableauEl.innerHTML = '<div style="padding:40px;text-align:center;color:#6b7280;">Chargement...</div>';
+
+  const dossiers = await dvolGetTableauDeBord();
+  const aujourdHui = (function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})(new Date());
+
+  // ── Section jaune : dossiers nécessitant une action ──
+  const enAttente = (dossiers||[]).filter(d =>
+    d.relance_cloture_active ||
+    (d.date_prochaine_etape && d.date_prochaine_etape <= aujourdHui) ||
+    d.action_requise
+  );
+
+  if (enAttente.length > 0) {
+    actionsEl.innerHTML = `
+      <div style="margin-bottom:20px;">
+        <div style="background:#fef9c3;border:1px solid #f59e0b;border-radius:10px;overflow:hidden;">
+          <div style="background:#fef08a;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f59e0b;">
+            <span style="font-size:16px;">⚠️</span>
+            <span style="font-weight:700;color:#78350f;font-size:14px;">Actions gestionnaire requises (${enAttente.length})</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#fef3c7;">
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">N° Dossier</th>
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">Assuré</th>
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">Action requise</th>
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">Prochaine étape</th>
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${enAttente.map(d => {
+                let actionLabel = '';
+                if (d.relance_cloture_active) actionLabel = '🔴 Clôture en attente';
+                else if (d.date_prochaine_etape && d.date_prochaine_etape <= aujourdHui) actionLabel = '📋 Étape dépassée';
+                else if (d.action_requise) actionLabel = '⚡ ' + d.action_requise;
+                return `<tr style="background:#fefce8;border-bottom:1px solid #fde68a;">
+                  <td style="padding:10px 16px;font-weight:700;color:#92400e;">${d.numero_dossier||'—'}</td>
+                  <td style="padding:10px 16px;color:#78350f;">${d.assure_nom||'—'}</td>
+                  <td style="padding:10px 16px;font-weight:600;color:#b45309;">${actionLabel}</td>
+                  <td style="padding:10px 16px;font-size:13px;color:#92400e;">${d.prochaine_etape||'—'} ${d.date_prochaine_etape ? '('+new Date(d.date_prochaine_etape+'T12:00:00').toLocaleDateString('fr-FR')+')' : ''}</td>
+                  <td style="padding:10px 16px;">
+                    <button onclick="event.stopPropagation();dvolOuvrirActions('${d.id}')" style="background:#f59e0b;color:white;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">⚡ Agir</button>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>`;
   }
 
-  // Charger le tableau de bord
-  const dossiers = await dvolGetTableauDeBord();
-
+  // ── Tableau principal ──
   if (!dossiers || dossiers.length === 0) {
-    tableau.innerHTML = `
+    tableauEl.innerHTML = `
       <div style="padding:60px 24px;text-align:center;color:#6b7280;">
         <div style="font-size:40px;margin-bottom:16px;">🚗</div>
         <div style="font-weight:600;font-size:16px;margin-bottom:8px;">Aucun dossier vol</div>
-        <div style="font-size:14px;">Cliquez sur "+ Nouveau dossier vol" pour commencer.</div>
+        <div style="font-size:14px;">Cliquez sur "Nouveau dossier vol" pour commencer.</div>
       </div>`;
     return;
   }
 
-  const rows = dossiers.map(d => `
-    <tr style="border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="dvolOuvrirDossier('${d.id}')">
-      <td style="padding:12px 16px;font-weight:600;color:var(--navy);">${d.numero_dossier || '—'}</td>
-      <td style="padding:12px 16px;">${d.assure_nom || '—'}</td>
-      <td style="padding:12px 16px;">${d.compagnie || '—'}</td>
+  const rows = (dossiers||[]).map(d => {
+    const isEnAttente = enAttente.some(e => e.id === d.id);
+    const rowBg = isEnAttente ? 'background:#fffbeb;' : '';
+    return `<tr style="border-bottom:1px solid #f3f4f6;cursor:pointer;${rowBg}" onclick="dvolOuvrirDossier('${d.id}')">
+      <td style="padding:12px 16px;font-weight:600;color:var(--navy);">${d.numero_dossier||'—'}${isEnAttente?'<span style="margin-left:6px;font-size:10px;background:#f59e0b;color:white;padding:1px 5px;border-radius:8px;">⚡ Action</span>':''}</td>
+      <td style="padding:12px 16px;">${d.assure_nom||'—'}</td>
+      <td style="padding:12px 16px;">${d.compagnie||'—'}</td>
       <td style="padding:12px 16px;">
         <span style="padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:white;background:${dvolCouleurStatut(d.statut)};">
           ${dvolLabelStatut(d.statut)}
         </span>
       </td>
-      <td style="padding:12px 16px;color:#6b7280;font-size:13px;">${d.date_declaration ? new Date(d.date_declaration).toLocaleDateString('fr-FR') : '—'}</td>
-    </tr>`).join('');
+      <td style="padding:12px 16px;color:#6b7280;font-size:13px;">${d.date_declaration ? new Date(d.date_declaration+'T12:00:00').toLocaleDateString('fr-FR') : '—'}</td>
+      <td style="padding:12px 8px;" onclick="event.stopPropagation();">
+        <button onclick="dvolOuvrirActions('${d.id}')" style="background:var(--navy,#1e3a5f);color:white;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">⚡ Action</button>
+      </td>
+    </tr>`;
+  }).join('');
 
-  tableau.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="background:#f9fafb;">
-          <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">N° Dossier</th>
-          <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Assuré</th>
-          <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Compagnie</th>
-          <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Statut</th>
-          <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Date déclaration</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  tableauEl.innerHTML = `
+    <div style="background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">N° Dossier</th>
+            <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Assuré</th>
+            <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Compagnie</th>
+            <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Statut</th>
+            <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Date décl.</th>
+            <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
-
-// ─── OUVRIR UN DOSSIER VOL EXISTANT ─────────────────────────
 async function dvolOuvrirDossier(dossierId) {
   const dossier = await dvolGetDossier(dossierId);
   if (!dossier) return;
+  const etapes = await dvolGetEtapesDossier(dossierId);
 
   const overlay = document.createElement('div');
   overlay.className = 'dispatch-modal-overlay';
   overlay.id = 'dvol-detail-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:4000;display:flex;align-items:center;justify-content:center;';
+
+  const etapesHtml = etapes.length > 0 ? `
+    <div style="margin-top:20px;">
+      <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:10px;">Suivi des étapes</div>
+      ${etapes.map(e => {
+        const label = e.dvol_etapes_template?.label || '—';
+        const fait  = e.statut === 'realise';
+        const enRet = !fait && e.date_prevue && e.date_prevue <= (function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})(new Date());
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6;">
+          <span style="font-size:16px;">${fait ? '✅' : enRet ? '🔴' : '⬜'}</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:${fait?'400':'600'};color:${fait?'#9ca3af':enRet?'#dc2626':'#111827'};text-decoration:${fait?'line-through':'none'};">${label}</div>
+            ${e.date_prevue ? `<div style="font-size:11px;color:#9ca3af;">Prévue le ${new Date(e.date_prevue+'T12:00:00').toLocaleDateString('fr-FR')}</div>` : ''}
+          </div>
+          ${!fait ? `<button onclick="dvolActionMarquerEtape('${e.id}','${dossierId}')" style="background:#10b981;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">✓ Fait</button>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
   overlay.innerHTML = `
-    <div class="dispatch-modal" style="max-width:620px;width:95%;max-height:85vh;overflow-y:auto;">
+    <div style="background:white;border-radius:16px;max-width:640px;width:95%;max-height:88vh;overflow-y:auto;padding:28px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
         <h2 style="margin:0;font-size:18px;color:var(--navy);">🚗 Dossier ${dossier.numero_dossier}</h2>
-        <button onclick="document.getElementById('dvol-detail-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;">×</button>
+        <button onclick="document.getElementById('dvol-detail-modal').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;line-height:1;">×</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Assuré</div><div style="font-weight:600;">${dossier.assure_nom || '—'}</div></div>
-        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Compagnie</div><div style="font-weight:600;">${dossier.compagnie || '—'}</div></div>
-        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Statut</div>
+
+      <!-- Infos dossier -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:20px;">
+        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px;">Assuré</div><div style="font-weight:600;">${dossier.assure_nom||'—'}</div></div>
+        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px;">Compagnie</div><div style="font-weight:600;">${dossier.compagnie||'—'}</div></div>
+        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px;">Statut actuel</div>
           <span style="padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:white;background:${dvolCouleurStatut(dossier.statut)};">${dvolLabelStatut(dossier.statut)}</span>
         </div>
-        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Date déclaration</div><div>${dossier.date_declaration ? new Date(dossier.date_declaration).toLocaleDateString('fr-FR') : '—'}</div></div>
+        <div><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px;">Date déclaration</div><div>${dossier.date_declaration ? new Date(dossier.date_declaration+'T12:00:00').toLocaleDateString('fr-FR') : '—'}</div></div>
+        ${dossier.assure_email ? `<div style="grid-column:1/-1;"><div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px;">Email assuré</div><div>${dossier.assure_email}</div></div>` : ''}
       </div>
-      <button onclick="document.getElementById('dvol-detail-modal').remove()" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;font-size:14px;">Fermer</button>
+
+      <!-- Actions disponibles -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:12px;">Actions disponibles</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+
+          <button onclick="dvolActionConfirmerDocuments('${dossier.id}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;text-align:left;font-size:14px;">
+            <span style="font-size:20px;">📁</span>
+            <div><div style="font-weight:600;color:#111827;">Confirmer réception des documents</div><div style="font-size:12px;color:#6b7280;">Valider que tous les documents ont été reçus</div></div>
+          </button>
+
+          <button onclick="dvolActionChangerStatut('${dossier.id}','${dossier.statut}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;text-align:left;font-size:14px;">
+            <span style="font-size:20px;">🔄</span>
+            <div><div style="font-weight:600;color:#111827;">Changer le statut</div><div style="font-size:12px;color:#6b7280;">Statut actuel : ${dvolLabelStatut(dossier.statut)}</div></div>
+          </button>
+
+          <button onclick="dvolActionAjouterCommentaire('${dossier.id}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;text-align:left;font-size:14px;">
+            <span style="font-size:20px;">📝</span>
+            <div><div style="font-weight:600;color:#111827;">Ajouter un commentaire</div><div style="font-size:12px;color:#6b7280;">Saisir une note sur le dossier</div></div>
+          </button>
+
+          <button onclick="dvolActionVehiculeRetrouve('${dossier.id}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #10b981;border-radius:8px;background:#f0fdf4;cursor:pointer;text-align:left;font-size:14px;">
+            <span style="font-size:20px;">🚗✅</span>
+            <div><div style="font-weight:600;color:#065f46;">Véhicule retrouvé — Clôturer</div><div style="font-size:12px;color:#6b7280;">Clôture immédiate du dossier vol</div></div>
+          </button>
+
+          <button onclick="dvolActionCloturerSansRetrouve('${dossier.id}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #fee2e2;border-radius:8px;background:#fff5f5;cursor:pointer;text-align:left;font-size:14px;">
+            <span style="font-size:20px;">📕</span>
+            <div><div style="font-weight:600;color:#991b1b;">Clôturer sans retrouver le véhicule</div><div style="font-size:12px;color:#6b7280;">Clôture définitive — indemnisation</div></div>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Suivi des étapes -->
+      ${etapesHtml}
+
+      <button onclick="document.getElementById('dvol-detail-modal').remove()" style="width:100%;margin-top:20px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;font-size:14px;color:#6b7280;">Fermer</button>
     </div>`;
+
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
-
-// ─── OUVRIR FORMULAIRE NOUVEAU DOSSIER VOL ───────────────────
 function dvolOuvrirNouveauDossier() {
   const overlay = document.createElement('div');
   overlay.className = 'dispatch-modal-overlay';
@@ -422,8 +537,130 @@ async function dvolSoumettreNouveauDossier() {
   await renderDvol();
 }
 
+
+// ─── MENU D'ACTIONS RAPIDES (depuis bouton ⚡ Action) ────────────────────────
+async function dvolOuvrirActions(dossierId) {
+  const dossier = await dvolGetDossier(dossierId);
+  if (!dossier) return;
+  dvolOuvrirDossier(dossierId);
+}
+
+// ─── ACTION : Confirmer documents ────────────────────────────────────────────
+async function dvolActionConfirmerDocuments(dossierId) {
+  document.getElementById('dvol-detail-modal')?.remove();
+  const ok = await dvolConfirmerDocuments(dossierId);
+  if (ok) { showNotif('📁 Documents confirmés avec succès.', 'success'); await renderDvol(); }
+  else showNotif('Erreur lors de la confirmation des documents.', 'error');
+}
+
+// ─── ACTION : Changer statut ─────────────────────────────────────────────────
+function dvolActionChangerStatut(dossierId, statutActuel) {
+  document.getElementById('dvol-detail-modal')?.remove();
+  const statuts = [
+    { val: 'declare',       label: '🔵 Déclaré' },
+    { val: 'en_instruction', label: '🟡 En instruction' },
+    { val: 'attente_doc',   label: '🟠 Attente documents' },
+    { val: 'expert',        label: '🔍 En expertise' },
+    { val: 'cloture_retro', label: '✅ Clôturé — Retrouvé' },
+    { val: 'cloture_indem', label: '📕 Clôturé — Indemnisé' },
+  ];
+  const overlay = document.createElement('div');
+  overlay.id = 'dvol-statut-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:4100;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:16px;max-width:420px;width:95%;padding:28px;">
+      <h3 style="margin:0 0 18px;font-size:17px;color:var(--navy);">🔄 Changer le statut</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${statuts.map(s => `
+          <button onclick="dvolActionAppliquerStatut('${dossierId}','${s.val}')"
+            style="padding:11px 16px;border:2px solid ${s.val===statutActuel?'var(--navy,#1e3a5f)':'#e5e7eb'};border-radius:8px;background:${s.val===statutActuel?'#f0f4ff':'white'};cursor:pointer;text-align:left;font-size:14px;font-weight:${s.val===statutActuel?'700':'400'};">
+            ${s.label} ${s.val===statutActuel?'← actuel':''}
+          </button>`).join('')}
+      </div>
+      <button onclick="document.getElementById('dvol-statut-modal').remove()" style="width:100%;margin-top:14px;padding:9px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;font-size:14px;color:#6b7280;">Annuler</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+async function dvolActionAppliquerStatut(dossierId, newStatut) {
+  document.getElementById('dvol-statut-modal')?.remove();
+  const ok = await dvolChangerStatut(dossierId, newStatut);
+  if (ok) { showNotif('✅ Statut mis à jour.', 'success'); await renderDvol(); }
+  else showNotif('Erreur lors du changement de statut.', 'error');
+}
+
+// ─── ACTION : Commentaire ────────────────────────────────────────────────────
+function dvolActionAjouterCommentaire(dossierId) {
+  document.getElementById('dvol-detail-modal')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'dvol-comment-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:4100;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:16px;max-width:440px;width:95%;padding:28px;">
+      <h3 style="margin:0 0 16px;font-size:17px;color:var(--navy);">📝 Ajouter un commentaire</h3>
+      <textarea id="dvol-comment-text" placeholder="Saisir votre commentaire..." rows="4"
+        style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button onclick="document.getElementById('dvol-comment-modal').remove()" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;font-size:14px;color:#6b7280;">Annuler</button>
+        <button onclick="dvolActionSauvegarderCommentaire('${dossierId}')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--navy,#1e3a5f);color:white;cursor:pointer;font-size:14px;font-weight:600;">Enregistrer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function dvolActionSauvegarderCommentaire(dossierId) {
+  const text = document.getElementById('dvol-comment-text')?.value?.trim();
+  if (!text) return;
+  document.getElementById('dvol-comment-modal')?.remove();
+  const { error } = await db.from('dvol_dossiers').update({ commentaire: text, updated_at: new Date().toISOString() }).eq('id', dossierId);
+  if (!error) { showNotif('📝 Commentaire enregistré.', 'success'); await renderDvol(); }
+  else showNotif('Erreur lors de l'enregistrement.', 'error');
+}
+
+// ─── ACTION : Marquer étape réalisée ─────────────────────────────────────────
+async function dvolActionMarquerEtape(suiviEtapeId, dossierId) {
+  const ok = await dvolMarquerEtapeRealisee(suiviEtapeId);
+  if (ok) {
+    showNotif('✅ Étape marquée comme réalisée.', 'success');
+    document.getElementById('dvol-detail-modal')?.remove();
+    await renderDvol();
+  } else {
+    showNotif('Erreur lors de la mise à jour de l'étape.', 'error');
+  }
+}
+
+// ─── ACTION : Véhicule retrouvé ───────────────────────────────────────────────
+async function dvolActionVehiculeRetrouve(dossierId) {
+  document.getElementById('dvol-detail-modal')?.remove();
+  const ok = await dvolCloturerVehiculeRetrouve(dossierId);
+  if (ok) { showNotif('🚗✅ Dossier clôturé — véhicule retrouvé.', 'success'); await renderDvol(); }
+}
+
+// ─── ACTION : Clôturer sans retrouver ────────────────────────────────────────
+async function dvolActionCloturerSansRetrouve(dossierId) {
+  document.getElementById('dvol-detail-modal')?.remove();
+  const confirmed = await dvolAfficherDialogConfirmation(
+    '📕 Clôture définitive',
+    'Le véhicule n'a pas été retrouvé. Cette action clôture le dossier pour indemnisation. Action irréversible.',
+    'Confirmer la clôture'
+  );
+  if (!confirmed) return;
+  const ok = await dvolChangerStatut(dossierId, 'cloture_indem');
+  if (ok) { showNotif('📕 Dossier clôturé — indemnisation.', 'success'); await renderDvol(); }
+}
+
 // ─── EXPOSITION GLOBALE (appelées depuis onclick HTML) ───────────────────────
-window.dvolOuvrirNouveauDossier  = dvolOuvrirNouveauDossier;
+window.dvolOuvrirNouveauDossier    = dvolOuvrirNouveauDossier;
 window.dvolSoumettreNouveauDossier = dvolSoumettreNouveauDossier;
-window.dvolOuvrirDossier         = dvolOuvrirDossier;
-window.renderDvol                = renderDvol;
+window.dvolOuvrirDossier           = dvolOuvrirDossier;
+window.dvolOuvrirActions           = dvolOuvrirActions;
+window.dvolActionConfirmerDocuments = dvolActionConfirmerDocuments;
+window.dvolActionChangerStatut     = dvolActionChangerStatut;
+window.dvolActionAppliquerStatut   = dvolActionAppliquerStatut;
+window.dvolActionAjouterCommentaire = dvolActionAjouterCommentaire;
+window.dvolActionSauvegarderCommentaire = dvolActionSauvegarderCommentaire;
+window.dvolActionMarquerEtape      = dvolActionMarquerEtape;
+window.dvolActionVehiculeRetrouve  = dvolActionVehiculeRetrouve;
+window.dvolActionCloturerSansRetrouve = dvolActionCloturerSansRetrouve;
+window.renderDvol                  = renderDvol;
