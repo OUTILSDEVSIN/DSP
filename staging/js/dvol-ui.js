@@ -218,7 +218,7 @@ function dvolChangerStatutUI(dossierId) {
   const statuts = [
     { val: 'declare', label: '📋 Déclaré' },
     { val: 'en_attente_documents', label: '📂 En attente de documents' },
-    { val: 'en_instruction', label: '🔍 En instruction' },
+    
     { val: 'relance', label: '🔔 Relancé' },
     { val: 'en_cours_expertise', label: "🔍 En cours d'expertise" },
     { val: 'en_attente_cloture', label: '⏳ En attente de clôture' },

@@ -1,6 +1,9 @@
 // ============================================================
 // DVOL.JS — Fonctions data du module Dvol (vol de véhicules)
-// Version 1.1 — 02 avril 2026
+// Version 1.2 — 02 avril 2026
+// Statuts valides : declare | en_attente_documents | relance |
+//   en_cours_expertise | en_attente_cloture | vehicule_retrouve
+//   | labtaf | refuse | clos
 // ============================================================
 
 // ─── TABLEAU DE BORD ─────────────────────────────────────────
@@ -65,11 +68,27 @@ async function dvolMarquerEtapeRealisee(suiviEtapeId) {
 }
 
 // ─── CHANGER LE STATUT D'UN DOSSIER ──────────────────────────
+// Statuts valides (contrainte CHECK en base) :
+// declare | en_attente_documents | relance | en_cours_expertise |
+// en_attente_cloture | vehicule_retrouve | labtaf | refuse | clos
 async function dvolChangerStatut(dossierId, nouveauStatut) {
+  const statutsValides = [
+    'declare', 'en_attente_documents', 'relance',
+    'en_cours_expertise', 'en_attente_cloture',
+    'vehicule_retrouve', 'labtaf', 'refuse', 'clos'
+  ];
+
+  if (!statutsValides.includes(nouveauStatut)) {
+    console.error('[dvol] Statut invalide:', nouveauStatut);
+    return false;
+  }
+
   const update = { statut: nouveauStatut };
 
-  if (nouveauStatut === 'clos' || nouveauStatut === 'vehicule_retrouve' || nouveauStatut === 'labtaf' || nouveauStatut === 'refuse') {
-    update.date_cloture = new Date().toISOString().split('T')[0];
+  // Colonnes spécifiques selon le statut de clôture
+  if (nouveauStatut === 'vehicule_retrouve') {
+    update.vehicule_retrouve_confirme = true;
+    update.date_vehicule_retrouve = new Date().toISOString();
   }
 
   const { error } = await db
@@ -85,10 +104,16 @@ async function dvolChangerStatut(dossierId, nouveauStatut) {
 }
 
 // ─── CONFIRMER RÉCEPTION DOCUMENTS ───────────────────────────
+// Passe le dossier en "relance" (n'existe pas en base)
+// Si le dossier est en declare ou en_attente_documents
 async function dvolConfirmerDocuments(dossierId) {
   const { error } = await db
     .from('dvol_dossiers')
-    .update({ statut: 'en_instruction' })
+    .update({
+      documents_recus: true,
+      date_reception_documents: new Date().toISOString().split('T')[0],
+      statut: 'relance'
+    })
     .eq('id', dossierId)
     .in('statut', ['declare', 'en_attente_documents']);
 
@@ -105,7 +130,8 @@ async function dvolCloturerVehiculeRetrouve(dossierId) {
     .from('dvol_dossiers')
     .update({
       statut: 'vehicule_retrouve',
-      date_cloture: new Date().toISOString().split('T')[0]
+      vehicule_retrouve_confirme: true,
+      date_vehicule_retrouve: new Date().toISOString()
     })
     .eq('id', dossierId);
 
@@ -133,32 +159,30 @@ async function dvolVerifierRelances() {
 // ─── HELPERS STATUT ──────────────────────────────────────────
 function dvolLabelStatut(statut) {
   const labels = {
-    declare: 'Déclaré',
+    declare:              'Déclaré',
     en_attente_documents: 'En attente docs',
-    en_instruction: 'En instruction',
-    relance: 'Relancé',
-    en_cours_expertise: 'Expertise',
-    en_attente_cloture: 'En att. clôture',
-    vehicule_retrouve: 'Véhicule retrouvé',
-    labtaf: 'LABTAF',
-    refuse: 'Refusé',
-    clos: 'Clos'
+    relance:              'Relancé',
+    en_cours_expertise:   'Expertise',
+    en_attente_cloture:   'En att. clôture',
+    vehicule_retrouve:    'Véhicule retrouvé',
+    labtaf:               'LABTAF',
+    refuse:               'Refusé',
+    clos:                 'Clos'
   };
   return labels[statut] || statut || '—';
 }
 
 function dvolCouleurStatut(statut) {
   const couleurs = {
-    declare: '#3b82f6',
+    declare:              '#3b82f6',
     en_attente_documents: '#f59e0b',
-    en_instruction: '#8b5cf6',
-    relance: '#f97316',
-    en_cours_expertise: '#06b6d4',
-    en_attente_cloture: '#64748b',
-    vehicule_retrouve: '#10b981',
-    labtaf: '#6366f1',
-    refuse: '#ef4444',
-    clos: '#059669'
+    relance:              '#f97316',
+    en_cours_expertise:   '#06b6d4',
+    en_attente_cloture:   '#64748b',
+    vehicule_retrouve:    '#10b981',
+    labtaf:               '#6366f1',
+    refuse:               '#ef4444',
+    clos:                 '#059669'
   };
   return couleurs[statut] || '#9ca3af';
 }
