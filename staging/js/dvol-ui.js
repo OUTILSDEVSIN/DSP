@@ -42,25 +42,22 @@ async function renderDvol() {
   }
 
   const rows = dossiers.map(d => {
-    // Badge action requise
     const actionBadge = d.action_requise
       ? `<span title="Action requise" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:6px;vertical-align:middle;"></span>`
       : '';
 
-    // Documents reçus
     const docsRecus = Array.isArray(d.documents_recus_liste) ? d.documents_recus_liste.length : 0;
     const docsCell = docsRecus > 0
       ? `<span style="font-size:12px;background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:12px;">✓ ${docsRecus} doc${docsRecus > 1 ? 's' : ''}</span>`
       : `<span style="font-size:12px;color:#9ca3af;">—</span>`;
 
-    // Portefeuille
     const portefeuille = d.portefeuille
       ? `<span style="font-size:11px;color:#6b7280;">${d.portefeuille}</span>`
       : '—';
 
     return `
-      <tr style="border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background 0.15s;" 
-          onmouseover="this.style.background='#f9fafb'" 
+      <tr style="border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background 0.15s;"
+          onmouseover="this.style.background='#f9fafb'"
           onmouseout="this.style.background=''"
           onclick="dvolOuvrirDossier('${d.id}')">
         <td style="padding:12px 16px;font-weight:600;color:var(--navy);">
@@ -112,7 +109,6 @@ async function dvolOuvrirDossier(dossierId) {
 
   const etapes = await dvolGetEtapesDossier(dossierId);
 
-  // Construire la liste des étapes
   const etapesHtml = etapes.length === 0
     ? `<p style="color:#9ca3af;font-size:13px;text-align:center;padding:16px;">Aucune étape définie.</p>`
     : etapes.map(e => {
@@ -133,7 +129,6 @@ async function dvolOuvrirDossier(dossierId) {
           </div>`;
       }).join('');
 
-  // Documents reçus (nouveau champ JSONB)
   const docs = dossier.documents_recus_liste || [];
   const docsHtml = docs.length > 0
     ? docs.map(doc => `<span style="display:inline-block;padding:2px 8px;background:#e0f2fe;color:#0369a1;border-radius:12px;font-size:11px;margin:2px;">${typeof doc === 'string' ? doc : doc.nom || JSON.stringify(doc)}</span>`).join('')
@@ -149,7 +144,6 @@ async function dvolOuvrirDossier(dossierId) {
         <button onclick="document.getElementById('dvol-detail-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;">×</button>
       </div>
 
-      <!-- Infos principales -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
         <div>
           <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px;">Assuré</div>
@@ -180,26 +174,22 @@ async function dvolOuvrirDossier(dossierId) {
         </div>
       </div>
 
-      <!-- Documents reçus -->
       <div style="margin-bottom:20px;">
         <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📂 Documents reçus</div>
         <div style="padding:10px;background:#f9fafb;border-radius:8px;">${docsHtml}</div>
       </div>
 
-      <!-- Notes -->
       ${dossier.notes ? `
       <div style="margin-bottom:20px;">
         <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📝 Notes</div>
         <div style="padding:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;line-height:1.6;color:#374151;">${dossier.notes}</div>
       </div>` : ''}
 
-      <!-- Étapes de suivi -->
       <div style="margin-bottom:20px;">
         <div style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📋 Étapes de suivi</div>
         <div style="padding:0 4px;">${etapesHtml}</div>
       </div>
 
-      <!-- Actions -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <button onclick="dvolChangerStatutUI('${dossier.id}')" style="padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:13px;">🔄 Changer statut</button>
         <button onclick="dvolConfirmerDocumentsUI('${dossier.id}')" style="padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:13px;">📂 Confirmer documents</button>
@@ -230,7 +220,7 @@ function dvolChangerStatutUI(dossierId) {
     { val: 'en_attente_documents', label: '📂 En attente de documents' },
     { val: 'en_instruction', label: '🔍 En instruction' },
     { val: 'relance', label: '🔔 Relancé' },
-    { val: 'en_cours_expertise', label: '🔍 En cours d\'expertise' },
+    { val: 'en_cours_expertise', label: "🔍 En cours d'expertise" },
     { val: 'en_attente_cloture', label: '⏳ En attente de clôture' },
     { val: 'vehicule_retrouve', label: '🚗 Véhicule retrouvé' },
     { val: 'labtaf', label: '📁 LABTAF' },
@@ -356,11 +346,9 @@ async function dvolSoumettreNouveauDossier() {
 
   errEl.style.display = 'none';
 
-  // Récupérer le gestionnaire courant
   const gestionnaireId = currentUserData?.id || null;
 
-  // Insérer directement avec portefeuille
-  const { data: dossier, error } = await supabase
+  const { data: dossier, error } = await db
     .from('dvol_dossiers')
     .insert({
       numero_dossier: numero,
@@ -381,9 +369,8 @@ async function dvolSoumettreNouveauDossier() {
     return;
   }
 
-  // Initialiser les étapes si compagnie renseignée
   if (compagnie) {
-    await supabase.rpc('initialiser_suivi_dvol', {
+    await db.rpc('initialiser_suivi_dvol', {
       p_dossier_id: dossier.id,
       p_compagnie: compagnie
     });
