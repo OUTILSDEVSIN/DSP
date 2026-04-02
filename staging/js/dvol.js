@@ -1,17 +1,31 @@
 // ============================================================
 // DVOL.JS — Fonctions data du module Dvol (vol de véhicules)
-// Version 1.2 — 02 avril 2026
-// Statuts valides : declare | en_attente_documents | relance |
-//   en_cours_expertise | en_attente_cloture | vehicule_retrouve
-//   | labtaf | refuse | clos
+// Version 1.3 — 02 avril 2026
+// Corrections :
+//   - dvolGetTableauDeBord : filtre gestionnaire_id pour les
+//     rôles gestionnaire (admin/manager voient tout)
+//   - dvolGetDossier : lit depuis dvol_tableau_de_bord pour
+//     inclure tous les champs calculés (action_requise, notes,
+//     portefeuille, documents_recus_liste, date_ouverture,
+//     assure_email)
+//   - dvolVerifierRelances : même filtre gestionnaire_id
 // ============================================================
 
 // ─── TABLEAU DE BORD ─────────────────────────────────────────
 async function dvolGetTableauDeBord() {
-  const { data, error } = await db
+  const isAdmin = ['admin', 'manager'].includes(currentUserData?.role);
+
+  let query = db
     .from('dvol_tableau_de_bord')
     .select('*')
     .order('date_prochaine_etape', { ascending: true, nullsFirst: false });
+
+  // Les gestionnaires ne voient que leurs dossiers
+  if (!isAdmin && currentUserData?.id) {
+    query = query.eq('gestionnaire_id', currentUserData.id);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('[dvol] Erreur tableau de bord:', error.message);
@@ -21,16 +35,29 @@ async function dvolGetTableauDeBord() {
 }
 
 // ─── RÉCUPÉRER UN DOSSIER COMPLET ────────────────────────────
+// Lit depuis dvol_tableau_de_bord pour avoir tous les champs
+// calculés : action_requise, notes, portefeuille,
+// documents_recus_liste, date_ouverture, assure_email
 async function dvolGetDossier(dossierId) {
   const { data, error } = await db
-    .from('dvol_dossiers')
+    .from('dvol_tableau_de_bord')
     .select('*')
     .eq('id', dossierId)
     .single();
 
   if (error) {
-    console.error('[dvol] Erreur lecture dossier:', error.message);
-    return null;
+    // Fallback sur la table brute si la vue échoue
+    console.warn('[dvol] Vue indisponible, fallback dvol_dossiers:', error.message);
+    const { data: fallback, error: err2 } = await db
+      .from('dvol_dossiers')
+      .select('*')
+      .eq('id', dossierId)
+      .single();
+    if (err2) {
+      console.error('[dvol] Erreur lecture dossier:', err2.message);
+      return null;
+    }
+    return fallback;
   }
   return data;
 }
@@ -68,9 +95,6 @@ async function dvolMarquerEtapeRealisee(suiviEtapeId) {
 }
 
 // ─── CHANGER LE STATUT D'UN DOSSIER ──────────────────────────
-// Statuts valides (contrainte CHECK en base) :
-// declare | en_attente_documents | relance | en_cours_expertise |
-// en_attente_cloture | vehicule_retrouve | labtaf | refuse | clos
 async function dvolChangerStatut(dossierId, nouveauStatut) {
   const statutsValides = [
     'declare', 'en_attente_documents', 'relance',
@@ -85,7 +109,6 @@ async function dvolChangerStatut(dossierId, nouveauStatut) {
 
   const update = { statut: nouveauStatut };
 
-  // Colonnes spécifiques selon le statut de clôture
   if (nouveauStatut === 'vehicule_retrouve') {
     update.vehicule_retrouve_confirme = true;
     update.date_vehicule_retrouve = new Date().toISOString();
@@ -104,8 +127,6 @@ async function dvolChangerStatut(dossierId, nouveauStatut) {
 }
 
 // ─── CONFIRMER RÉCEPTION DOCUMENTS ───────────────────────────
-// Passe le dossier en "relance" (n'existe pas en base)
-// Si le dossier est en declare ou en_attente_documents
 async function dvolConfirmerDocuments(dossierId) {
   const { error } = await db
     .from('dvol_dossiers')
@@ -143,11 +164,20 @@ async function dvolCloturerVehiculeRetrouve(dossierId) {
 }
 
 // ─── VÉRIFIER LES RELANCES ───────────────────────────────────
+// CORRECTION : filtre gestionnaire_id pour les non-admin
 async function dvolVerifierRelances() {
-  const { data, error } = await db
+  const isAdmin = ['admin', 'manager'].includes(currentUserData?.role);
+
+  let query = db
     .from('dvol_tableau_de_bord')
     .select('id, numero_dossier, action_requise, relance_cloture_active')
     .or('action_requise.eq.true,relance_cloture_active.eq.true');
+
+  if (!isAdmin && currentUserData?.id) {
+    query = query.eq('gestionnaire_id', currentUserData.id);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('[dvol] Erreur relances:', error.message);

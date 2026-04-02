@@ -1,9 +1,12 @@
 // ============================================================
 // DVOL-UI.JS — Interface utilisateur du module Dvol
-// Version 1.1 — 02 avril 2026
-// Exploite les nouveaux champs : portefeuille, notes,
-// action_requise, documents_recus_liste, date_ouverture,
-// assure_email
+// Version 1.2 — 02 avril 2026
+// Correction v1.2.1 :
+//   - renderDvol : le compteur d'alertes est maintenant cohérent
+//     avec le filtre gestionnaire_id de dvolVerifierRelances()
+//   - dvolOuvrirDossier : utilise dvolGetDossier() qui lit
+//     désormais la vue dvol_tableau_de_bord (correction dans
+//     dvol.js v1.3) → tous les champs calculés disponibles
 // ============================================================
 
 // ═══════════════════════════════════════════════════════════════
@@ -19,6 +22,7 @@ async function renderDvol() {
   if (alertes) alertes.innerHTML = '';
 
   // ── Alertes / relances ──────────────────────────────────────
+  // dvolVerifierRelances() filtre par gestionnaire_id si non-admin
   const relances = await dvolVerifierRelances();
   if (alertes && relances && relances.length > 0) {
     alertes.innerHTML = `
@@ -29,6 +33,7 @@ async function renderDvol() {
   }
 
   // ── Tableau de bord ─────────────────────────────────────────
+  // dvolGetTableauDeBord() filtre par gestionnaire_id si non-admin
   const dossiers = await dvolGetTableauDeBord();
 
   if (!dossiers || dossiers.length === 0) {
@@ -103,6 +108,8 @@ async function renderDvol() {
 }
 
 // ─── OUVRIR UN DOSSIER VOL EXISTANT ─────────────────────────
+// dvolGetDossier() lit maintenant depuis dvol_tableau_de_bord
+// → tous les champs calculés sont disponibles directement
 async function dvolOuvrirDossier(dossierId) {
   const dossier = await dvolGetDossier(dossierId);
   if (!dossier) return;
@@ -218,7 +225,6 @@ function dvolChangerStatutUI(dossierId) {
   const statuts = [
     { val: 'declare', label: '📋 Déclaré' },
     { val: 'en_attente_documents', label: '📂 En attente de documents' },
-    
     { val: 'relance', label: '🔔 Relancé' },
     { val: 'en_cours_expertise', label: "🔍 En cours d'expertise" },
     { val: 'en_attente_cloture', label: '⏳ En attente de clôture' },
@@ -351,14 +357,14 @@ async function dvolSoumettreNouveauDossier() {
   const { data: dossier, error } = await db
     .from('dvol_dossiers')
     .insert({
-      numero_dossier: numero,
-      gestionnaire_id: gestionnaireId,
-      compagnie: compagnie || null,
-      portefeuille: portefeuille || null,
+      numero_dossier:   numero,
+      gestionnaire_id:  gestionnaireId,
+      compagnie:        compagnie || null,
+      portefeuille:     portefeuille || null,
       date_declaration: dateDecl,
-      assure_nom: assureNom,
-      assure_email: assureEmail || null,
-      statut: 'declare'
+      assure_nom:       assureNom,
+      assure_email:     assureEmail || null,
+      statut:           'declare'
     })
     .select()
     .single();
@@ -372,7 +378,7 @@ async function dvolSoumettreNouveauDossier() {
   if (compagnie) {
     await db.rpc('initialiser_suivi_dvol', {
       p_dossier_id: dossier.id,
-      p_compagnie: compagnie
+      p_compagnie:  compagnie
     });
   }
 
