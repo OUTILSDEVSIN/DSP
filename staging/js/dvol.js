@@ -1,12 +1,12 @@
 // ============================================================
 // DVOL.JS — Module de suivi des dossiers vol pour Dispatchis
-// Version 1.0 — 29 mars 2026
+// Version 1.1 — 02 avril 2026 — Patch: client DB unifié, dates locales, liaison ref_sinistre, UUID comparison
 // ============================================================
 
 // ─── INITIALISER UN DOSSIER EN SUIVI DVOL ───────────────────
 async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, dateDeclaration, assureNom, assureEmail) {
   // 1. Créer le dossier dans dvol_dossiers
-  const { data: dossier, error: errDossier } = await supabase
+  const { data: dossier, error: errDossier } = await db
     .from('dvol_dossiers')
     .insert({
       numero_dossier: numeroDossier,
@@ -23,10 +23,10 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
   if (errDossier) { console.error('dvolInitialiserDossier:', errDossier); return null; }
 
   // 2. Activer le flag is_dvol sur la table dossiers principale
-  await supabase
+  await db
     .from('dossiers')
     .update({ is_dvol: true, date_passage_dvol: new Date().toISOString() })
-    .eq('numero', numeroDossier);
+    .eq('ref_sinistre', numeroDossier);
 
   // 3. Initialiser les étapes via la fonction SQL
   const { error: errEtapes } = await db.rpc('initialiser_suivi_dvol', {
@@ -41,7 +41,7 @@ async function dvolInitialiserDossier(numeroDossier, gestionnaireId, compagnie, 
 
 // ─── RÉCUPÉRER LE TABLEAU DE BORD DVOL ──────────────────────
 async function dvolGetTableauDeBord() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dvol_tableau_de_bord')
     .select('*');
 
@@ -51,7 +51,7 @@ async function dvolGetTableauDeBord() {
 
 // ─── RÉCUPÉRER UN DOSSIER DVOL ───────────────────────────────
 async function dvolGetDossier(dossierId) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dvol_dossiers')
     .select(`
       *,
@@ -66,7 +66,7 @@ async function dvolGetDossier(dossierId) {
 
 // ─── RÉCUPÉRER LES ÉTAPES D'UN DOSSIER ──────────────────────
 async function dvolGetEtapesDossier(dossierId) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dvol_suivi_etapes')
     .select(`
       *,
@@ -112,7 +112,7 @@ async function dvolChangerStatut(dossierId, nouveauStatut, dateCloturePrevue = n
   const update = { statut: nouveauStatut, updated_at: new Date().toISOString() };
   if (dateCloturePrevue) update.date_cloture_prevue = dateCloturePrevue;
 
-  const { error } = await supabase
+  const { error } = await db
     .from('dvol_dossiers')
     .update(update)
     .eq('id', dossierId);
@@ -123,11 +123,11 @@ async function dvolChangerStatut(dossierId, nouveauStatut, dateCloturePrevue = n
 
 // ─── MARQUER UNE ÉTAPE COMME RÉALISÉE ───────────────────────
 async function dvolMarquerEtapeRealisee(suiviEtapeId, commentaire = null) {
-  const { error } = await supabase
+  const { error } = await db
     .from('dvol_suivi_etapes')
     .update({
       statut: 'realise',
-      date_realisee: new Date().toISOString().split('T')[0],
+      date_realisee: (function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})(new Date()),
       commentaire: commentaire,
       updated_at: new Date().toISOString()
     })
@@ -139,7 +139,7 @@ async function dvolMarquerEtapeRealisee(suiviEtapeId, commentaire = null) {
 
 // ─── RÉCUPÉRER LES NOTIFICATIONS NON LUES ───────────────────
 async function dvolGetNotificationsNonLues(gestionnaireId) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('dvol_notifications')
     .select(`
       *,
@@ -155,7 +155,7 @@ async function dvolGetNotificationsNonLues(gestionnaireId) {
 
 // ─── MARQUER UNE NOTIFICATION COMME LUE ─────────────────────
 async function dvolMarquerNotificationLue(notifId) {
-  const { error } = await supabase
+  const { error } = await db
     .from('dvol_notifications')
     .update({ lu: true })
     .eq('id', notifId);
@@ -167,11 +167,11 @@ async function dvolMarquerNotificationLue(notifId) {
 // ─── VÉRIFIER LES RELANCES À ENVOYER (appelé au chargement) ──
 async function dvolVerifierRelances(gestionnaireId) {
   const tableau = await dvolGetTableauDeBord();
-  const aujourd_hui = new Date().toISOString().split('T')[0];
+  const aujourd_hui = (function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})(new Date());
   const alertes = [];
 
   for (const dossier of tableau) {
-    if (dossier.gestionnaire_id !== gestionnaireId) continue;
+    if (String(dossier.gestionnaire_id) !== String(gestionnaireId)) continue;
 
     // Relance clôture quotidienne
     if (dossier.relance_cloture_active) {
@@ -376,7 +376,7 @@ function dvolOuvrirNouveauDossier() {
         </div>
         <div>
           <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Date de déclaration *</label>
-          <input id="dvol-form-date" type="date" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;" value="${new Date().toISOString().split('T')[0]}">
+          <input id="dvol-form-date" type="date" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;" value="${(function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})(new Date())}">
         </div>
         <div id="dvol-form-error" style="display:none;color:#dc2626;font-size:13px;padding:8px 12px;background:#fef2f2;border-radius:6px;"></div>
         <div style="display:flex;gap:10px;margin-top:8px;">
