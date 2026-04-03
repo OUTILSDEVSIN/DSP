@@ -2,7 +2,8 @@
 function toggleDarkMode() {
   var isDark = document.body.classList.toggle('dark-mode');
   safeLocal.setItem('dispatchis_dark_mode', isDark ? '1' : '0');
-  document.getElementById('dark-toggle-btn').textContent = isDark ? '☀️' : '🌙';
+  var btn = document.getElementById('dark-toggle-btn');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
 }
 
 function initDarkMode() {
@@ -16,64 +17,56 @@ function initDarkMode() {
 
 // ===== SAFE STORAGE =====
 const safeLocal = {
-  getItem(k) { try { return localStorage.getItem(k); } catch(e) { return null; } },
-  setItem(k,v) { try { localStorage.setItem(k,v); } catch(e) {} },
-  removeItem(k) { try { localStorage.removeItem(k); } catch(e) {} }
+  getItem(k)   { try { return localStorage.getItem(k);    } catch(e) { return null; } },
+  setItem(k,v) { try { localStorage.setItem(k,v);         } catch(e) {} },
+  removeItem(k){ try { localStorage.removeItem(k);        } catch(e) {} }
 };
 
 const safeSession = {
-  getItem(k) { try { return sessionStorage.getItem(k); } catch(e) { return null; } },
-  setItem(k,v) { try { sessionStorage.setItem(k,v); } catch(e) {} },
-  removeItem(k) { try { sessionStorage.removeItem(k); } catch(e) {} }
+  getItem(k)   { try { return sessionStorage.getItem(k);  } catch(e) { return null; } },
+  setItem(k,v) { try { sessionStorage.setItem(k,v);       } catch(e) {} },
+  removeItem(k){ try { sessionStorage.removeItem(k);      } catch(e) {} }
 };
 
 // ===== AUTH =====
+// ⚠️ La table `utilisateurs` utilise id BIGINT — la liaison Auth↔Table se fait par EMAIL
 async function doLogin() {
-  const email = document.getElementById('login-email')?.value?.trim().toLowerCase() || '';
+  const email    = document.getElementById('login-email')?.value?.trim().toLowerCase() || '';
   const password = document.getElementById('login-password')?.value || '';
-  const btn = document.getElementById('login-btn');   // garanti présent dans le HTML
-  const errDiv = document.getElementById('login-error');
+  const btn      = document.getElementById('login-btn');
+  const errDiv   = document.getElementById('login-error');
 
   if (errDiv) errDiv.style.display = 'none';
-  if (btn) { btn.disabled = true; btn.textContent = 'Connexion...'; }
+  if (btn)  { btn.disabled = true; btn.textContent = 'Connexion...'; }
 
   try {
+    // 1. Auth Supabase
     const { data, error: authError } = await db.auth.signInWithPassword({ email, password });
-    if (authError || !data.user) throw authError || new Error('Auth failed');
-
+    if (authError || !data?.user) throw authError || new Error('Auth failed');
     currentUser = data.user;
 
+    // 2. Récup profil par EMAIL (id=bigint, pas UUID)
     const { data: userRow, error: userError } = await db
       .from('utilisateurs')
       .select('*')
-      .eq('id', data.user.id)
-      .single();
+      .eq('email', email)
+      .maybeSingle();
 
-    if (userError || !userRow) throw userError || new Error('Utilisateur introuvable');
+    if (userError) throw userError;
+    if (!userRow)  throw new Error('Utilisateur introuvable dans la base');
     if (!userRow.actif) throw new Error('Compte désactivé');
 
     currentUserData = userRow;
     safeSession.setItem('dispatchis_uid', currentUser.id);
+    safeSession.setItem('dispatchis_email', email);
 
-    document.getElementById('header-name').textContent = userRow.prenom + ' ' + userRow.nom;
-    document.getElementById('header-role').textContent = userRow.role;
-
-    if (userRow.role === 'admin' || userRow.role === 'manager') {
-      document.getElementById('btn-reset-header').style.display = 'inline-flex';
-    }
-    if (userRow.email === 'julien@dispatchis.fr') {
-      document.getElementById('btn-god-switch').style.display = 'inline-flex';
-    }
-
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display = 'block';
-
+    _applyUserSession(userRow);
     buildTabs();
     await showTab('dashboard');
     showNotif('Connexion réussie', 'success');
 
   } catch (e) {
-    console.error(e);
+    console.error('[doLogin]', e);
     if (errDiv) {
       errDiv.textContent = e.message || 'Email ou mot de passe incorrect.';
       errDiv.style.display = 'block';
@@ -83,11 +76,29 @@ async function doLogin() {
   }
 }
 
+// Applique la session utilisateur à l'interface
+function _applyUserSession(userRow) {
+  document.getElementById('login-screen').style.display  = 'none';
+  document.getElementById('app-screen').style.display    = 'block';
+  document.getElementById('header-name').textContent     = userRow.prenom + ' ' + userRow.nom;
+  document.getElementById('header-role').textContent     = userRow.role;
+
+  if (['admin','manager'].includes(userRow.role)) {
+    const r = document.getElementById('btn-reset-header');
+    if (r) r.style.display = 'inline-flex';
+  }
+  if (userRow.email === 'julien@dispatchis.fr') {
+    const g = document.getElementById('btn-god-switch');
+    if (g) g.style.display = 'inline-flex';
+  }
+}
+
 async function doLogout() {
   try { await db.auth.signOut(); } catch(e) {}
-  currentUser = null;
+  currentUser     = null;
   currentUserData = null;
   safeSession.removeItem('dispatchis_uid');
+  safeSession.removeItem('dispatchis_email');
   location.reload();
 }
 
@@ -97,29 +108,18 @@ async function checkSessionOnLoad() {
   if (!data?.session?.user) return;
 
   currentUser = data.session.user;
+  const email = currentUser.email;
 
   const { data: userRow } = await db
     .from('utilisateurs')
     .select('*')
-    .eq('id', currentUser.id)
-    .single();
+    .eq('email', email)
+    .maybeSingle();
 
   if (!userRow || !userRow.actif) return;
   currentUserData = userRow;
 
-  document.getElementById('header-name').textContent = userRow.prenom + ' ' + userRow.nom;
-  document.getElementById('header-role').textContent = userRow.role;
-
-  if (userRow.role === 'admin' || userRow.role === 'manager') {
-    document.getElementById('btn-reset-header').style.display = 'inline-flex';
-  }
-  if (userRow.email === 'julien@dispatchis.fr') {
-    document.getElementById('btn-god-switch').style.display = 'inline-flex';
-  }
-
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'block';
-
+  _applyUserSession(userRow);
   buildTabs();
   await showTab('dashboard');
 }
@@ -147,11 +147,10 @@ function showChangePassword() {
 }
 
 async function saveNewPassword() {
-  const p1 = document.getElementById('new-password').value;
-  const p2 = document.getElementById('confirm-password').value;
+  const p1 = document.getElementById('new-password')?.value || '';
+  const p2 = document.getElementById('confirm-password')?.value || '';
   if (!p1 || p1.length < 6) return showNotif('Mot de passe trop court', 'error');
-  if (p1 !== p2) return showNotif('Les mots de passe ne correspondent pas', 'error');
-
+  if (p1 !== p2)             return showNotif('Les mots de passe ne correspondent pas', 'error');
   const { error } = await db.auth.updateUser({ password: p1 });
   if (error) return showNotif(error.message, 'error');
   closeModal('modal-change-password-overlay');

@@ -6,28 +6,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dispatchis — STAGING</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.41">
+  <meta name="version" content="2.5.53">
 
-  <!-- ===== CSS ===== -->
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/screens.css">
 
-  <!-- ===== CACHE BUSTING ===== -->
   <script>
     var _APP_VERSION = '2.5.53';
-    var storedVersion = null;
-    try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
-    if (storedVersion && storedVersion !== _APP_VERSION) {
-      sessionStorage.setItem('dispatchis_version', _APP_VERSION);
-      window.location.href = window.location.href.split('?')[0] + '?v=' + _APP_VERSION;
-    } else {
-      try { sessionStorage.setItem('dispatchis_version', _APP_VERSION); } catch(e) {}
-    }
+    try {
+      var sv = sessionStorage.getItem('dispatchis_version');
+      if (sv && sv !== _APP_VERSION) {
+        sessionStorage.setItem('dispatchis_version', _APP_VERSION);
+        window.location.href = window.location.href.split('?')[0] + '?v=' + _APP_VERSION;
+      } else { sessionStorage.setItem('dispatchis_version', _APP_VERSION); }
+    } catch(e) {}
   </script>
 
-  <!-- ===== CDN ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -35,33 +31,32 @@
 
 <!-- ===== BANDEAU STAGING ===== -->
 <div id="staging-banner" style="
-  position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
-  background: #f59e0b; color: #1c1917; text-align: center;
-  font-size: 12px; font-weight: 700; padding: 4px 12px;
-  font-family: monospace; letter-spacing: 0.05em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+  position:fixed;top:0;left:0;right:0;z-index:99999;
+  background:#f59e0b;color:#1c1917;text-align:center;
+  font-size:12px;font-weight:700;padding:4px 12px;
+  font-family:monospace;letter-spacing:.05em;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);">
   🧪 STAGING — Base de données de test — Modifications sans impact production
   <button onclick="document.getElementById('staging-banner').style.display='none'"
-    style="margin-left:12px; background:none; border:1px solid #1c1917; border-radius:3px;
-    cursor:pointer; font-size:10px; padding:1px 6px; font-weight:700;">✕</button>
+    style="margin-left:12px;background:none;border:1px solid #1c1917;border-radius:3px;
+    cursor:pointer;font-size:10px;padding:1px 6px;font-weight:700;">✕</button>
 </div>
-<style>
-  body { padding-top: 28px; }
-</style>
+<style>body{padding-top:28px;}</style>
 
 
 <!-- ===== LOGIN SCREEN ===== -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <!-- Logo : tente le JPG, fallback SVG inline si absent -->
-      <img src="assets/images/logo.jpg" alt="DISPATCHIS"
-           style="width:220px;height:auto;margin-bottom:2px;"
-           onerror="this.style.display='none';document.getElementById('login-logo-fallback').style.display='block'">
-      <div id="login-logo-fallback" style="display:none;font-size:28px;font-weight:900;letter-spacing:3px;color:#0f172a;margin-bottom:8px;">DISPATCHIS</div>
+      <!-- Logo SVG inline — aucune dépendance fichier image -->
+      <svg width="220" height="52" viewBox="0 0 220 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Dispatchis">
+        <rect width="220" height="52" rx="6" fill="#0f172a"/>
+        <text x="14" y="34" font-family="'Helvetica Neue',Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="3" fill="#f8fafc">DISPATCH</text>
+        <text x="161" y="34" font-family="'Helvetica Neue',Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="3" fill="#e11d48">IS</text>
+        <rect x="14" y="40" width="192" height="2" rx="1" fill="#e11d48" opacity=".6"/>
+      </svg>
     </div>
     <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
-    <!-- form évite le warning Chromium sur les champs password hors form -->
     <form onsubmit="event.preventDefault(); doLogin()" autocomplete="on">
       <div class="login-field">
         <label class="login-label" for="login-email">Adresse email</label>
@@ -71,10 +66,9 @@
         <label class="login-label" for="login-password">Mot de passe</label>
         <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
       </div>
-      <!-- id="login-btn" requis par doLogin() dans auth.js -->
       <button type="submit" id="login-btn">Se connecter</button>
     </form>
-    <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
+    <div class="login-error" id="login-error" style="display:none;">Email ou mot de passe incorrect.</div>
     <div class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</div>
   </div>
 </div>
@@ -84,10 +78,12 @@
 <div id="app-screen" style="display:none;">
   <header>
     <div class="header-left">
-      <img src="assets/images/logo2.png" alt="DISPATCHIS"
-           style="height:40px;width:auto;filter:brightness(0) invert(1);flex-shrink:0;"
-           onerror="this.style.display='none'">
-      <span class="header-title" style="letter-spacing:2px;font-size:15px;font-weight:800">DISPATCHIS</span>
+      <!-- Logo header SVG inline -->
+      <svg width="110" height="26" viewBox="0 0 110 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Dispatchis" style="flex-shrink:0;">
+        <text x="2" y="20" font-family="'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#ffffff">DISPATCH</text>
+        <text x="82" y="20" font-family="'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="800" letter-spacing="2" fill="#e11d48">IS</text>
+      </svg>
+      <span class="header-title" style="letter-spacing:2px;font-size:13px;font-weight:600;color:rgba(255,255,255,.5);margin-left:4px;">STAGING</span>
     </div>
     <div class="tool-switcher">
       <button class="tool-btn active" id="btn-tool-dispatch" onclick="switchTool('dispatch')">
@@ -103,14 +99,14 @@
       <span class="header-sep">|</span>
       <button class="btn-header" onclick="showChangePassword()">🔑 Mot de passe</button>
       <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
-      <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
+      <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,.2);border:1px solid rgba(255,180,0,.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
       <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
       <button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre / clair">🌙</button>
     </div>
   </header>
+
   <div class="tabs" id="tabs-container"></div>
   <div class="content" id="main-content"></div>
-
 
   <!-- ===== DPLANE SCREEN ===== -->
   <div id="dplane-screen" style="display:none;">
@@ -123,9 +119,9 @@
           <p style="font-size:12px;color:var(--gray-600);margin:2px 0 0;">Planning intelligent de l'équipe</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-secondary dplane-today-btn" onclick="dplaneGoToday()">Aujourd'hui</button>
-          <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(-1)">◀ Semaine préc.</button>
-          <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(1)">Semaine suiv. ▶</button>
+          <button class="btn btn-secondary" onclick="dplaneGoToday()">Aujourd'hui</button>
+          <button class="btn btn-secondary" onclick="dplaneNavSemaine(-1)">◀ Semaine préc.</button>
+          <button class="btn btn-secondary" onclick="dplaneNavSemaine(1)">Semaine suiv. ▶</button>
           <button class="btn btn-secondary" onclick="dplaneOuvrirGestionActivites()" id="btn-gerer-activites" style="display:none;">⚙️ Activités</button>
           <button class="btn btn-secondary" onclick="dplaneToggleBrouillon()" id="btn-brouillon" style="display:none;">✏️ Mode brouillon</button>
           <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" disabled style="opacity:.4;cursor:default;">📢 Publier</button>
@@ -145,31 +141,20 @@
       </div>
     </div>
   </div>
-  <!-- ===== FIN DPLANE SCREEN ===== -->
+  <!-- ===== FIN DPLANE ===== -->
 
 </div>
 <!-- ===== FIN APP SCREEN ===== -->
 
 
-<!-- ===== JAVASCRIPT — ordre de chargement critique ===== -->
-<!-- 1. Config & init Supabase (doit être premier) -->
+<!-- ===== JS — ordre critique ===== -->
 <script src="assets/js/config.js"></script>
-
-<!-- 2. Auth, session, dark mode, safe storage -->
 <script src="assets/js/auth.js"></script>
-
-<!-- 3. Navigation tabs -->
 <script src="assets/js/tabs.js"></script>
-
-<!-- 4. Actions utilitaires partagées -->
 <script src="assets/js/actions.js"></script>
-
-<!-- 5. Admin -->
 <script src="assets/js/admin/users.js"></script>
 <script src="assets/js/admin/audit.js"></script>
 <script src="assets/js/admin/god-switch.js"></script>
-
-<!-- 6. Dispatch -->
 <script src="assets/js/dispatch/habilitations.js"></script>
 <script src="assets/js/dispatch/import.js"></script>
 <script src="assets/js/dispatch/dispatch.js"></script>
@@ -177,15 +162,9 @@
 <script src="assets/js/dispatch/attribution.js"></script>
 <script src="assets/js/dispatch/dossiers.js"></script>
 <script src="assets/js/dispatch/trocs.js"></script>
-
-<!-- 7. Dashboard -->
 <script src="assets/js/dashboard/kpis.js"></script>
 <script src="assets/js/dashboard/stats.js"></script>
-
-<!-- 8. Dvol -->
 <script src="assets/js/dvol/dvol.js"></script>
-
-<!-- 9. Init final (appels init au chargement) -->
 <script src="assets/js/init.js"></script>
 
 </body>
