@@ -1,4 +1,4 @@
-/* core.js — Dispatchis v2.5.63 — Logique principale : tabs, dashboard, dispatch, attribution */
+/* core.js — Dispatchis v2.5.64 — Logique principale : tabs, dashboard, dispatch, attribution */
 
 // ===== TOOL SWITCHER (Dispatch / Dplane / Dvol) =====
 function switchTool(tool) {
@@ -24,7 +24,8 @@ function switchTool(tool) {
 
   // Initialisation spécifique par outil
   if (tool === 'dispatch') {
-    if (typeof showTab === 'function') showTab(currentTab || 'dashboard');
+    var tabToShow = (typeof currentTab !== 'undefined' && currentTab) ? currentTab : 'dashboard';
+    if (typeof showTab === 'function') showTab(tabToShow);
   }
   if (tool === 'dplane') {
     if (typeof renderDplaneGrille === 'function') renderDplaneGrille();
@@ -44,9 +45,7 @@ function buildTabs() {
   tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
   if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
-  if (role === 'admin' || role === 'manager' || role === 'gestionnaire') {
-    tabs.push({ id: 'dvol', label: '🚗 DVOL' });
-  }
+  // NOTE: L'onglet Dvol est retiré — Dvol est accessible via le tool switcher (navbar)
   tabs.push({ id: 'stats', label: '📊 Stats' });
   const container = document.getElementById('tabs-container');
   container.innerHTML = tabs.map(t =>
@@ -96,7 +95,7 @@ function showReleaseManager(nom) {
   const inner = document.createElement('div'); inner.className = 'modal';
   inner.style.cssText = 'text-align:center;max-width:440px';
   inner.innerHTML = '<div style="font-size:44px;margin-bottom:12px">🔓</div>'
-    + '<h2 style="color:#e74c3c">Libérer ' + nom + ' ?</h2>'
+    + '<h2 style="color:#e74c3c">Libérer ' + nom.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + ' ?</h2>'
     + '<p style="color:#666;margin:16px 0">Cette action va libérer <strong>' + dossiers.length + ' dossier(s) non traité(s)</strong> et les remettre disponibles.</p>'
     + (dossiers.length === 0 ? '<p style="color:#27ae60;font-weight:600">✅ Aucun dossier non traité à libérer.</p>' : '');
   const btns = document.createElement('div');
@@ -107,7 +106,11 @@ function showReleaseManager(nom) {
   if (dossiers.length > 0) {
     const btnO = document.createElement('button'); btnO.className = 'btn btn-danger';
     btnO.textContent = '🔓 Confirmer la libération';
-    btnO.onclick = () => doReleaseManager(nom);
+    // FIX: utilisation de data-attribute pour éviter les problèmes d'apostrophe dans onclick inline
+    btnO.setAttribute('data-nom', nom);
+    btnO.addEventListener('click', function() {
+      doReleaseManager(this.getAttribute('data-nom'));
+    });
     btns.appendChild(btnO);
   }
   inner.appendChild(btns); modal.appendChild(inner); document.body.appendChild(modal);
@@ -243,8 +246,9 @@ async function renderDashboard() {
       const t = dos3m.filter(d => d.gestionnaire === nom).length;
       const tr = dos3m.filter(d => d.gestionnaire === nom && d.traite).length;
       const pct = t > 0 ? Math.round(tr / t * 100) : 0;
+      // FIX: bouton Libérer via data-attribute pour éviter crash sur noms avec apostrophe
       const tdLiberer = canRelease
-        ? `<td><button class="btn btn-warning" style="padding:4px 12px;font-size:12px" onclick="showReleaseManager('${nom}')">🔓 Libérer</button></td>`
+        ? `<td><button class="btn btn-warning" style="padding:4px 12px;font-size:12px" data-release-nom="${nom.replace(/"/g,'&quot;')}" onclick="showReleaseManager(this.getAttribute('data-release-nom'))">🔓 Libérer</button></td>`
         : '';
       html += `<tr>`;
       html += `<td><strong>${nom}</strong></td>`;
@@ -423,88 +427,44 @@ async function showAutoAssignModal(totalImported) {
 
   const gestionnaires = allUsers.filter(u => ['gestionnaire','manager'].includes(u.role));
   if (!gestionnaires.length) return;
+
+  // FIX: construire le HTML du planning sans template literals multi-lignes imbriqués
+  const hasPlanningData = resumePlanning.some(r => r.acts.length || r.absent);
+  let planningHtml = '';
+  if (hasPlanningData) {
+    let rows = '';
+    resumePlanning.forEach(function(r) {
+      if (!r.acts.length && !r.absent) return;
+      const nomCell = '<span style="font-weight:600;min-width:130px;">' + r.user.prenom + ' ' + r.user.nom + '</span>';
+      const statusCell = r.absent
+        ? '<span style="color:#e5195e;font-size:11px">🚫 Absent</span>'
+        : '<span style="color:#27ae60;font-size:11px">' + (r.acts.join(', ') || '') + '</span>';
+      rows += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);">'
+        + nomCell + statusCell + '</div>';
+    });
+    planningHtml = '<div style="background:#f0f4ff;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">'
+      + '<div style="font-weight:700;color:var(--navy);margin-bottom:8px;">📅 Planning Dplane du jour</div>'
+      + rows
+      + '</div>';
+  }
+
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.id = 'auto-assign-modal';
   modal.style.zIndex = '3000';
-  modal.innerHTML = `
-    <div class="modal" style="max-width:500px;width:95vw">
-      <div style="font-size:40px;text-align:center;margin-bottom:8px">🎯</div>
-      <h2 style="text-align:center">Attribution automatique</h2>
-      <p style="color:#666;font-size:14px;text-align:center;margin-bottom:20px">
-        <strong>${totalImported}</strong> dossiers importés. Souhaitez-vous les attribuer maintenant ?
-      </p>
-      ${resumePlanning.some(r => r.acts.length || r.absent) ? `
-      <div style="background:#f0f4ff;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
-        <div style="font-weight:700;color:var(--navy);margin-bottom:8px;">📅 Planning Dplane du jour</div>
-        ${resumePlanning.map(r => r.acts.length || r.absent ? `
-          <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);">
-            <span style="font-weight:600;min-width:130px;">${r.user.prenom} ${r.user.nom}</span>
-            ${r.absent ? '<span style="color:#e5195e;font-size:11px;">🚫 Absent</span>' :
-              r.acts.map(a => `<span style="background:${r.preouv?'var(--rose)':'#666'};color:white;padding:2px 6px;border-radius:10px;font-size:10px;">${a}</span>`).join('')}
-          </div>` : '').join('')}
-      </div>` : ''}
-      <div style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:16px">
-        ${gestionnaires.map(g => {
-          const rp = resumePlanning.find(r => r.user.id === g.id);
-          const isPreouv = rp?.preouv || false;
-          const isAbsent = rp?.absent || false;
-          const isChecked = isPreouv && !isAbsent;
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5;${isAbsent?'opacity:.45;':''}">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:normal;margin:0">
-              <input type="checkbox" class="gest-check" data-nom="${g.prenom} ${g.nom}" ${isChecked?'checked':''} ${isAbsent?'disabled':''} style="width:16px;height:16px;accent-color:var(--rose)">
-              <span>${g.prenom} ${g.nom}</span>
-              ${isPreouv ? '<span style="background:var(--rose);color:white;font-size:10px;padding:1px 5px;border-radius:8px;">Préouvertures ✓</span>' : ''}
-              ${isAbsent ? '<span style="color:#e5195e;font-size:10px;">🚫 Absent</span>' : ''}
-              <span class="badge role-${g.role}" style="font-size:10px">${g.role}</span>
-            </label>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:12px;color:#888">Nb dossiers :</span>
-              <input type="number" class="gest-nb" data-nom="${g.prenom} ${g.nom}" value="10" min="1" max="${totalImported}"
-                style="width:60px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center" ${isAbsent?'disabled':''}>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-      <div id="auto-assign-error" style="color:#e74c3c;font-size:13px;background:#fff5f5;padding:10px;border-radius:8px;display:none;margin-bottom:12px"></div>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn btn-secondary" onclick="closeModal('auto-assign-modal')">Passer →</button>
-        <button class="btn btn-primary" onclick="doAutoAssign(${totalImported})">✅ Attribuer automatiquement</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
+  modal.innerHTML = '<div class="modal" style="max-width:500px;width:95vw">'
+    + '<div style="font-size:40px;text-align:center;margin-bottom:8px">🎯</div>'
+    + '<h2 style="text-align:center">Attribution automatique</h2>'
+    + '<p style="color:#666;font-size:14px;text-align:center;margin-bottom:20px">'
+    + '<strong>' + totalImported + '</strong> dossiers importés. Souhaitez-vous les attribuer maintenant ?'
+    + '</p>'
+    + planningHtml
+    + '<div id="auto-assign-options"></div>'
+    + '<div style="display:flex;gap:10px;justify-content:center;margin-top:20px">'
+    + '<button class="btn btn-secondary" onclick="closeModal(\'auto-assign-modal\')">Plus tard</button>'
+    + '<button class="btn btn-primary" onclick="doAutoAssign()">🎯 Attribuer maintenant</button>'
+    + '</div>'
+    + '</div>';
 
-async function doAutoAssign(totalImported) {
-  const checks = [...document.querySelectorAll('.gest-check:checked')];
-  if (!checks.length) {
-    const err = document.getElementById('auto-assign-error');
-    err.textContent = 'Sélectionnez au moins un gestionnaire.';
-    err.style.display = 'block'; return;
-  }
-  const selections = checks.map(cb => ({
-    nom: cb.dataset.nom,
-    nb: parseInt(document.querySelector(`.gest-nb[data-nom="${cb.dataset.nom}"]`).value) || 10
-  }));
-  const totalDemande = selections.reduce((s, x) => s + x.nb, 0);
-  const dossiersNonAttribues = allDossiers.filter(d => !d.gestionnaire);
-  if (!dossiersNonAttribues.length) {
-    closeModal('auto-assign-modal');
-    showNotif('Aucun dossier non attribué.', 'info');
-    return;
-  }
-  let idx = 0;
-  for (const sel of selections) {
-    const slice = dossiersNonAttribues.slice(idx, idx + sel.nb);
-    for (const d of slice) {
-      await db.from('dossiers').update({ gestionnaire: sel.nom, verrouille: true, statut: 'ouvert' }).eq('id', d.id);
-    }
-    idx += sel.nb;
-    if (idx >= dossiersNonAttribues.length) break;
-  }
-  closeModal('auto-assign-modal');
-  await auditLog('AUTO_ASSIGN', selections.map(s => s.nom + ':' + s.nb).join(', '));
-  showNotif('✅ Attribution automatique effectuée.', 'success');
-  await loadDossiers();
-  renderDashboard();
+  document.body.appendChild(modal);
 }
