@@ -21,7 +21,7 @@
     getItem: function(k) { try { return sessionStorage.getItem(k); } catch(e) { return null; } },
     setItem: function(k, v) { try { sessionStorage.setItem(k, v); } catch(e) {} },
     removeItem: function(k) { try { sessionStorage.removeItem(k); } catch(e) {} },
-    clear: function() { try { safeSession.clear(); } catch(e) {} }
+    clear: function() { try { sessionStorage.clear(); } catch(e) {} }  /* FIX: était safeSession.clear() → boucle infinie */
   };
   var safeLocal = {
     getItem: function(k) { try { return localStorage.getItem(k); } catch(e) { return null; } },
