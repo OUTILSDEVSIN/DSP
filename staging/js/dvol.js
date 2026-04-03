@@ -1,17 +1,19 @@
 // ============================================================
-// DVOL.JS — Fonctions data du module Dvol (vol de véhicules)
-// Version 1.4 — 03 avril 2026
+// DVOL.JS — Fonctions data du module Dvol (vol de vehicules)
+// Version 1.5 — 03 avril 2026
 // Corrections :
-//   - dvolGetEtapesDossier : tri ORDER BY retiré (non supporté
-//     sur relation jointe en Supabase JS v2), tri côté JS
-//   - dvolChangerStatut : ajout auditLog pour traçabilité
-//   - dvolVerifierRelances : gestionnaire_id ajouté au SELECT
-//     pour éviter l'échec du filtre .eq()
-//   - dvolConfirmerDocuments : statut → 'en_instruction' au
+//   - Retrait des caracteres speciaux (em-dash, box-drawing)
+//     dans les commentaires pour eviter SyntaxError encodage
+//   - dvolGetEtapesDossier : tri ORDER BY retire (non supporte
+//     sur relation jointe en Supabase JS v2), tri cote JS
+//   - dvolChangerStatut : ajout auditLog pour tracabilite
+//   - dvolVerifierRelances : gestionnaire_id ajoute au SELECT
+//     pour eviter l'echec du filtre .eq()
+//   - dvolConfirmerDocuments : statut -> 'en_instruction' au
 //     lieu de 'relance' (workflow correct)
 // ============================================================
 
-// ─── TABLEAU DE BORD ─────────────────────────────────────────
+// --- TABLEAU DE BORD -----------------------------------------
 async function dvolGetTableauDeBord() {
   const isAdmin = ['admin', 'manager'].includes(currentUserData?.role);
 
@@ -34,9 +36,9 @@ async function dvolGetTableauDeBord() {
   return data || [];
 }
 
-// ─── RÉCUPÉRER UN DOSSIER COMPLET ────────────────────────────
+// --- RECUPERER UN DOSSIER COMPLET ----------------------------
 // Lit depuis dvol_tableau_de_bord pour avoir tous les champs
-// calculés : action_requise, notes, portefeuille,
+// calcules : action_requise, notes, portefeuille,
 // documents_recus_liste, date_ouverture, assure_email
 async function dvolGetDossier(dossierId) {
   const { data, error } = await db
@@ -46,7 +48,7 @@ async function dvolGetDossier(dossierId) {
     .single();
 
   if (error) {
-    // Fallback sur la table brute si la vue échoue
+    // Fallback sur la table brute si la vue echoue
     console.warn('[dvol] Vue indisponible, fallback dvol_dossiers:', error.message);
     const { data: fallback, error: err2 } = await db
       .from('dvol_dossiers')
@@ -62,9 +64,9 @@ async function dvolGetDossier(dossierId) {
   return data;
 }
 
-// ─── RÉCUPÉRER LES ÉTAPES D'UN DOSSIER ───────────────────────
-// CORRECTION : .order() sur relation jointe non supporté en
-// Supabase JS v2 — tri effectué côté JS après réception
+// --- RECUPERER LES ETAPES D'UN DOSSIER -----------------------
+// CORRECTION : .order() sur relation jointe non supporte en
+// Supabase JS v2 — tri effectue cote JS apres reception
 async function dvolGetEtapesDossier(dossierId) {
   const { data, error } = await db
     .from('dvol_suivi_etapes')
@@ -72,7 +74,7 @@ async function dvolGetEtapesDossier(dossierId) {
     .eq('dossier_id', dossierId);
 
   if (error) {
-    console.error('[dvol] Erreur étapes:', error.message);
+    console.error('[dvol] Erreur etapes:', error.message);
     return [];
   }
 
@@ -84,7 +86,7 @@ async function dvolGetEtapesDossier(dossierId) {
   });
 }
 
-// ─── MARQUER UNE ÉTAPE COMME RÉALISÉE ────────────────────────
+// --- MARQUER UNE ETAPE COMME REALISEE ------------------------
 async function dvolMarquerEtapeRealisee(suiviEtapeId) {
   const { error } = await db
     .from('dvol_suivi_etapes')
@@ -95,14 +97,33 @@ async function dvolMarquerEtapeRealisee(suiviEtapeId) {
     .eq('id', suiviEtapeId);
 
   if (error) {
-    console.error('[dvol] Erreur marquage étape:', error.message);
+    console.error('[dvol] Erreur marquage etape:', error.message);
     return false;
   }
   return true;
 }
 
-// ─── CHANGER LE STATUT D'UN DOSSIER ──────────────────────────
-// CORRECTION : ajout auditLog pour traçabilité des changements
+// --- LIBERER UN DOSSIER (retour statut declare) ---------------
+async function dvolLibererDossier(dossierId) {
+  const { error } = await db
+    .from('dvol_dossiers')
+    .update({ statut: 'declare' })
+    .eq('id', dossierId);
+
+  if (error) {
+    console.error('[dvol] Erreur liberation dossier:', error.message);
+    return false;
+  }
+
+  if (typeof auditLog === 'function') {
+    await auditLog('DVOL_LIBERER', 'Dossier #' + dossierId + ' libere -> declare');
+  }
+
+  return true;
+}
+
+// --- CHANGER LE STATUT D'UN DOSSIER --------------------------
+// CORRECTION : ajout auditLog pour tracabilite des changements
 async function dvolChangerStatut(dossierId, nouveauStatut) {
   const statutsValides = [
     'declare', 'en_attente_documents', 'relance',
@@ -132,17 +153,17 @@ async function dvolChangerStatut(dossierId, nouveauStatut) {
     return false;
   }
 
-  // Traçabilité — log du changement de statut
+  // Tracabilite — log du changement de statut
   if (typeof auditLog === 'function') {
-    await auditLog('DVOL_STATUT', 'Dossier #' + dossierId + ' → ' + nouveauStatut);
+    await auditLog('DVOL_STATUT', 'Dossier #' + dossierId + ' -> ' + nouveauStatut);
   }
 
   return true;
 }
 
-// ─── CONFIRMER RÉCEPTION DOCUMENTS ───────────────────────────
-// CORRECTION : statut → 'en_instruction' (workflow correct)
-// 'relance' était incorrect car les docs sont reçus
+// --- CONFIRMER RECEPTION DOCUMENTS ---------------------------
+// CORRECTION : statut -> 'en_instruction' (workflow correct)
+// 'relance' etait incorrect car les docs sont recus
 async function dvolConfirmerDocuments(dossierId) {
   const { error } = await db
     .from('dvol_dossiers')
@@ -160,13 +181,13 @@ async function dvolConfirmerDocuments(dossierId) {
   }
 
   if (typeof auditLog === 'function') {
-    await auditLog('DVOL_DOCS_RECUS', 'Documents reçus — dossier #' + dossierId);
+    await auditLog('DVOL_DOCS_RECUS', 'Documents recus — dossier #' + dossierId);
   }
 
   return true;
 }
 
-// ─── CLÔTURER — VÉHICULE RETROUVÉ ────────────────────────────
+// --- CLOTURE — VEHICULE RETROUVE -----------------------------
 async function dvolCloturerVehiculeRetrouve(dossierId) {
   const { error } = await db
     .from('dvol_dossiers')
@@ -178,18 +199,18 @@ async function dvolCloturerVehiculeRetrouve(dossierId) {
     .eq('id', dossierId);
 
   if (error) {
-    console.error('[dvol] Erreur clôture véhicule retrouvé:', error.message);
+    console.error('[dvol] Erreur cloture vehicule retrouve:', error.message);
     return false;
   }
 
   if (typeof auditLog === 'function') {
-    await auditLog('DVOL_VEHICULE_RETROUVE', 'Véhicule retrouvé — dossier #' + dossierId);
+    await auditLog('DVOL_VEHICULE_RETROUVE', 'Vehicule retrouve — dossier #' + dossierId);
   }
 
   return true;
 }
 
-// ─── VÉRIFIER LES RELANCES ───────────────────────────────────
+// --- VERIFIER LES RELANCES -----------------------------------
 // CORRECTION : gestionnaire_id inclus dans le SELECT pour que
 // le filtre .eq('gestionnaire_id') fonctionne correctement
 async function dvolVerifierRelances() {
@@ -213,21 +234,21 @@ async function dvolVerifierRelances() {
   return data || [];
 }
 
-// ─── HELPERS STATUT ──────────────────────────────────────────
+// --- HELPERS STATUT ------------------------------------------
 function dvolLabelStatut(statut) {
   const labels = {
-    declare:              'Déclaré',
+    declare:              'Declare',
     en_attente_documents: 'En attente docs',
-    relance:              'Relancé',
+    relance:              'Relance',
     en_instruction:       'En instruction',
     en_cours_expertise:   'Expertise',
-    en_attente_cloture:   'En att. clôture',
-    vehicule_retrouve:    'Véhicule retrouvé',
+    en_attente_cloture:   'En att. cloture',
+    vehicule_retrouve:    'Vehicule retrouve',
     labtaf:               'LABTAF',
-    refuse:               'Refusé',
+    refuse:               'Refuse',
     clos:                 'Clos'
   };
-  return labels[statut] || statut || '—';
+  return labels[statut] || statut || '-';
 }
 
 function dvolCouleurStatut(statut) {
