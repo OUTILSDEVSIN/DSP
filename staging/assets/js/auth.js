@@ -1,168 +1,181 @@
-// ===== SAFE STORAGE (déclaré EN PREMIER — utilisé par tout le reste) =====
-const safeLocal = {
-  getItem(k)    { try { return localStorage.getItem(k);   } catch(e) { return null; } },
-  setItem(k, v) { try { localStorage.setItem(k, v);       } catch(e) {} },
-  removeItem(k) { try { localStorage.removeItem(k);       } catch(e) {} }
-};
-
-const safeSession = {
-  getItem(k)    { try { return sessionStorage.getItem(k); } catch(e) { return null; } },
-  setItem(k, v) { try { sessionStorage.setItem(k, v);     } catch(e) {} },
-  removeItem(k) { try { sessionStorage.removeItem(k);     } catch(e) {} }
-};
-
-// ===== DARK MODE =====
-function toggleDarkMode() {
-  const isDark = document.body.classList.toggle('dark-mode');
-  safeLocal.setItem('dispatchis_dark_mode', isDark ? '1' : '0');
-  const btn = document.getElementById('dark-toggle-btn');
-  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
-}
-
-function initDarkMode() {
-  const dark = safeLocal.getItem('dispatchis_dark_mode') === '1';
-  if (dark) {
-    document.body.classList.add('dark-mode');
-    const btn = document.getElementById('dark-toggle-btn');
-    if (btn) btn.textContent = '☀️';
-  }
-}
-
 // ===== AUTH =====
-// ⚠️ La table `utilisateurs` utilise id BIGINT — la liaison Auth↔Table se fait par EMAIL
-async function doLogin() {
-  const email    = document.getElementById('login-email')?.value?.trim().toLowerCase() || '';
-  const password = document.getElementById('login-password')?.value || '';
-  const btn      = document.getElementById('login-btn');
-  const errDiv   = document.getElementById('login-error');
 
-  if (errDiv) errDiv.style.display = 'none';
-  if (btn)  { btn.disabled = true; btn.textContent = 'Connexion...'; }
+// ── SAFE STORAGE ───────────────────────────────────────────────
+const safeStorage = {
+  _mem: {},
+  setItem(k, v) { try { localStorage.setItem(k, v); } catch { this._mem[k] = v; } },
+  getItem(k)    { try { return localStorage.getItem(k); } catch { return this._mem[k] ?? null; } },
+  removeItem(k) { try { localStorage.removeItem(k); } catch { delete this._mem[k]; } }
+};
 
-  try {
-    // 1. Auth Supabase
-    const { data, error: authError } = await db.auth.signInWithPassword({ email, password });
-    if (authError || !data?.user) throw authError || new Error('Auth failed');
-    currentUser = data.user;
-
-    // 2. Récup profil par EMAIL (id=bigint, pas UUID)
-    const { data: userRow, error: userError } = await db
-      .from('utilisateurs')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (userError) throw userError;
-    if (!userRow)  throw new Error('Utilisateur introuvable dans la base');
-    if (!userRow.actif) throw new Error('Compte désactivé');
-
-    currentUserData = userRow;
-    safeSession.setItem('dispatchis_uid',   currentUser.id);
-    safeSession.setItem('dispatchis_email', email);
-
-    // 3. Charger les habilitations
-    if (typeof loadHabilitations === 'function') await loadHabilitations();
-
-    _applyUserSession(userRow);
-    buildTabs();
-    await showTab('dashboard');
-    showNotif('Connexion réussie', 'success');
-
-  } catch (e) {
-    console.error('[doLogin]', e);
-    if (errDiv) {
-      errDiv.textContent = e.message || 'Email ou mot de passe incorrect.';
-      errDiv.style.display = 'block';
-    }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Se connecter'; }
-  }
+// ── INIT AUTH ─────────────────────────────────────────────────
+async function initAuth() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { showLoginScreen(); return; }
+  await loadCurrentUser(session.user.email);
 }
 
-// Applique la session utilisateur à l'interface
-function _applyUserSession(userRow) {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display   = 'block';
-  document.getElementById('header-name').textContent    = userRow.prenom + ' ' + userRow.nom;
-  document.getElementById('header-role').textContent    = userRow.role;
-
-  if (['admin', 'manager'].includes(userRow.role)) {
-    const r = document.getElementById('btn-reset-header');
-    if (r) r.style.display = 'inline-flex';
-  }
-  if (userRow.email === 'julien@dispatchis.fr') {
-    const g = document.getElementById('btn-god-switch');
-    if (g) g.style.display = 'inline-flex';
-  }
-
-  // Affiche le bandeau staging
-  const banner = document.getElementById('staging-banner');
-  if (banner) banner.style.display = 'block';
-}
-
-async function doLogout() {
-  try { await db.auth.signOut(); } catch(e) {}
-  currentUser          = null;
-  currentUserData      = null;
-  currentHabilitations = null;
-  safeSession.removeItem('dispatchis_uid');
-  safeSession.removeItem('dispatchis_email');
-  location.reload();
-}
-
-async function checkSessionOnLoad() {
-  initDarkMode();
-  const { data } = await db.auth.getSession();
-  if (!data?.session?.user) return;
-
-  currentUser = data.session.user;
-  const email = currentUser.email;
-
-  const { data: userRow } = await db
+async function loadCurrentUser(email) {
+  const { data, error } = await db
     .from('utilisateurs')
     .select('*')
     .eq('email', email)
-    .maybeSingle();
-
-  if (!userRow || !userRow.actif) return;
-  currentUserData = userRow;
-
-  if (typeof loadHabilitations === 'function') await loadHabilitations();
-
-  _applyUserSession(userRow);
+    .single();
+  if (error || !data) { logout(); return; }
+  currentUserData = data;
+  showAppShell();
+  await loadAllUsers();
   buildTabs();
-  await showTab('dashboard');
+  showTab('dashboard');
 }
 
-function showChangePassword() {
-  const html = `
-    <div class="modal-overlay active" id="modal-change-password-overlay">
-      <div class="modal">
-        <div class="modal-title">🔑 Changer mon mot de passe</div>
+// ── LOGIN ─────────────────────────────────────────────────────────
+function showLoginScreen() {
+  document.getElementById('app-container').innerHTML = `
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-logo">📦 DSP</div>
+        <h2>Connexion</h2>
         <div class="form-group">
-          <label>Nouveau mot de passe</label>
-          <input type="password" id="new-password" class="form-control" placeholder="Minimum 6 caractères">
+          <label>Email</label>
+          <input type="email" id="login-email" class="form-control" placeholder="votre@email.fr" autocomplete="email">
         </div>
         <div class="form-group">
-          <label>Confirmer le mot de passe</label>
-          <input type="password" id="confirm-password" class="form-control" placeholder="Retapez le mot de passe">
+          <label>Mot de passe</label>
+          <div style="position:relative">
+            <input type="password" id="login-password" class="form-control" placeholder="••••••••" autocomplete="current-password">
+            <button type="button" onclick="togglePasswordVisibility()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray-500)">👁</button>
+          </div>
         </div>
-        <div class="modal-actions">
-          <button class="btn btn-secondary" onclick="closeModal('modal-change-password-overlay')">Annuler</button>
-          <button class="btn btn-primary" onclick="saveNewPassword()">Enregistrer</button>
+        <div class="login-error" id="login-error" style="display:none;"></div>
+        <button class="btn btn-primary btn-block" onclick="doLogin()">Se connecter</button>
+        <div style="text-align:center;margin-top:12px">
+          <a href="#" onclick="showRgpdInfo()" style="font-size:12px;color:var(--gray-500)">RGPD &amp; Confidentialité</a>
         </div>
       </div>
     </div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
 }
 
-async function saveNewPassword() {
-  const p1 = document.getElementById('new-password')?.value || '';
-  const p2 = document.getElementById('confirm-password')?.value || '';
-  if (!p1 || p1.length < 6) return showNotif('Mot de passe trop court (min. 6 caractères)', 'error');
-  if (p1 !== p2)             return showNotif('Les mots de passe ne correspondent pas', 'error');
-  const { error } = await db.auth.updateUser({ password: p1 });
-  if (error) return showNotif(error.message, 'error');
-  closeModal('modal-change-password-overlay');
-  showNotif('Mot de passe modifié avec succès', 'success');
+async function doLogin() {
+  const email    = document.getElementById('login-email')?.value.trim();
+  const password = document.getElementById('login-password')?.value;
+  const errEl    = document.getElementById('login-error');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!email || !password) {
+    if (errEl) { errEl.textContent = 'Email et mot de passe requis.'; errEl.style.display = 'block'; }
+    return;
+  }
+
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) {
+    if (errEl) { errEl.textContent = 'Identifiants incorrects.'; errEl.style.display = 'block'; }
+    return;
+  }
+  await loadCurrentUser(email);
+}
+
+async function logout() {
+  await db.auth.signOut();
+  currentUserData = null;
+  showLoginScreen();
+}
+
+// ── TOGGLE PASSWORD ─────────────────────────────────────────────
+function togglePasswordVisibility() {
+  const inp = document.getElementById('login-password');
+  if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ── RGPD ──────────────────────────────────────────────────────────
+function showRgpdInfo() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'rgpd-modal';
+  modal.innerHTML = `
+    <div class="modal">
+      <h2 style="color:var(--navy);margin-bottom:16px">🔒 RGPD &amp; Confidentialité</h2>
+      <p>Les données collectées (nom, email, dossiers) sont utilisées uniquement dans le cadre de la gestion interne des sinistres.</p>
+      <p style="margin-top:8px">Conformément au RGPD, vous disposez d’un droit d’accès, de rectification et de suppression de vos données.</p>
+      <p style="margin-top:8px;font-size:12px;color:#888">Contact DPO : dpo@dispatchis.fr</p>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('rgpd-modal')">Fermer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+// ── SHELL APP ────────────────────────────────────────────────────────
+function showAppShell() {
+  const u    = currentUserData;
+  const role = getEffectiveRole();
+  const isAdmin = role === 'admin';
+
+  document.getElementById('app-container').innerHTML = `
+    <nav class="navbar">
+      <div class="navbar-brand">📦 DSP</div>
+      <div class="navbar-tools">
+        <button class="btn btn-secondary btn-tool active" id="btn-tool-dispatch" onclick="switchTool('dispatch')">Dispatch</button>
+        <button class="btn btn-secondary btn-tool"        id="btn-tool-dplane"   onclick="switchTool('dplane')" title="Dplane">Dplane</button>
+      </div>
+      <div class="navbar-user">
+        <span style="font-size:13px;margin-right:8px">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</span>
+        <span class="badge badge-info" style="font-size:10px">${escapeHtml(u.role)}</span>
+        ${isAdmin ? '<button class="btn btn-warning" style="margin-left:8px;padding:4px 10px;font-size:12px" onclick="showGodSwitchMenu()">🎭</button>' : ''}
+        <button class="btn btn-secondary" style="margin-left:8px" onclick="showChangePasswordModal()">Mot de passe</button>
+        <button class="btn btn-danger"    style="margin-left:8px" onclick="logout()">🚨 Déconnexion</button>
+      </div>
+    </nav>
+    <div id="tabs-container"></div>
+    <div id="main-content" class="main-content"></div>
+    <div id="dplane-screen" style="display:none;"></div>`;
+}
+
+// ── CHANGER MOT DE PASSE ──────────────────────────────────────────
+function showChangePasswordModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'change-pwd-modal';
+  modal.innerHTML = `
+    <div class="modal">
+      <h2 style="color:var(--navy);margin-bottom:16px">🔑 Changer le mot de passe</h2>
+      <div class="form-group">
+        <label>Nouveau mot de passe</label>
+        <input type="password" id="new-pwd" class="form-control" placeholder="Minimum 6 caractères">
+      </div>
+      <div class="form-group">
+        <label>Confirmer</label>
+        <input type="password" id="confirm-pwd" class="form-control" placeholder="Confirmer le mot de passe">
+      </div>
+      <div class="modal-error" id="change-pwd-error" style="display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('change-pwd-modal')">Annuler</button>
+        <button class="btn btn-primary"   onclick="doChangePassword()">Enregistrer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function doChangePassword() {
+  const newPwd  = document.getElementById('new-pwd')?.value;
+  const confirm = document.getElementById('confirm-pwd')?.value;
+  const errEl   = document.getElementById('change-pwd-error');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!newPwd || newPwd.length < 6) {
+    if (errEl) { errEl.textContent = 'Minimum 6 caractères.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (newPwd !== confirm) {
+    if (errEl) { errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.style.display = 'block'; }
+    return;
+  }
+  const { error } = await db.auth.updateUser({ password: newPwd });
+  if (error) {
+    if (errEl) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; }
+    return;
+  }
+  closeModal('change-pwd-modal');
+  showNotif('✅ Mot de passe mis à jour !', 'success');
+  await auditLog('CHANGEMENT_MDP', 'Mot de passe modifié');
 }

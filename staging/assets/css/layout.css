@@ -1,0 +1,36 @@
+/* ===== LAYOUT ===== */
+
+/* ── NAVBAR ── */
+.navbar {
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:12px 20px;
+  background:var(--navy); color:var(--white);
+  box-shadow:var(--shadow-md);
+  position:sticky; top:0; z-index:100;
+}
+.navbar-brand { font-size:18px; font-weight:700; margin-right:auto; }
+.navbar-tools { display:flex; gap:6px; }
+.navbar-user  { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.btn-tool     { opacity:.7; }
+.btn-tool.active { opacity:1; box-shadow:0 0 0 2px rgba(255,255,255,.4); }
+
+/* ── ONGLETS ── */
+#tabs-container { display:flex; gap:0; background:var(--white); border-bottom:2px solid var(--gray-200); overflow-x:auto; }
+.tab {
+  padding:12px 20px; font-size:14px; font-weight:500; color:var(--gray-600);
+  cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px;
+  transition:color var(--transition), border-color var(--transition);
+  white-space:nowrap;
+}
+.tab:hover  { color:var(--navy); }
+.tab.active { color:var(--navy); border-bottom-color:var(--navy); font-weight:600; }
+
+/* ── MAIN ── */
+.main-content { padding:24px 20px; max-width:1400px; margin:0 auto; }
+
+/* ── LOGIN ── */
+.login-container { display:flex; align-items:center; justify-content:center; min-height:100dvh; background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%); }
+.login-card { background:var(--white); border-radius:var(--radius-lg); padding:40px; width:100%; max-width:420px; box-shadow:var(--shadow-lg); }
+.login-logo { font-size:32px; text-align:center; margin-bottom:8px; }
+.login-card h2 { text-align:center; color:var(--navy); margin-bottom:24px; }
+.login-error { color:var(--red); font-size:13px; padding:8px 12px; background:var(--red-light); border-radius:var(--radius-sm); margin-bottom:12px; }
