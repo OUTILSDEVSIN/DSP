@@ -4,182 +4,177 @@
   <meta charset="UTF-8">
   <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dispatchis</title>
+  <title>Dispatchis — STAGING</title>
   <meta name="copyright" content="© Dispatchis — Tous droits réservés">
-  <meta name="version" content="2.5.58">
+  <meta name="version" content="2.5.41">
 
-  <!-- Librairies externes -->
+  <!-- ===== CSS ===== -->
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/screens.css">
+
+
+  <!-- ===== CACHE BUSTING ===== -->
+  <script>
+    var _APP_VERSION = '2.5.53';
+    var storedVersion = null;
+    try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
+    if (storedVersion && storedVersion !== _APP_VERSION) {
+      sessionStorage.setItem('dispatchis_version', _APP_VERSION);
+      window.location.href = window.location.href.split('?')[0] + '?v=' + _APP_VERSION;
+    } else {
+      try { sessionStorage.setItem('dispatchis_version', _APP_VERSION); } catch(e) {}
+    }
+  </script>
+  <!-- ===== CDN ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/dplane.css">
-  <link rel="stylesheet" href="css/trocs.css">
-  <link rel="stylesheet" href="css/dvol.css">
-
-  <!-- Cache busting via version check — FIX: évite boucle infinie si sessionStorage bloqué -->
-  <script>
-    const APP_VERSION = '2.5.58';
-    (function() {
-      try {
-        var stored = sessionStorage.getItem('dispatchis_version');
-        if (stored && stored !== APP_VERSION) {
-          sessionStorage.setItem('dispatchis_version', APP_VERSION);
-          var base = window.location.href.split('?')[0];
-          // FIX: on vérifie qu'on ne boucle pas (pas déjà ?v= dans l'URL)
-          if (!window.location.search.includes('v=')) {
-            window.location.replace(base + '?v=' + APP_VERSION);
-          }
-        } else {
-          sessionStorage.setItem('dispatchis_version', APP_VERSION);
-        }
-      } catch(e) { /* sessionStorage inaccessible — silencieux */ }
-    })();
-  </script>
 </head>
-
 <body>
 
-<!-- ===== STAGING BANNER ===== -->
-<div id="staging-banner">
-  <span style="font-size:16px;">⚠️</span>
-  <span>ENVIRONNEMENT STAGING — Base de données de TEST — Ne pas utiliser en production</span>
-  <span style="font-size:16px;">⚠️</span>
+<!-- ===== BANDEAU STAGING ===== -->
+<div id="staging-banner" style="
+  position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+  background: #f59e0b; color: #1c1917; text-align: center;
+  font-size: 12px; font-weight: 700; padding: 4px 12px;
+  font-family: monospace; letter-spacing: 0.05em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+  🧪 STAGING -- Base de données de test -- Modifications sans impact production
+  <button onclick="document.getElementById('staging-banner').style.display='none'"
+    style="margin-left:12px; background:none; border:1px solid #1c1917; border-radius:3px;
+    cursor:pointer; font-size:10px; padding:1px 6px; font-weight:700;">✕</button>
 </div>
-<!-- ===== FIN STAGING BANNER ===== -->
+<style>
+  /* Décale le contenu pour ne pas être caché sous le bandeau */
+  body { padding-top: 28px; }
+</style>
 
 
-<!-- ===== ÉCRAN DE CONNEXION ===== -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <div class="login-logo-icon">D</div>
-      <div class="login-logo-name">Dispatch<span>is</span></div>
+      <img src="assets/images/logo.jpg" alt="DISPATCHIS"
+           style="width:220px;height:auto;margin-bottom:2px;">
     </div>
     <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
-
-    <form id="login-form" onsubmit="event.preventDefault(); doLogin()">
-      <div class="form-group">
-        <label for="login-email">Adresse email</label>
-        <input type="email" id="login-email" placeholder="votre@email.fr" required autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label for="login-password">Mot de passe</label>
-        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
-      </div>
-      <div id="login-error" class="login-error" style="display:none;">Email ou mot de passe incorrect.</div>
-      <button type="submit" class="btn btn-primary btn-full" id="login-btn">Se connecter</button>
-    </form>
-    <p class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</p>
+    <div class="login-field">
+      <label class="login-label">Adresse email</label>
+      <input type="email" id="login-email" placeholder="prenom.nom@dispatchis.fr" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label class="login-label">Mot de passe</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button onclick="doLogin()">Se connecter</button>
+    <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
+    <div class="login-footer">© Dispatchis -- Accès réservé aux collaborateurs</div>
   </div>
 </div>
 
-
-<!-- ===== APP PRINCIPALE ===== -->
-<div id="app-screen" style="display:none;">
-
-  <!-- HEADER -->
-  <header id="main-header">
+<div id="app-screen">
+  <header>
     <div class="header-left">
-
-      <!-- Logo compact -->
-      <div class="header-logo">
-        <span class="header-logo-icon">D</span>
-        <span class="header-logo-name">Dispatch<span>is</span></span>
-      </div>
-
-      <!-- Tool Switcher — FIX: onclick sécurisé, appel conditionnel -->
-      <div class="tool-switcher">
-        <button id="btn-tool-dispatch" class="tool-btn active" onclick="if(typeof switchTool==='function') switchTool('dispatch')">
-          📋 Dispatch
-        </button>
-        <button id="btn-tool-dplane" class="tool-btn" onclick="if(typeof switchTool==='function') switchTool('dplane')">
-          📅 Dplane
-        </button>
-        <button id="btn-tool-dvol" class="tool-btn" onclick="if(typeof switchTool==='function') switchTool('dvol')">
-          🚗 Dvol
-        </button>
-      </div>
-
+      <img src="assets/images/logo2.png" alt="DISPATCHIS"
+           style="height:40px;width:auto;filter:brightness(0) invert(1);flex-shrink:0;">
+      <span class="header-title" style="letter-spacing:2px;font-size:15px;font-weight:800">DISPATCHIS</span>
     </div>
-
+    <div class="tool-switcher">
+      <button class="tool-btn active" id="btn-tool-dispatch" onclick="switchTool('dispatch')">
+        <span class="d-letter">D</span>ispatch
+      </button>
+      <button class="tool-btn" id="btn-tool-dplane" onclick="switchTool('dplane')">
+        <span class="d-letter">D</span>plane
+      </button>
+    </div>
     <div class="header-right">
-
-      <!-- Mode sombre -->
-      <button id="dark-toggle-btn" class="btn-header" onclick="if(typeof toggleDarkMode==='function') toggleDarkMode()" title="Mode sombre">🌙</button>
-
-      <div class="header-sep"></div>
-
-      <!-- Nom + rôle utilisateur -->
-      <span id="header-name" class="header-username"></span>
-      <span id="header-role" class="header-role-tag"></span>
-
-      <div class="header-sep"></div>
-
-      <!-- Bouton Mode test (God Switch — admin Julien uniquement) -->
-      <button id="btn-god-switch" class="btn-header" style="display:none;" onclick="if(typeof toggleGodMode==='function') toggleGodMode()" title="Mode test">🧪 Mode test</button>
-
-      <!-- Bouton Réinitialiser (admin/manager uniquement) -->
-      <button id="btn-reset-header" class="btn-header btn-header-danger" style="display:none;" onclick="if(typeof showResetMenu==='function') showResetMenu()" title="Réinitialiser">⚙️ Réinitialiser</button>
-
-      <!-- Bouton Changer mot de passe -->
-      <button class="btn-header" onclick="if(typeof showChangePassword==='function') showChangePassword()" title="Changer mon mot de passe">🔑 Mot de passe</button>
-
-      <!-- Bouton Déconnexion -->
-      <button class="btn-header btn-header-danger" onclick="if(typeof doLogout==='function') doLogout()">⏻ Déconnexion</button>
-
+      <span class="header-username" id="header-name"></span>
+      <span class="header-role-tag" id="header-role"></span>
+      <span class="header-sep">|</span>
+      <button class="btn-header" onclick="showChangePassword()">🔑 Mot de passe</button>
+      <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
+      <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
+      <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
+      <button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre / clair">🌙</button>
     </div>
   </header>
+  <div class="tabs" id="tabs-container"></div>
+  <div class="content" id="main-content"></div>
 
-  <!-- ===== DISPATCH SCREEN ===== -->
-  <div id="dispatch-screen">
-    <div id="tabs-container" class="tabs"></div>
-    <div id="main-content" class="main-content"></div>
+
+<!-- ===== DPLANE SCREEN ===== -->
+<div id="dplane-screen" style="display:none;">
+  <div class="content">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1 style="font-size:20px;font-weight:800;color:var(--navy);margin:0;">
+          <span style="color:var(--rose);">D</span>plane
+        </h1>
+        <p style="font-size:12px;color:var(--gray-600);margin:2px 0 0;">Planning intelligent de l'équipe</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<button class="btn btn-secondary dplane-today-btn" onclick="dplaneGoToday()">Aujourd'hui</button>
+        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(-1)">◀ Semaine préc.</button>
+        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(1)">Semaine suiv. ▶</button>
+        <button class="btn btn-secondary" onclick="dplaneOuvrirGestionActivites()" id="btn-gerer-activites" style="display:none;" title="Gérer les activités">⚙️ Activités</button>
+        <button class="btn btn-secondary" onclick="dplaneToggleBrouillon()" id="btn-brouillon" style="display:none;" title="Mode brouillon">✏️ Mode brouillon</button>
+        <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" disabled title="Rien à publier" style="opacity:.4;cursor:default;">📢 Publier</button>
+        <button class="btn btn-primary" onclick="dplaneCopierSemaineUI()" id="btn-copier-semaine" style="display:none;">📋 Copier semaine</button>
+        <button class="btn btn-danger" onclick="dplaneReinitialiserSemaineUI()" id="btn-reinit-semaine" style="display:none;" title="Remettre à zéro le planning de cette semaine">🗑️ Réinitialiser</button>
+        <button class="btn btn-secondary" onclick="dplaneToggleMonPlanning()" id="btn-mon-planning" style="display:none;" title="Voir uniquement mon planning">👤 Mon planning</button>
+      </div>
+    </div>
+    <div class="dplane-nav">
+      <span class="dplane-nav-week" id="dplane-week-label"></span>
+    </div>
+    <div class="dplane-grid">
+      <table id="dplane-table" style="width:100%;border-collapse:collapse;">
+        <thead id="dplane-thead"></thead>
+        <tbody id="dplane-tbody"></tbody>
+      </table>
+    </div>
   </div>
-
-  <!-- ===== DPLANE SCREEN ===== -->
-  <div id="dplane-screen" style="display:none;">
-    <div id="dplane-container"></div>
-  </div>
-
-  <!-- ===== DVOL SCREEN ===== -->
-  <div id="dvol-screen" style="display:none;">
-    <div id="dvol-container"></div>
-  </div>
-
 </div>
-<!-- ===== FIN APP ===== -->
+<!-- ===== FIN DPLANE SCREEN ===== -->
 
 
-<!-- ===== SCRIPTS — ordre de dépendance strict ===== -->
-<!-- 1. Config Supabase (db, SUPABASE_URL, SUPABASE_KEY) -->
-<script src="js/config.js"></script>
-<!-- 2. Utilitaires globaux (safeSession, safeLocal, toggleDarkMode) -->
-<script src="js/utils.js"></script>
-<!-- 3. Auth (doLogin, doLogout, currentUser, currentUserData) -->
-<script src="js/auth.js"></script>
-<!-- 4. Core (switchTool, showTab, buildTabs, renderDashboard...) -->
-<script src="js/core.js"></script>
-<!-- 5. Users (renderUtilisateurs, loadAllUsers...) -->
-<script src="js/users.js"></script>
-<!-- 6. Dispatchis — module principal dispatch -->
-<script src="js/dispatchis.js"></script>
-<!-- 7. Dplane — module planning -->
-<script src="js/dplane.js"></script>
-<!-- 8. Dvol data — fonctions pures Supabase (doit être avant dvol-ui) -->
-<script src="js/dvol.js"></script>
-<!-- 9. Dvol UI — rendu interface (dépend de dvol.js) -->
-<script src="js/dvol-ui.js"></script>
-<!-- 10. Trocs — module trocs -->
-<script src="js/trocs.js"></script>
+<!-- ===== JAVASCRIPT -- ordre de chargement critique ===== -->
+<!-- 1. Config & init Supabase (doit être premier) -->
+<script src="assets/js/config.js"></script>
 
-<!-- Init dark mode après DOMContentLoaded -->
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    if (typeof initDarkMode === 'function') initDarkMode();
-  });
-</script>
+<!-- 2. Auth, session, dark mode, safe storage -->
+<script src="assets/js/auth.js"></script>
+
+<!-- 3. Navigation tabs -->
+<script src="assets/js/tabs.js"></script>
+
+<!-- 4. Actions utilitaires partagées -->
+<script src="assets/js/actions.js"></script>
+
+<!-- 5. Admin -->
+<script src="assets/js/admin/users.js"></script>
+<script src="assets/js/admin/audit.js"></script>
+<script src="assets/js/admin/god-switch.js"></script>
+
+<!-- 6. Dispatch -->
+<script src="assets/js/dispatch/habilitations.js"></script>
+<script src="assets/js/dispatch/import.js"></script>
+<script src="assets/js/dispatch/dispatch.js"></script>
+<script src="assets/js/dispatch/dispatch-intelligent.js"></script>
+<script src="assets/js/dispatch/attribution.js"></script>
+<script src="assets/js/dispatch/dossiers.js"></script>
+<script src="assets/js/dispatch/trocs.js"></script>
+
+<!-- 7. Dashboard -->
+<script src="assets/js/dashboard/kpis.js"></script>
+<script src="assets/js/dashboard/stats.js"></script>
+
+<!-- 8. Dvol -->
+<script src="assets/js/dvol/dvol.js"></script>
+
+<!-- 9. Init final (appels init au chargement) -->
+<script src="assets/js/init.js"></script>
 
 </body>
 </html>
