@@ -1,6 +1,6 @@
 // ===== MES DOSSIERS =====
+// PAGE_SIZE est défini dans config.js — ne pas redéclarer ici
 let currentPage         = 1;
-const PAGE_SIZE         = 20;
 let allDossiers         = [];
 let filteredDossiers    = [];
 let currentFilters      = {};
@@ -14,9 +14,9 @@ async function renderMesDossiers() {
 
 async function fetchMesDossiers() {
   const { data, error } = await db
-    .from('dossiers')
-    .select('*, attribué_à:utilisateurs!dossiers_attribué_à_fkey(prenom,nom)')
-    .eq('attribué_à', currentUserData.id)
+    .from('dvol_dossiers')
+    .select('*, gestionnaire:utilisateurs!dvol_dossiers_gestionnaire_id_fkey(prenom,nom)')
+    .eq('gestionnaire_id', currentUserData.id)
     .order('created_at', { ascending: false });
   if (error) { console.error('[fetchMesDossiers]', error); allDossiers = []; return; }
   allDossiers = data || [];
@@ -38,15 +38,15 @@ function renderDossiersTable() {
       rows += `
         <tr>
           <td><input type="checkbox" class="row-check" value="${d.id}" onchange="updateSelectionCount()"></td>
-          <td>${escapeHtml(d.numero_sinistre || '-')}</td>
+          <td>${escapeHtml(d.numero_dossier || '-')}</td>
           <td>${escapeHtml(d.assure_nom     || '-')}</td>
-          <td>${escapeHtml(d.type_sinistre  || '-')}</td>
+          <td>${escapeHtml(d.compagnie      || '-')}</td>
           <td>${badgeStatut(d.statut)}</td>
-          <td>${formatDateFR(d.date_sinistre)}</td>
-          <td>${escapeHtml(d.commentaire    || '-')}</td>
+          <td>${formatDateFR(d.date_declaration)}</td>
+          <td>${escapeHtml(d.notes          || '-')}</td>
           <td>
             <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px"
-              onclick="showDetailDossier('${d.id}')">👁</button>
+              onclick="showDetailDossier('${d.id}')">&#128065;</button>
           </td>
         </tr>`;
     });
@@ -55,24 +55,24 @@ function renderDossiersTable() {
   document.getElementById('main-content').innerHTML = `
     <div class="table-container">
       <div class="table-toolbar">
-        <h2>📁 Mes dossiers — <span id="selection-count">0</span> sélectionné(s)</h2>
+        <h2>&#128193; Mes dossiers — <span id="selection-count">0</span> sélectionné(s)</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-info"    onclick="exportCSVDossiers()">Exporter CSV</button>
-          <button class="btn btn-success" onclick="showQuickCommentModal()">Commenter</button>
-          <button class="btn btn-warning" onclick="toggleTraiteSelection()">Marquer traité</button>
+          <button class="btn btn-secondary" onclick="exportCSVDossiers()">Exporter CSV</button>
+          <button class="btn btn-success"   onclick="showQuickCommentModal()">Commenter</button>
+          <button class="btn btn-warning"   onclick="toggleTraiteSelection()">Marquer traité</button>
         </div>
       </div>
       <table>
         <thead>
           <tr>
             <th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>
-            <th>N° Sinistre</th><th>Assuré</th><th>Type</th>
-            <th>Statut</th><th>Date</th><th>Commentaire</th><th></th>
+            <th>N° Dossier</th><th>Assuré</th><th>Compagnie</th>
+            <th>Statut</th><th>Date déclaration</th><th>Notes</th><th></th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="pagination">
+      <div class="pagination" style="padding:10px 18px;display:flex;align-items:center;gap:12px;">
         <button class="btn btn-secondary" onclick="changePage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>&laquo;</button>
         <span>Page ${currentPage} / ${pages} &mdash; ${total} dossier(s)</span>
         <button class="btn btn-secondary" onclick="changePage(${currentPage + 1})" ${currentPage >= pages ? 'disabled' : ''}>&raquo;</button>
@@ -89,8 +89,8 @@ function changePage(n) {
 async function toggleTraiteSelection() {
   const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
   if (!ids.length) return showNotif('Sélectionnez au moins un dossier', 'warning');
-  const { error } = await db.from('dossiers').update({ statut: 'traite' }).in('id', ids);
-  if (error) return showNotif('Erreur : ' + error.message, 'error');
+  const { error } = await db.from('dvol_dossiers').update({ statut: 'traite' }).in('id', ids);
+  if (error) return showNotif('Erreur : ' + error.message, 'error');
   showNotif(`${ids.length} dossier(s) marqué(s) traité`, 'success');
   await auditLog('MARQUER_TRAITE', `${ids.length} dossier(s)`);
   await fetchMesDossiers();
@@ -100,14 +100,13 @@ async function toggleTraiteSelection() {
 async function showQuickCommentModal() {
   const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
   if (!ids.length) return showNotif('Sélectionnez au moins un dossier', 'warning');
-
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.id = 'comment-modal';
   modal.innerHTML = `
     <div class="modal">
       <h3>Ajouter un commentaire (${ids.length} dossier(s))</h3>
-      <textarea id="quick-comment" class="form-control" rows="4" placeholder="Votre commentaire..."></textarea>
+      <textarea id="quick-comment" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:13px" placeholder="Votre commentaire..."></textarea>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal('comment-modal')">Annuler</button>
         <button class="btn btn-primary"   onclick="doQuickComment(${JSON.stringify(ids)})">Enregistrer</button>
@@ -120,7 +119,7 @@ async function doQuickComment(ids) {
   const comment = document.getElementById('quick-comment')?.value.trim();
   if (!comment) return showNotif('Commentaire vide', 'warning');
   for (const id of ids) {
-    await db.from('dossiers').update({ commentaire: comment }).eq('id', id);
+    await db.from('dvol_dossiers').update({ notes: comment }).eq('id', id);
   }
   closeModal('comment-modal');
   showNotif('Commentaire ajouté', 'success');
@@ -130,7 +129,7 @@ async function doQuickComment(ids) {
 
 function exportCSVDossiers() {
   if (!filteredDossiers.length) return showNotif('Aucun dossier à exporter', 'warning');
-  const header = ['numero_sinistre','assure_nom','type_sinistre','statut','date_sinistre','commentaire'];
+  const header = ['numero_dossier','assure_nom','compagnie','statut','date_declaration','notes'];
   const lines  = [header.join(';'), ...filteredDossiers.map(d =>
     header.map(k => '"' + String(d[k] ?? '').replace(/"/g, '""') + '"').join(';')
   )];
