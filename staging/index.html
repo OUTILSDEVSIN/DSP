@@ -18,49 +18,35 @@
   <link rel="stylesheet" href="css/trocs.css">
   <link rel="stylesheet" href="css/dvol.css">
 
-  <!-- Cache busting via version check -->
+  <!-- Cache busting via version check — FIX: évite boucle infinie si sessionStorage bloqué -->
   <script>
     const APP_VERSION = '2.5.58';
-    var storedVersion = null;
-    try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
-    if (storedVersion && storedVersion !== APP_VERSION) {
-      try { sessionStorage.setItem('dispatchis_version', APP_VERSION); } catch(e) {}
-      window.location.href = window.location.href.split('?')[0] + '?v=' + APP_VERSION;
-    } else {
-      try { sessionStorage.setItem('dispatchis_version', APP_VERSION); } catch(e) {}
-    }
+    (function() {
+      try {
+        var stored = sessionStorage.getItem('dispatchis_version');
+        if (stored && stored !== APP_VERSION) {
+          sessionStorage.setItem('dispatchis_version', APP_VERSION);
+          var base = window.location.href.split('?')[0];
+          // FIX: on vérifie qu'on ne boucle pas (pas déjà ?v= dans l'URL)
+          if (!window.location.search.includes('v=')) {
+            window.location.replace(base + '?v=' + APP_VERSION);
+          }
+        } else {
+          sessionStorage.setItem('dispatchis_version', APP_VERSION);
+        }
+      } catch(e) { /* sessionStorage inaccessible — silencieux */ }
+    })();
   </script>
 </head>
 
 <body>
 
 <!-- ===== STAGING BANNER ===== -->
-<div id="staging-banner" style="
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 999999;
-  background: linear-gradient(135deg, #f39c12, #e67e22);
-  color: white;
-  text-align: center;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-">
+<div id="staging-banner">
   <span style="font-size:16px;">⚠️</span>
   <span>ENVIRONNEMENT STAGING — Base de données de TEST — Ne pas utiliser en production</span>
   <span style="font-size:16px;">⚠️</span>
 </div>
-<style>
-  /* Push tous les éléments fixed/sticky pour le staging banner */
-  header, #login-screen { margin-top: 40px !important; }
-  body { padding-top: 40px !important; }
-</style>
 <!-- ===== FIN STAGING BANNER ===== -->
 
 
@@ -68,7 +54,6 @@
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <!-- Logo Dispatchis — identique prod -->
       <div class="login-logo-icon">D</div>
       <div class="login-logo-name">Dispatch<span>is</span></div>
     </div>
@@ -94,7 +79,7 @@
 <!-- ===== APP PRINCIPALE ===== -->
 <div id="app-screen" style="display:none;">
 
-  <!-- HEADER — conforme prod -->
+  <!-- HEADER -->
   <header id="main-header">
     <div class="header-left">
 
@@ -104,15 +89,15 @@
         <span class="header-logo-name">Dispatch<span>is</span></span>
       </div>
 
-      <!-- Tool Switcher -->
+      <!-- Tool Switcher — FIX: onclick sécurisé, appel conditionnel -->
       <div class="tool-switcher">
-        <button id="btn-tool-dispatch" class="tool-btn active" onclick="switchTool('dispatch')">
+        <button id="btn-tool-dispatch" class="tool-btn active" onclick="if(typeof switchTool==='function') switchTool('dispatch')">
           📋 Dispatch
         </button>
-        <button id="btn-tool-dplane" class="tool-btn" onclick="switchTool('dplane')">
+        <button id="btn-tool-dplane" class="tool-btn" onclick="if(typeof switchTool==='function') switchTool('dplane')">
           📅 Dplane
         </button>
-        <button id="btn-tool-dvol" class="tool-btn" onclick="switchTool('dvol')">
+        <button id="btn-tool-dvol" class="tool-btn" onclick="if(typeof switchTool==='function') switchTool('dvol')">
           🚗 Dvol
         </button>
       </div>
@@ -122,7 +107,7 @@
     <div class="header-right">
 
       <!-- Mode sombre -->
-      <button id="dark-toggle-btn" class="btn-header" onclick="toggleDarkMode()" title="Mode sombre">🌙</button>
+      <button id="dark-toggle-btn" class="btn-header" onclick="if(typeof toggleDarkMode==='function') toggleDarkMode()" title="Mode sombre">🌙</button>
 
       <div class="header-sep"></div>
 
@@ -133,16 +118,16 @@
       <div class="header-sep"></div>
 
       <!-- Bouton Mode test (God Switch — admin Julien uniquement) -->
-      <button id="btn-god-switch" class="btn-header" style="display:none;" onclick="toggleGodMode ? toggleGodMode() : null" title="Mode test">🧪 Mode test</button>
+      <button id="btn-god-switch" class="btn-header" style="display:none;" onclick="if(typeof toggleGodMode==='function') toggleGodMode()" title="Mode test">🧪 Mode test</button>
 
       <!-- Bouton Réinitialiser (admin/manager uniquement) -->
-      <button id="btn-reset-header" class="btn-header btn-header-danger" style="display:none;" onclick="showResetMenu()" title="Réinitialiser">⚙️ Réinitialiser</button>
+      <button id="btn-reset-header" class="btn-header btn-header-danger" style="display:none;" onclick="if(typeof showResetMenu==='function') showResetMenu()" title="Réinitialiser">⚙️ Réinitialiser</button>
 
       <!-- Bouton Changer mot de passe -->
-      <button class="btn-header" onclick="showChangePassword()" title="Changer mon mot de passe">🔑 Mot de passe</button>
+      <button class="btn-header" onclick="if(typeof showChangePassword==='function') showChangePassword()" title="Changer mon mot de passe">🔑 Mot de passe</button>
 
       <!-- Bouton Déconnexion -->
-      <button class="btn-header btn-header-danger" onclick="doLogout()">⏻ Déconnexion</button>
+      <button class="btn-header btn-header-danger" onclick="if(typeof doLogout==='function') doLogout()">⏻ Déconnexion</button>
 
     </div>
   </header>
@@ -182,7 +167,7 @@
 <script src="js/dispatchis.js"></script>
 <!-- 7. Dplane — module planning -->
 <script src="js/dplane.js"></script>
-<!-- 8. Dvol data — fonctions pures Supabase -->
+<!-- 8. Dvol data — fonctions pures Supabase (doit être avant dvol-ui) -->
 <script src="js/dvol.js"></script>
 <!-- 9. Dvol UI — rendu interface (dépend de dvol.js) -->
 <script src="js/dvol-ui.js"></script>
