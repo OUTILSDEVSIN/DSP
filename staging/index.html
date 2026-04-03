@@ -68,15 +68,12 @@
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <!-- Logo Dispatchis -->
-      <svg viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:40px;">
-        <text x="0" y="30" font-family="Arial, sans-serif" font-weight="700" font-size="28" fill="var(--navy, #1a2b4a)">D</text>
-        <text x="20" y="30" font-family="Arial, sans-serif" font-weight="400" font-size="20" fill="var(--navy, #1a2b4a)">ispatchis</text>
-      </svg>
+      <!-- Logo Dispatchis — identique prod -->
+      <div class="login-logo-icon">D</div>
+      <div class="login-logo-name">Dispatch<span>is</span></div>
     </div>
     <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
 
-    <!-- FIX #1 : onsubmit appelle doLogin() (nom réel dans auth.js) -->
     <form id="login-form" onsubmit="event.preventDefault(); doLogin()">
       <div class="form-group">
         <label for="login-email">Adresse email</label>
@@ -97,9 +94,16 @@
 <!-- ===== APP PRINCIPALE ===== -->
 <div id="app-screen" style="display:none;">
 
-  <!-- HEADER -->
+  <!-- HEADER — conforme prod -->
   <header id="main-header">
     <div class="header-left">
+
+      <!-- Logo compact -->
+      <div class="header-logo">
+        <span class="header-logo-icon">D</span>
+        <span class="header-logo-name">Dispatch<span>is</span></span>
+      </div>
+
       <!-- Tool Switcher -->
       <div class="tool-switcher">
         <button id="btn-tool-dispatch" class="tool-btn active" onclick="switchTool('dispatch')">
@@ -112,16 +116,34 @@
           🚗 Dvol
         </button>
       </div>
+
     </div>
+
     <div class="header-right">
-      <button id="dark-toggle-btn" class="icon-btn" onclick="toggleDarkMode()" title="Mode sombre">🌙</button>
 
-      <!-- FIX #2 : IDs attendus par loadUserData() dans auth.js -->
-      <span id="header-name" class="user-badge"></span>
-      <span id="header-role" class="user-role-badge"></span>
+      <!-- Mode sombre -->
+      <button id="dark-toggle-btn" class="btn-header" onclick="toggleDarkMode()" title="Mode sombre">🌙</button>
 
-      <!-- FIX #3 : doLogout() est le nom réel dans auth.js -->
-      <button class="btn btn-secondary btn-sm" onclick="doLogout()">Déconnexion</button>
+      <div class="header-sep"></div>
+
+      <!-- Nom + rôle utilisateur -->
+      <span id="header-name" class="header-username"></span>
+      <span id="header-role" class="header-role-tag"></span>
+
+      <div class="header-sep"></div>
+
+      <!-- Bouton Mode test (God Switch — admin Julien uniquement) -->
+      <button id="btn-god-switch" class="btn-header" style="display:none;" onclick="toggleGodMode ? toggleGodMode() : null" title="Mode test">🧪 Mode test</button>
+
+      <!-- Bouton Réinitialiser (admin/manager uniquement) -->
+      <button id="btn-reset-header" class="btn-header btn-header-danger" style="display:none;" onclick="showResetMenu()" title="Réinitialiser">⚙️ Réinitialiser</button>
+
+      <!-- Bouton Changer mot de passe -->
+      <button class="btn-header" onclick="showChangePassword()" title="Changer mon mot de passe">🔑 Mot de passe</button>
+
+      <!-- Bouton Déconnexion -->
+      <button class="btn-header btn-header-danger" onclick="doLogout()">⏻ Déconnexion</button>
+
     </div>
   </header>
 
@@ -167,7 +189,7 @@
 <!-- 10. Trocs — module trocs -->
 <script src="js/trocs.js"></script>
 
-<!-- FIX #4 : initDarkMode appelé après DOMContentLoaded -->
+<!-- Init dark mode après DOMContentLoaded -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     if (typeof initDarkMode === 'function') initDarkMode();
