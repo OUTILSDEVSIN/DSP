@@ -18,20 +18,22 @@
   <link rel="stylesheet" href="css/trocs.css">
   <link rel="stylesheet" href="css/dvol.css">
 
-  <!-- Ticket 7 - Cache busting via version check -->
+  <!-- Cache busting via version check -->
   <script>
     const APP_VERSION = '2.5.58';
-    var storedVersion = null; try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
+    var storedVersion = null;
+    try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== APP_VERSION) {
-      sessionStorage.setItem('dispatchis_version', APP_VERSION);
+      try { sessionStorage.setItem('dispatchis_version', APP_VERSION); } catch(e) {}
       window.location.href = window.location.href.split('?')[0] + '?v=' + APP_VERSION;
     } else {
-      sessionStorage.setItem('dispatchis_version', APP_VERSION);
+      try { sessionStorage.setItem('dispatchis_version', APP_VERSION); } catch(e) {}
     }
   </script>
 </head>
 
 <body>
+
 <!-- ===== STAGING BANNER ===== -->
 <div id="staging-banner" style="
   position: fixed;
@@ -55,8 +57,115 @@
   <span style="font-size:16px;">⚠️</span>
 </div>
 <style>
-  /* Push all fixed/sticky elements down to account for staging banner */
+  /* Push tous les éléments fixed/sticky pour le staging banner */
   header, #login-screen { margin-top: 40px !important; }
   body { padding-top: 40px !important; }
 </style>
 <!-- ===== FIN STAGING BANNER ===== -->
+
+
+<!-- ===== ÉCRAN DE CONNEXION ===== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <!-- Logo Dispatchis -->
+      <svg viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:40px;">
+        <text x="0" y="30" font-family="Arial, sans-serif" font-weight="700" font-size="28" fill="var(--navy, #1a2b4a)">D</text>
+        <text x="20" y="30" font-family="Arial, sans-serif" font-weight="400" font-size="20" fill="var(--navy, #1a2b4a)">ispatchis</text>
+      </svg>
+    </div>
+    <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="login-email">Adresse email</label>
+        <input type="email" id="login-email" placeholder="votre@email.fr" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="login-password">Mot de passe</label>
+        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <div id="login-error" class="login-error" style="display:none;">Email ou mot de passe incorrect.</div>
+      <button type="submit" class="btn btn-primary btn-full" id="login-btn">Se connecter</button>
+    </form>
+    <p class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</p>
+  </div>
+</div>
+
+
+<!-- ===== APP PRINCIPALE ===== -->
+<div id="app-screen" style="display:none;">
+
+  <!-- HEADER -->
+  <header id="main-header">
+    <div class="header-left">
+      <!-- Tool Switcher -->
+      <div class="tool-switcher">
+        <button id="btn-tool-dispatch" class="tool-btn active" onclick="switchTool('dispatch')">
+          📋 Dispatch
+        </button>
+        <button id="btn-tool-dplane" class="tool-btn" onclick="switchTool('dplane')">
+          📅 Dplane
+        </button>
+        <button id="btn-tool-dvol" class="tool-btn" onclick="switchTool('dvol')">
+          🚗 Dvol
+        </button>
+      </div>
+    </div>
+    <div class="header-right">
+      <button id="dark-toggle-btn" class="icon-btn" onclick="toggleDarkMode()" title="Mode sombre">🌙</button>
+      <span id="user-display" class="user-badge"></span>
+      <button class="btn btn-secondary btn-sm" onclick="handleLogout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <!-- ===== DISPATCH SCREEN ===== -->
+  <div id="dispatch-screen">
+    <div id="tabs-container" class="tabs"></div>
+    <div id="main-content" class="main-content"></div>
+  </div>
+
+  <!-- ===== DPLANE SCREEN ===== -->
+  <div id="dplane-screen" style="display:none;">
+    <div id="dplane-container"></div>
+  </div>
+
+  <!-- ===== DVOL SCREEN ===== -->
+  <div id="dvol-screen" style="display:none;">
+    <div id="dvol-container"></div>
+  </div>
+
+</div>
+<!-- ===== FIN APP ===== -->
+
+
+<!-- ===== SCRIPTS — ordre de dépendance strict ===== -->
+<!-- 1. Config Supabase (db, SUPABASE_URL, SUPABASE_KEY) -->
+<script src="js/config.js"></script>
+<!-- 2. Utilitaires globaux (safeSession, safeLocal, toggleDarkMode) -->
+<script src="js/utils.js"></script>
+<!-- 3. Auth (handleLogin, handleLogout, currentUserData) -->
+<script src="js/auth.js"></script>
+<!-- 4. Core (switchTool, showTab, renderDashboard, buildTabs...) -->
+<script src="js/core.js"></script>
+<!-- 5. Users (renderUtilisateurs, allUsers...) -->
+<script src="js/users.js"></script>
+<!-- 6. Dispatchis — module principal dispatch (72 Ko) -->
+<script src="js/dispatchis.js"></script>
+<!-- 7. Dplane — module planning -->
+<script src="js/dplane.js"></script>
+<!-- 8. Dvol data — fonctions pures Supabase -->
+<script src="js/dvol.js"></script>
+<!-- 9. Dvol UI — rendu interface (dépend de dvol.js) -->
+<script src="js/dvol-ui.js"></script>
+<!-- 10. Trocs — module trocs -->
+<script src="js/trocs.js"></script>
+
+<!-- Init dark mode après chargement DOM -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof initDarkMode === 'function') initDarkMode();
+  });
+</script>
+
+</body>
+</html>
