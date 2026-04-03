@@ -29,14 +29,13 @@ const safeSession = {
 
 // ===== AUTH =====
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim().toLowerCase();
-  const password = document.getElementById('login-password').value;
-  const btn = document.getElementById('login-btn');
-  const error = document.getElementById('login-error');
+  const email = document.getElementById('login-email')?.value?.trim().toLowerCase() || '';
+  const password = document.getElementById('login-password')?.value || '';
+  const btn = document.getElementById('login-btn');   // garanti présent dans le HTML
+  const errDiv = document.getElementById('login-error');
 
-  error.style.display = 'none';
-  btn.disabled = true;
-  btn.textContent = 'Connexion...';
+  if (errDiv) errDiv.style.display = 'none';
+  if (btn) { btn.disabled = true; btn.textContent = 'Connexion...'; }
 
   try {
     const { data, error: authError } = await db.auth.signInWithPassword({ email, password });
@@ -75,11 +74,12 @@ async function doLogin() {
 
   } catch (e) {
     console.error(e);
-    error.textContent = e.message || 'Email ou mot de passe incorrect.';
-    error.style.display = 'block';
+    if (errDiv) {
+      errDiv.textContent = e.message || 'Email ou mot de passe incorrect.';
+      errDiv.style.display = 'block';
+    }
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Se connecter';
+    if (btn) { btn.disabled = false; btn.textContent = 'Se connecter'; }
   }
 }
 
