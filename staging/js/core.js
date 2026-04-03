@@ -1,5 +1,40 @@
 /* core.js — Dispatchis v2.5.63 — Logique principale : tabs, dashboard, dispatch, attribution */
 
+// ===== TOOL SWITCHER (Dispatch / Dplane / Dvol) =====
+function switchTool(tool) {
+  // Masquer tous les écrans outils
+  ['dispatch-screen', 'dplane-screen', 'dvol-screen'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Désactiver tous les boutons du switcher
+  ['btn-tool-dispatch', 'btn-tool-dplane', 'btn-tool-dvol'].forEach(function(id) {
+    var btn = document.getElementById(id);
+    if (btn) btn.classList.remove('active');
+  });
+
+  // Afficher l'écran sélectionné
+  var screen = document.getElementById(tool + '-screen');
+  if (screen) screen.style.display = '';
+
+  // Activer le bouton correspondant
+  var activeBtn = document.getElementById('btn-tool-' + tool);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // Initialisation spécifique par outil
+  if (tool === 'dispatch') {
+    if (typeof showTab === 'function') showTab(currentTab || 'dashboard');
+  }
+  if (tool === 'dplane') {
+    if (typeof renderDplaneGrille === 'function') renderDplaneGrille();
+  }
+  if (tool === 'dvol') {
+    if (typeof renderDvol === 'function') renderDvol();
+    else if (typeof dvolInit === 'function') dvolInit();
+  }
+}
+
 // ===== TABS =====
 function buildTabs() {
   const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
