@@ -1,13 +1,12 @@
 // ===== CONFIG & GLOBALS =====
-const SUPABASE_URL = 'https://njhdokyenxttxjpctxeg.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qaGRva3llbnh0dHhqcGN0eGVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4Njg2NTksImV4cCI6MjA1OTQ0NDY1OX0.fRETrxST05o4UPmNJcW-3EqzABvWEJiCY_-4TnHC8KM';
+const SUPABASE_URL = 'https://eqyqcslfvcyxdgjhvmry.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeXFjc2xmdmN5eGRnamh2bXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTYwNzQsImV4cCI6MjA4OTU5MjA3NH0.1OaRZHo45J_cMMdQCgR0wrqS13irrP1wBUuNe8SHrqU';
 
 const db = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── ÉTAT GLOBAL ───────────────────────────────────────────────
+// ── ÉTAT GLOBAL
 let currentUserData = null;
 let currentTab      = 'dashboard';
 let allUsers        = [];
 
-// PAGE_SIZE exporté pour tous les modules
 const PAGE_SIZE = 20;
