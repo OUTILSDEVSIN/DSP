@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DSP — Dispatch Sinistres Pro</title>
+
+  <!-- ── POLICES ── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- ── CSS ── -->
+  <link rel="stylesheet" href="./assets/css/base.css">
+  <link rel="stylesheet" href="./assets/css/layout.css">
+  <link rel="stylesheet" href="./assets/css/components.css">
+
+  <!-- ── CDN TIER‐PARTIES ── -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- Point de montage unique — auth.js injecte login ou app shell ici -->
+  <div id="app-container"></div>
+
+  <!-- ── JS : ordre déterministe ──
+       1. config      → globals (db, currentUserData, PAGE_SIZE…)
+       2. actions     → helpers utilisés par TOUS les modules (showNotif, escapeHtml…)
+       3. god-switch  → getEffectiveRole() utilisé par tabs + modules métier
+       4. tabs        → buildTabs / showTab
+       5. modules     → dashboard, dispatch, mes-dossiers, trocs, users, audit, import
+       6. auth        → initAuth() démarre l'app en DERNIER
+  -->
+  <script src="./assets/js/config.js"></script>
+  <script src="./assets/js/actions.js"></script>
+  <script src="./assets/js/admin/god-switch.js"></script>
+  <script src="./assets/js/tabs.js"></script>
+
+  <script src="./assets/js/dashboard.js"></script>
+  <script src="./assets/js/dossiers/dispatch.js"></script>
+  <script src="./assets/js/dossiers/mes-dossiers.js"></script>
+  <script src="./assets/js/dossiers/trocs.js"></script>
+  <script src="./assets/js/admin/users.js"></script>
+  <script src="./assets/js/admin/audit.js"></script>
+  <script src="./assets/js/import.js"></script>
+
+  <!-- auth.js EN DERNIER : il appelle buildTabs / showTab qui doivent exister -->
+  <script src="./assets/js/auth.js"></script>
+
+  <!-- ── BOOT ── -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => initAuth());
+  </script>
+
+</body>
+</html>
