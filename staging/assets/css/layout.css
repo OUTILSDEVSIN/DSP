@@ -1,0 +1,27 @@
+  /* ===== LAYOUT — header, tabs, content ===== */
+  #app-screen { display: none; }
+
+  header { background: var(--navy); padding: 0 28px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-title { font-size: 14px; font-weight: 700; color: var(--white); letter-spacing: 0.1px; }
+  .header-right { display: flex; align-items: center; gap: 6px; }
+  .header-username { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
+  .header-role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(229,18,81,0.15); color: #fff; text-transform: uppercase; letter-spacing: 0.6px; margin-right: 4px; border: 1px solid rgba(255,255,255,0.3); }
+  .header-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 6px; }
+  .btn-header { background: none; border: none; color: rgba(255,255,255,0.6); padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .btn-header:hover { background: rgba(255,255,255,0.1); color: white; }
+  .btn-header-danger { color: rgba(255,150,150,0.85); }
+  .btn-header-danger:hover { background: rgba(229,25,94,0.2); color: #ff8fab; }
+  .tabs { display: flex; padding: 0 28px; background: var(--white); border-bottom: 1px solid var(--gray-200); overflow-x: auto; }
+  .tab { padding: 13px 16px; cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; transition: all 0.18s; display: flex; align-items: center; gap: 6px; }
+  .tab.active { color: var(--rose); border-bottom-color: var(--rose); font-weight: 600; }
+  .tab:hover:not(.active) { color: var(--navy); background: var(--gray-100); }
+  .content { padding: 20px 28px; }
+
+  .tool-switcher { display: flex; gap: 4px; align-items: center; }
+  .tool-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); padding: 5px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; }
+  .tool-btn.active { background: var(--rose); border-color: var(--rose); color: white; font-weight: 600; }
+  .tool-btn:hover:not(.active) { background: rgba(255,255,255,0.15); color: white; }
+  .d-letter { color: var(--rose); font-weight: 900; }
+  .dark-toggle { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; transition: all 0.15s; }
+  .dark-toggle:hover { background: rgba(255,255,255,0.1); }

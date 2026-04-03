@@ -1,0 +1,38 @@
+  /* ===== LOGIN SCREEN ===== */
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    background: linear-gradient(135deg, #dce8f8 0%, #eaf1fb 40%, #e4edf8 100%); position: relative; overflow: hidden; }
+  #login-screen::before { content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(27,52,97,0.14) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(74,126,199,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 60% 80%, rgba(42,74,127,0.10) 0%, transparent 50%); pointer-events: none; }
+  .login-box { background: rgba(255,255,255,0.95); backdrop-filter: blur(28px) saturate(1.6); -webkit-backdrop-filter: blur(28px) saturate(1.6);
+    border: 1px solid rgba(229,25,94,0.15); border-radius: 28px; padding: 48px 44px 40px; width: 400px;
+    box-shadow: 0 8px 40px rgba(229,25,94,0.10), 0 2px 8px rgba(0,0,0,0.06); position: relative; animation: loginFadeIn 0.5s cubic-bezier(.22,1,.36,1); }
+  @keyframes loginFadeIn { from { opacity:0; transform: translateY(24px) scale(0.97); } to { opacity:1; transform: translateY(0) scale(1); } }
+  .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+  .login-subtitle { text-align: center; color: #1B3461; font-size: 13px; margin-bottom: 32px; margin-top: 6px; padding-bottom: 24px; border-bottom: 1px solid rgba(27,52,97,0.1); }
+  .login-label { font-size: 11px; font-weight: 600; color: #6b7689; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; display: block; }
+  .login-field { margin-bottom: 16px; }
+  .login-box input { width: 100%; padding: 14px 16px; background: #f8f9fa; border: 1.5px solid #e0e3e8; border-radius: 14px; font-size: 15px; outline: none; color: #1e293b; transition: all 0.2s ease; box-sizing: border-box; }
+  .login-box input::placeholder { color: #b0b8c5; }
+  .login-box input:focus { border-color: rgba(232,18,81,0.7); background: #fff; box-shadow: 0 0 0 3px rgba(232,18,81,0.15); }
+  #login-btn, .login-box button { width: 100%; padding: 15px; background: linear-gradient(135deg, #e81251, #ff4d7d); color: white; border: none; border-radius: 14px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; margin-top: 8px; box-shadow: 0 6px 24px rgba(232,18,81,0.4); }
+  #login-btn:hover:not(:disabled), .login-box button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 32px rgba(27,52,97,0.45); }
+  .login-footer { text-align: center; margin-top: 22px; font-size: 11px; color: #b0b8c5; }
+  .login-error { color: #ff6b8a; font-size: 12px; margin-top: 10px; display: none; text-align: center; background: rgba(232,18,81,0.12); border: 1px solid rgba(232,18,81,0.2); padding: 10px 14px; border-radius: 12px; }
+
+  /* ===== DPLANE SCREEN ===== */
+  .dplane-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 14px; }
+  .dplane-nav-week { font-size: 15px; font-weight: 700; color: var(--navy); min-width: 200px; text-align: center; }
+  .dplane-grid { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--gray-200); background: var(--white); box-shadow: var(--shadow-sm); }
+  .dplane-grid table { width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; }
+  .dplane-grid col.col-membre { width:185px; }
+  .dplane-grid th { padding: 6px 8px; text-align: center; font-weight: 600; font-size: 11px; background: var(--gray-100); border-bottom: 1px solid var(--gray-200); color: var(--gray-600); }
+  .dplane-grid th.col-membre-header { text-align: left; padding-left: 12px; }
+  .dplane-grid td { padding: 4px 4px; vertical-align: middle; border-bottom: 1px solid var(--gray-200); border-right: 1px solid var(--gray-200); }
+  .dplane-today-btn { font-size: 11px; padding: 5px 10px; }
+  .dplane-cell-content { width: 100%; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center; padding: 2px 4px; line-height: 1.2; }
+  .dplane-cell-content.editable:hover { opacity: 0.85; transform: scale(1.03); }
+  .dplane-cell-content.empty { background: var(--gray-100); color: var(--gray-400); }
+  .dplane-cell-content.empty.editable:hover { background: var(--gray-200); }
+  .dplane-cell-content.brouillon { outline: 2px dashed #d97706; outline-offset: -2px; }
