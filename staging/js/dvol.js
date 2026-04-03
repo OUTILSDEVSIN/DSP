@@ -1,14 +1,14 @@
 // ============================================================
 // DVOL.JS — Fonctions data du module Dvol (vol de véhicules)
-// Version 1.3 — 02 avril 2026
+// Version 1.4 — 03 avril 2026
 // Corrections :
-//   - dvolGetTableauDeBord : filtre gestionnaire_id pour les
-//     rôles gestionnaire (admin/manager voient tout)
-//   - dvolGetDossier : lit depuis dvol_tableau_de_bord pour
-//     inclure tous les champs calculés (action_requise, notes,
-//     portefeuille, documents_recus_liste, date_ouverture,
-//     assure_email)
-//   - dvolVerifierRelances : même filtre gestionnaire_id
+//   - dvolGetEtapesDossier : tri ORDER BY retiré (non supporté
+//     sur relation jointe en Supabase JS v2), tri côté JS
+//   - dvolChangerStatut : ajout auditLog pour traçabilité
+//   - dvolVerifierRelances : gestionnaire_id ajouté au SELECT
+//     pour éviter l'échec du filtre .eq()
+//   - dvolConfirmerDocuments : statut → 'en_instruction' au
+//     lieu de 'relance' (workflow correct)
 // ============================================================
 
 // ─── TABLEAU DE BORD ─────────────────────────────────────────
@@ -63,18 +63,25 @@ async function dvolGetDossier(dossierId) {
 }
 
 // ─── RÉCUPÉRER LES ÉTAPES D'UN DOSSIER ───────────────────────
+// CORRECTION : .order() sur relation jointe non supporté en
+// Supabase JS v2 — tri effectué côté JS après réception
 async function dvolGetEtapesDossier(dossierId) {
   const { data, error } = await db
     .from('dvol_suivi_etapes')
     .select('*, dvol_etapes_template(label, description, ordre)')
-    .eq('dossier_id', dossierId)
-    .order('dvol_etapes_template(ordre)', { ascending: true });
+    .eq('dossier_id', dossierId);
 
   if (error) {
     console.error('[dvol] Erreur étapes:', error.message);
     return [];
   }
-  return data || [];
+
+  // Tri JS sur l'ordre du template
+  return (data || []).sort((a, b) => {
+    const ordreA = a.dvol_etapes_template?.ordre ?? 9999;
+    const ordreB = b.dvol_etapes_template?.ordre ?? 9999;
+    return ordreA - ordreB;
+  });
 }
 
 // ─── MARQUER UNE ÉTAPE COMME RÉALISÉE ────────────────────────
@@ -95,10 +102,11 @@ async function dvolMarquerEtapeRealisee(suiviEtapeId) {
 }
 
 // ─── CHANGER LE STATUT D'UN DOSSIER ──────────────────────────
+// CORRECTION : ajout auditLog pour traçabilité des changements
 async function dvolChangerStatut(dossierId, nouveauStatut) {
   const statutsValides = [
     'declare', 'en_attente_documents', 'relance',
-    'en_cours_expertise', 'en_attente_cloture',
+    'en_instruction', 'en_cours_expertise', 'en_attente_cloture',
     'vehicule_retrouve', 'labtaf', 'refuse', 'clos'
   ];
 
@@ -123,17 +131,25 @@ async function dvolChangerStatut(dossierId, nouveauStatut) {
     console.error('[dvol] Erreur changement statut:', error.message);
     return false;
   }
+
+  // Traçabilité — log du changement de statut
+  if (typeof auditLog === 'function') {
+    await auditLog('DVOL_STATUT', 'Dossier #' + dossierId + ' → ' + nouveauStatut);
+  }
+
   return true;
 }
 
 // ─── CONFIRMER RÉCEPTION DOCUMENTS ───────────────────────────
+// CORRECTION : statut → 'en_instruction' (workflow correct)
+// 'relance' était incorrect car les docs sont reçus
 async function dvolConfirmerDocuments(dossierId) {
   const { error } = await db
     .from('dvol_dossiers')
     .update({
       documents_recus: true,
       date_reception_documents: new Date().toISOString().split('T')[0],
-      statut: 'relance'
+      statut: 'en_instruction'
     })
     .eq('id', dossierId)
     .in('statut', ['declare', 'en_attente_documents']);
@@ -142,6 +158,11 @@ async function dvolConfirmerDocuments(dossierId) {
     console.error('[dvol] Erreur confirmation documents:', error.message);
     return false;
   }
+
+  if (typeof auditLog === 'function') {
+    await auditLog('DVOL_DOCS_RECUS', 'Documents reçus — dossier #' + dossierId);
+  }
+
   return true;
 }
 
@@ -160,17 +181,23 @@ async function dvolCloturerVehiculeRetrouve(dossierId) {
     console.error('[dvol] Erreur clôture véhicule retrouvé:', error.message);
     return false;
   }
+
+  if (typeof auditLog === 'function') {
+    await auditLog('DVOL_VEHICULE_RETROUVE', 'Véhicule retrouvé — dossier #' + dossierId);
+  }
+
   return true;
 }
 
 // ─── VÉRIFIER LES RELANCES ───────────────────────────────────
-// CORRECTION : filtre gestionnaire_id pour les non-admin
+// CORRECTION : gestionnaire_id inclus dans le SELECT pour que
+// le filtre .eq('gestionnaire_id') fonctionne correctement
 async function dvolVerifierRelances() {
   const isAdmin = ['admin', 'manager'].includes(currentUserData?.role);
 
   let query = db
     .from('dvol_tableau_de_bord')
-    .select('id, numero_dossier, action_requise, relance_cloture_active')
+    .select('id, numero_dossier, gestionnaire_id, action_requise, relance_cloture_active')
     .or('action_requise.eq.true,relance_cloture_active.eq.true');
 
   if (!isAdmin && currentUserData?.id) {
@@ -192,6 +219,7 @@ function dvolLabelStatut(statut) {
     declare:              'Déclaré',
     en_attente_documents: 'En attente docs',
     relance:              'Relancé',
+    en_instruction:       'En instruction',
     en_cours_expertise:   'Expertise',
     en_attente_cloture:   'En att. clôture',
     vehicule_retrouve:    'Véhicule retrouvé',
@@ -207,6 +235,7 @@ function dvolCouleurStatut(statut) {
     declare:              '#3b82f6',
     en_attente_documents: '#f59e0b',
     relance:              '#f97316',
+    en_instruction:       '#8b5cf6',
     en_cours_expertise:   '#06b6d4',
     en_attente_cloture:   '#64748b',
     vehicule_retrouve:    '#10b981',
