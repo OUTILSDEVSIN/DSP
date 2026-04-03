@@ -75,7 +75,9 @@
       </svg>
     </div>
     <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
-    <form id="login-form" onsubmit="handleLogin(event)">
+
+    <!-- FIX #1 : onsubmit appelle doLogin() (nom réel dans auth.js) -->
+    <form id="login-form" onsubmit="event.preventDefault(); doLogin()">
       <div class="form-group">
         <label for="login-email">Adresse email</label>
         <input type="email" id="login-email" placeholder="votre@email.fr" required autocomplete="email">
@@ -113,8 +115,13 @@
     </div>
     <div class="header-right">
       <button id="dark-toggle-btn" class="icon-btn" onclick="toggleDarkMode()" title="Mode sombre">🌙</button>
-      <span id="user-display" class="user-badge"></span>
-      <button class="btn btn-secondary btn-sm" onclick="handleLogout()">Déconnexion</button>
+
+      <!-- FIX #2 : IDs attendus par loadUserData() dans auth.js -->
+      <span id="header-name" class="user-badge"></span>
+      <span id="header-role" class="user-role-badge"></span>
+
+      <!-- FIX #3 : doLogout() est le nom réel dans auth.js -->
+      <button class="btn btn-secondary btn-sm" onclick="doLogout()">Déconnexion</button>
     </div>
   </header>
 
@@ -143,13 +150,13 @@
 <script src="js/config.js"></script>
 <!-- 2. Utilitaires globaux (safeSession, safeLocal, toggleDarkMode) -->
 <script src="js/utils.js"></script>
-<!-- 3. Auth (handleLogin, handleLogout, currentUserData) -->
+<!-- 3. Auth (doLogin, doLogout, currentUser, currentUserData) -->
 <script src="js/auth.js"></script>
-<!-- 4. Core (switchTool, showTab, renderDashboard, buildTabs...) -->
+<!-- 4. Core (switchTool, showTab, buildTabs, renderDashboard...) -->
 <script src="js/core.js"></script>
-<!-- 5. Users (renderUtilisateurs, allUsers...) -->
+<!-- 5. Users (renderUtilisateurs, loadAllUsers...) -->
 <script src="js/users.js"></script>
-<!-- 6. Dispatchis — module principal dispatch (72 Ko) -->
+<!-- 6. Dispatchis — module principal dispatch -->
 <script src="js/dispatchis.js"></script>
 <!-- 7. Dplane — module planning -->
 <script src="js/dplane.js"></script>
@@ -160,7 +167,7 @@
 <!-- 10. Trocs — module trocs -->
 <script src="js/trocs.js"></script>
 
-<!-- Init dark mode après chargement DOM -->
+<!-- FIX #4 : initDarkMode appelé après DOMContentLoaded -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     if (typeof initDarkMode === 'function') initDarkMode();
