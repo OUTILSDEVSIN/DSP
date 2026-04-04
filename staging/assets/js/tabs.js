@@ -1,59 +1,47 @@
 // ===== TABS =====
 function buildTabs() {
-  const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (currentUserData?.role || 'gestionnaire');
+  const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
   const tabs = [{ id: 'dashboard', label: '📊 Tableau de bord' }];
-
-  if (['admin', 'manager', 'superviseur'].includes(role)) tabs.push({ id: 'dispatch',     label: '📦 Dispatch' });
-  tabs.push({ id: 'mes_dossiers', label: '📁 Mes dossiers' });
-  tabs.push({ id: 'trocs',        label: '🔁 Trocs' });
-  if (['admin', 'manager'].includes(role))               tabs.push({ id: 'utilisateurs', label: '👥 Utilisateurs' });
-  if (role === 'admin')                                   tabs.push({ id: 'audit',        label: '🛡️ Audit' });
-
+  if (role === 'admin' || role === 'manager') tabs.push({ id: 'import', label: '📂 Importer Excel' });
+  tabs.push({ id: 'attribution', label: '📋 Attribution' });
+  tabs.push({ id: 'mesdossiers', label: '📁 Mes dossiers' });
+  if (role === 'admin' || role === 'manager') tabs.push({ id: 'utilisateurs', label: '👥 Équipe' });
+  if (role === 'admin' || role === 'manager') tabs.push({ id: 'audit', label: '🔍 Journal d\'audit' });
+  tabs.push({ id: 'stats', label: '📊 Stats' });
   const container = document.getElementById('tabs-container');
-  if (!container) return;
-  container.innerHTML = tabs.map(tab =>
-    `<div class="tab ${tab.id === currentTab ? 'active' : ''}" onclick="showTab('${tab.id}')">${tab.label}</div>`
+  container.innerHTML = tabs.map(t =>
+    `<div class="tab" id="tab-${t.id}" onclick="showTab('${t.id}')">${t.label}</div>`
   ).join('');
 }
 
-async function showTab(tabId) {
-  currentTab = tabId;
-  buildTabs();
-
-  const renders = {
-    dashboard:     () => (typeof renderDashboard    === 'function') && renderDashboard(),
-    dispatch:      () => (typeof renderDispatch     === 'function') && renderDispatch(),
-    mes_dossiers:  () => (typeof renderMesDossiers  === 'function') && renderMesDossiers(),
-    trocs:         () => (typeof renderTrocs        === 'function') && renderTrocs(),
-    utilisateurs:  () => (typeof renderUtilisateurs === 'function') && renderUtilisateurs(),
-    audit:         () => (typeof renderAudit        === 'function') && renderAudit(),
-    dvol:          () => (typeof renderDvolPlaceholder === 'function') && renderDvolPlaceholder()
-  };
-
-  const fn = renders[tabId];
-  if (fn) await fn();
-  else console.warn('[showTab] onglet inconnu :', tabId);
-}
-
-// ── switchTool : bascule entre Dispatch (onglets+contenu) et Dplane ──
-function switchTool(tool) {
-  const tabsContainer = document.getElementById('tabs-container');
-  const mainContent   = document.getElementById('main-content');
-  const dplaneScreen  = document.getElementById('dplane-screen');
-  const btnDispatch   = document.getElementById('btn-tool-dispatch');
-  const btnDplane     = document.getElementById('btn-tool-dplane');
-
-  if (tool === 'dispatch') {
-    if (tabsContainer) tabsContainer.style.display = '';
-    if (mainContent)   mainContent.style.display   = '';
-    if (dplaneScreen)  dplaneScreen.style.display   = 'none';
-  } else {
-    if (tabsContainer) tabsContainer.style.display = 'none';
-    if (mainContent)   mainContent.style.display   = 'none';
-    if (dplaneScreen)  dplaneScreen.style.display   = 'block';
-    if (typeof dplaneInit === 'function') dplaneInit();
+function showTab(id) {
+  // Reset filtres seulement si on QUITTE attribution
+  if (currentTab === 'attribution' && id !== 'attribution') {
+    searchQuery = '';
+    window._fPortefeuille = ''; window._fType = ''; window._fNature = '';
+    window._fStatut = ''; window._fGestionnaire = ''; window._fNonAttribue = false;
   }
-
-  if (btnDispatch) btnDispatch.classList.toggle('active', tool === 'dispatch');
-  if (btnDplane)   btnDplane.classList.toggle('active',   tool === 'dplane');
+  currentTab = id;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const el = document.getElementById('tab-' + id);
+  if (el) el.classList.add('active');
+  if (id === 'dashboard') renderDashboard();
+  else if (id === 'import') renderImport();
+  else if (id === 'attribution') renderAttribution();
+  else if (id === 'mesdossiers') renderMesDossiers();
+  else if (id === 'utilisateurs') renderUtilisateurs();
+  else if (id === 'audit') renderAuditLogs();
+  else if (id === 'stats') renderStats();
 }
+
+// ===== LOAD DATA =====
+async function loadAllUsers() {
+  const { data } = await db.from('utilisateurs').select('id,nom,prenom,role,email,actif').eq('actif', true);
+  allUsers = data || [];
+}
+
+async function loadDossiers() {
+  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat').order('created_at', { ascending: true });
+  allDossiers = data || [];
+}
+
