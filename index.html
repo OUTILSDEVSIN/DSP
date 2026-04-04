@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dispatchis</title>
+  <meta name="copyright" content="© Dispatchis — Tous droits réservés">
+  <meta name="version" content="2.5.41">
+
+  <!-- ===== CSS ===== -->
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/screens.css">
+
+
+  <!-- ===== CACHE BUSTING ===== -->
+  <script>
+    var _APP_VERSION = '2.5.53';
+    var storedVersion = null;
+    try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
+    if (storedVersion && storedVersion !== _APP_VERSION) {
+      sessionStorage.setItem('dispatchis_version', _APP_VERSION);
+      window.location.href = window.location.href.split('?')[0] + '?v=' + _APP_VERSION;
+    } else {
+      try { sessionStorage.setItem('dispatchis_version', _APP_VERSION); } catch(e) {}
+    }
+  </script>
+  <!-- ===== CDN ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+
+
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="assets/images/logo.jpg" alt="DISPATCHIS"
+           style="width:220px;height:auto;margin-bottom:2px;">
+    </div>
+    <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
+    <div class="login-field">
+      <label class="login-label">Adresse email</label>
+      <input type="email" id="login-email" placeholder="prenom.nom@dispatchis.fr" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label class="login-label">Mot de passe</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button onclick="doLogin()">Se connecter</button>
+    <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
+    <div class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</div>
+  </div>
+</div>
+
+<div id="app-screen">
+  <header>
+    <div class="header-left">
+      <img src="assets/images/logo2.png" alt="DISPATCHIS"
+           style="height:40px;width:auto;filter:brightness(0) invert(1);flex-shrink:0;">
+      <span class="header-title" style="letter-spacing:2px;font-size:15px;font-weight:800">DISPATCHIS</span>
+    </div>
+    <div class="tool-switcher">
+      <button class="tool-btn active" id="btn-tool-dispatch" onclick="switchTool('dispatch')">
+        <span class="d-letter">D</span>ispatch
+      </button>
+      <button class="tool-btn" id="btn-tool-dplane" onclick="switchTool('dplane')">
+        <span class="d-letter">D</span>plane
+      </button>
+    </div>
+    <div class="header-right">
+      <span class="header-username" id="header-name"></span>
+      <span class="header-role-tag" id="header-role"></span>
+      <span class="header-sep">|</span>
+      <button class="btn-header" onclick="showChangePassword()">🔑 Mot de passe</button>
+      <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
+      <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
+      <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
+      <button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre / clair">🌙</button>
+    </div>
+  </header>
+  <div class="tabs" id="tabs-container"></div>
+  <div class="content" id="main-content"></div>
+
+
+<!-- ===== DPLANE SCREEN ===== -->
+<div id="dplane-screen" style="display:none;">
+  <div class="content">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1 style="font-size:20px;font-weight:800;color:var(--navy);margin:0;">
+          <span style="color:var(--rose);">D</span>plane
+        </h1>
+        <p style="font-size:12px;color:var(--gray-600);margin:2px 0 0;">Planning intelligent de l'équipe</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<button class="btn btn-secondary dplane-today-btn" onclick="dplaneGoToday()">Aujourd'hui</button>
+        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(-1)">◀ Semaine préc.</button>
+        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(1)">Semaine suiv. ▶</button>
+        <button class="btn btn-secondary" onclick="dplaneOuvrirGestionActivites()" id="btn-gerer-activites" style="display:none;" title="Gérer les activités">⚙️ Activités</button>
+        <button class="btn btn-secondary" onclick="dplaneToggleBrouillon()" id="btn-brouillon" style="display:none;" title="Mode brouillon">✏️ Mode brouillon</button>
+        <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" disabled title="Rien à publier" style="opacity:.4;cursor:default;">📢 Publier</button>
+        <button class="btn btn-primary" onclick="dplaneCopierSemaineUI()" id="btn-copier-semaine" style="display:none;">📋 Copier semaine</button>
+        <button class="btn btn-danger" onclick="dplaneReinitialiserSemaineUI()" id="btn-reinit-semaine" style="display:none;" title="Remettre à zéro le planning de cette semaine">🗑️ Réinitialiser</button>
+        <button class="btn btn-secondary" onclick="dplaneToggleMonPlanning()" id="btn-mon-planning" style="display:none;" title="Voir uniquement mon planning">👤 Mon planning</button>
+      </div>
+    </div>
+    <div class="dplane-nav">
+      <span class="dplane-nav-week" id="dplane-week-label"></span>
+    </div>
+    <div class="dplane-grid">
+      <table id="dplane-table" style="width:100%;border-collapse:collapse;">
+        <thead id="dplane-thead"></thead>
+        <tbody id="dplane-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!-- ===== FIN DPLANE SCREEN ===== -->
+
+
+<!-- ===== JAVASCRIPT — ordre de chargement critique ===== -->
+<!-- 1. Config & init Supabase (doit être premier) -->
+<script src="assets/js/config.js"></script>
+
+<!-- 2. Auth, session, dark mode, safe storage -->
+<script src="assets/js/auth.js"></script>
+
+<!-- 3. Navigation tabs -->
+<script src="assets/js/tabs.js"></script>
+
+<!-- 4. Actions utilitaires partagées -->
+<script src="assets/js/actions.js"></script>
+
+<!-- 5. Admin -->
+<script src="assets/js/admin/users.js"></script>
+<script src="assets/js/admin/audit.js"></script>
+<script src="assets/js/admin/god-switch.js"></script>
+
+<!-- 6. Dispatch -->
+<script src="assets/js/dispatch/habilitations.js"></script>
+<script src="assets/js/dispatch/import.js"></script>
+<script src="assets/js/dispatch/dispatch.js"></script>
+<script src="assets/js/dispatch/dispatch-intelligent.js"></script>
+<script src="assets/js/dispatch/attribution.js"></script>
+<script src="assets/js/dispatch/dossiers.js"></script>
+<script src="assets/js/dispatch/trocs.js"></script>
+
+<!-- 7. Dashboard -->
+<script src="assets/js/dashboard/kpis.js"></script>
+<script src="assets/js/dashboard/stats.js"></script>
+
+<!-- 8. Dvol -->
+<script src="assets/js/dvol/dvol.js"></script>
+
+<!-- 9. Init final (appels init au chargement) -->
+<script src="assets/js/init.js"></script>
+
+</body>
+</html>
+
