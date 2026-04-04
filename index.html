@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dispatchis — STAGING</title>
-  <meta name="copyright" content="© Dispatchis — Tous droits réservés">
+  <title>Dispatchis â€” STAGING</title>
+  <meta name="copyright" content="Â© Dispatchis â€” Tous droits rÃ©servÃ©s">
   <meta name="version" content="2.5.41">
 
   <!-- ===== CSS ===== -->
@@ -33,28 +33,25 @@
 </head>
 <body>
 
-
-
-
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
       <img src="assets/images/logo.jpg" alt="DISPATCHIS"
            style="width:220px;height:auto;margin-bottom:2px;">
     </div>
-    <p class="login-subtitle">Espace collaborateurs · Accès sécurisé</p>
+    <p class="login-subtitle">Espace collaborateurs Â· AccÃ¨s sÃ©curisÃ©</p>
     <div class="login-field">
       <label class="login-label">Adresse email</label>
       <input type="email" id="login-email" placeholder="prenom.nom@dispatchis.fr" autocomplete="email">
     </div>
     <div class="login-field">
       <label class="login-label">Mot de passe</label>
-      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+      <input type="password" id="login-password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autocomplete="current-password"
         onkeydown="if(event.key==='Enter') doLogin()">
     </div>
     <button onclick="doLogin()">Se connecter</button>
     <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
-    <div class="login-footer">© Dispatchis — Accès réservé aux collaborateurs</div>
+    <div class="login-footer">Â© Dispatchis â€” AccÃ¨s rÃ©servÃ© aux collaborateurs</div>
   </div>
 </div>
 
@@ -77,11 +74,11 @@
       <span class="header-username" id="header-name"></span>
       <span class="header-role-tag" id="header-role"></span>
       <span class="header-sep">|</span>
-      <button class="btn-header" onclick="showChangePassword()">🔑 Mot de passe</button>
-      <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">⚠️ Réinitialiser</button>
-      <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">🎭 Mode test</button>
-      <button class="btn-header btn-header-danger" onclick="doLogout()">↪️ Déconnexion</button>
-      <button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre / clair">🌙</button>
+      <button class="btn-header" onclick="showChangePassword()">ðŸ”‘ Mot de passe</button>
+      <button class="btn-header btn-header-danger" id="btn-reset-header" style="display:none" onclick="showResetMenu()">âš ï¸ RÃ©initialiser</button>
+      <button class="btn-header" id="btn-god-switch" style="display:none;background:rgba(255,180,0,0.2);border:1px solid rgba(255,180,0,0.5);color:#ffd700" onclick="showGodSwitchMenu()">ðŸŽ­ Mode test</button>
+      <button class="btn-header btn-header-danger" onclick="doLogout()">â†ªï¸ DÃ©connexion</button>
+      <button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre / clair">ðŸŒ™</button>
     </div>
   </header>
   <div class="tabs" id="tabs-container"></div>
@@ -96,18 +93,18 @@
         <h1 style="font-size:20px;font-weight:800;color:var(--navy);margin:0;">
           <span style="color:var(--rose);">D</span>plane
         </h1>
-        <p style="font-size:12px;color:var(--gray-600);margin:2px 0 0;">Planning intelligent de l'équipe</p>
+        <p style="font-size:12px;color:var(--gray-600);margin:2px 0 0;">Planning intelligent de l'Ã©quipe</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
 <button class="btn btn-secondary dplane-today-btn" onclick="dplaneGoToday()">Aujourd'hui</button>
-        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(-1)">◀ Semaine préc.</button>
-        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(1)">Semaine suiv. ▶</button>
-        <button class="btn btn-secondary" onclick="dplaneOuvrirGestionActivites()" id="btn-gerer-activites" style="display:none;" title="Gérer les activités">⚙️ Activités</button>
-        <button class="btn btn-secondary" onclick="dplaneToggleBrouillon()" id="btn-brouillon" style="display:none;" title="Mode brouillon">✏️ Mode brouillon</button>
-        <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" disabled title="Rien à publier" style="opacity:.4;cursor:default;">📢 Publier</button>
-        <button class="btn btn-primary" onclick="dplaneCopierSemaineUI()" id="btn-copier-semaine" style="display:none;">📋 Copier semaine</button>
-        <button class="btn btn-danger" onclick="dplaneReinitialiserSemaineUI()" id="btn-reinit-semaine" style="display:none;" title="Remettre à zéro le planning de cette semaine">🗑️ Réinitialiser</button>
-        <button class="btn btn-secondary" onclick="dplaneToggleMonPlanning()" id="btn-mon-planning" style="display:none;" title="Voir uniquement mon planning">👤 Mon planning</button>
+        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(-1)">â—€ Semaine prÃ©c.</button>
+        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(1)">Semaine suiv. â–¶</button>
+        <button class="btn btn-secondary" onclick="dplaneOuvrirGestionActivites()" id="btn-gerer-activites" style="display:none;" title="GÃ©rer les activitÃ©s">âš™ï¸ ActivitÃ©s</button>
+        <button class="btn btn-secondary" onclick="dplaneToggleBrouillon()" id="btn-brouillon" style="display:none;" title="Mode brouillon">âœï¸ Mode brouillon</button>
+        <button class="btn btn-warning" onclick="dplanePublierToutUI()" id="btn-publier-brouillon" disabled title="Rien Ã  publier" style="opacity:.4;cursor:default;">ðŸ“¢ Publier</button>
+        <button class="btn btn-primary" onclick="dplaneCopierSemaineUI()" id="btn-copier-semaine" style="display:none;">ðŸ“‹ Copier semaine</button>
+        <button class="btn btn-danger" onclick="dplaneReinitialiserSemaineUI()" id="btn-reinit-semaine" style="display:none;" title="Remettre Ã  zÃ©ro le planning de cette semaine">ðŸ—‘ï¸ RÃ©initialiser</button>
+        <button class="btn btn-secondary" onclick="dplaneToggleMonPlanning()" id="btn-mon-planning" style="display:none;" title="Voir uniquement mon planning">ðŸ‘¤ Mon planning</button>
       </div>
     </div>
     <div class="dplane-nav">
@@ -124,8 +121,8 @@
 <!-- ===== FIN DPLANE SCREEN ===== -->
 
 
-<!-- ===== JAVASCRIPT — ordre de chargement critique ===== -->
-<!-- 1. Config & init Supabase (doit être premier) -->
+<!-- ===== JAVASCRIPT â€” ordre de chargement critique ===== -->
+<!-- 1. Config & init Supabase (doit Ãªtre premier) -->
 <script src="assets/js/config.js"></script>
 
 <!-- 2. Auth, session, dark mode, safe storage -->
@@ -134,7 +131,7 @@
 <!-- 3. Navigation tabs -->
 <script src="assets/js/tabs.js"></script>
 
-<!-- 4. Actions utilitaires partagées -->
+<!-- 4. Actions utilitaires partagÃ©es -->
 <script src="assets/js/actions.js"></script>
 
 <!-- 5. Admin -->
@@ -163,5 +160,4 @@
 
 </body>
 </html>
-
 
