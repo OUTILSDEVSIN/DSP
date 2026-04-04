@@ -1,5 +1,5 @@
-// ============================================================
-// DPLANE v5.0 -- lisibilité améliorée / 2e activité journée visible
+﻿// ============================================================
+// DPLANE v5.0 -- lisibilitÃ© amÃ©liorÃ©e / 2e activitÃ© journÃ©e visible
 // ============================================================
 
 let dplaneSemaineOffset = 0;
@@ -11,7 +11,7 @@ function dplaneGetRole() {
   return (typeof getEffectiveRole === 'function') ? getEffectiveRole() : currentUserData.role;
 }
 
-// ── Confirm personnalisé (remplace window.confirm) ──
+// â”€â”€ Confirm personnalisÃ© (remplace window.confirm) â”€â”€
 function dplaneConfirm(message, emoji, onConfirm) {
   document.getElementById('dplane-confirm-modal')?.remove();
   const overlay = document.createElement('div');
@@ -19,7 +19,7 @@ function dplaneConfirm(message, emoji, onConfirm) {
   overlay.id = 'dplane-confirm-modal';
   overlay.innerHTML = `
     <div class="dplane-popup" style="max-width:360px;text-align:center;padding:32px 28px;">
-      <div style="font-size:40px;margin-bottom:14px;">${emoji || '⚠️'}</div>
+      <div style="font-size:40px;margin-bottom:14px;">${emoji || 'âš ï¸'}</div>
       <p style="font-size:15px;color:var(--navy);font-weight:600;margin:0 0 24px;line-height:1.5;">${message}</p>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button class="btn btn-secondary" onclick="document.getElementById('dplane-confirm-modal').remove()" style="min-width:110px;">Annuler</button>
@@ -35,7 +35,7 @@ function _dplConfirmOk() {
   if (window._dplConfirmCb) window._dplConfirmCb();
 }
 
-// ── CRUD Supabase ──
+// â”€â”€ CRUD Supabase â”€â”€
 
 async function dplaneGetActivites() {
   const { data } = await db.from('dplane_activites').select('*').eq('actif', true).order('ordre');
@@ -100,7 +100,7 @@ async function dplaneCopierSemaine(dateDebut, dateFin, managerId) {
   return { succes, erreurs };
 }
 
-// ── Helpers ──
+// â”€â”€ Helpers â”€â”€
 function dplaneGetLundiSemaine(offset) {
   const today = new Date(), day = today.getDay();
   const monday = new Date(today);
@@ -108,11 +108,11 @@ function dplaneGetLundiSemaine(offset) {
   monday.setHours(0, 0, 0, 0);
   return monday;
 }
-function dplaneDateStr(date) { return date.toISOString().split('T')[0]; }
+function dplaneDateStr(date) { const y=date.getFullYear(); const m=String(date.getMonth()+1).padStart(2,'0'); const d=String(date.getDate()).padStart(2,'0'); return `${y}-${m}-${d}`; }
 function dplaneNavSemaine(dir) { if (!currentUserData) return; dplaneSemaineOffset += dir; renderDplaneGrille(); }
 function dplaneGoToday()       { if (!currentUserData) return; dplaneSemaineOffset = 0; renderDplaneGrille(); }
 
-// ── Grille Planning ──
+// â”€â”€ Grille Planning â”€â”€
 async function renderDplaneGrille() {
   if (!currentUserData) return;
   const lundi = dplaneGetLundiSemaine(dplaneSemaineOffset);
@@ -128,7 +128,7 @@ async function renderDplaneGrille() {
     dplaneGetAbsencesSemaine(dateDebut, dateFin)
   ]);
 
-  // Mode "Mon planning" : filtre sur l'utilisateur courant si activé
+  // Mode "Mon planning" : filtre sur l'utilisateur courant si activÃ©
   let membres = (allUsers||[]).filter(u => u.actif!==false).sort((a,b)=>{
     const o={gestionnaire:0,manager:1,admin:2}; return (o[a.role]??3)-(o[b.role]??3);
   });
@@ -136,11 +136,11 @@ async function renderDplaneGrille() {
     membres = membres.filter(m => m.id === currentUserData.id);
   }
   const joursLabels=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
-  const creneaux=['matin','apresmidi'], creneauxLabels={matin:'Matin',apresmidi:'Après-midi'};
+  const creneaux=['matin','apresmidi'], creneauxLabels={matin:'Matin',apresmidi:'AprÃ¨s-midi'};
   const today=dplaneDateStr(new Date()), role=dplaneGetRole(), canEdit=role==='admin'||role==='manager';
-  const absLabels={conge:'🏖️ Congé',maladie:'🤒 Maladie',formation:'📚 Formation',absence:'❌ Absence'};
+  const absLabels={conge:'ðŸ–ï¸ CongÃ©',maladie:'ðŸ¤’ Maladie',formation:'ðŸ“š Formation',absence:'âŒ Absence'};
 
-  // COLGROUP égalité colonnes
+  // COLGROUP Ã©galitÃ© colonnes
   const table = document.getElementById('dplane-table');
   let cg = table.querySelector('colgroup');
   if (!cg) { cg=document.createElement('colgroup'); table.prepend(cg); }
@@ -178,24 +178,24 @@ async function renderDplaneGrille() {
         const renderTag = (p) => {
           const act = dplaneActivites.find(a => a.id === p.activite_id);
           return `<span class="dplane-tag" style="background:${act?.couleur_hex||'#666'};${p.is_brouillon?'opacity:.6;border:1.5px dashed rgba(0,0,0,.25);':''}">
-            ${p.is_brouillon?'✏️ ':''}${act?.nom||'?'}
-            ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerPlanningUI('${p.id}')">×</span>`:''}
+            ${p.is_brouillon?'âœï¸ ':''}${act?.nom||'?'}
+            ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerPlanningUI('${p.id}')">Ã—</span>`:''}
           </span>`;
         };
-        // ── Absence journée entière → 1 seul TD colspan=2 ──
+        // â”€â”€ Absence journÃ©e entiÃ¨re â†’ 1 seul TD colspan=2 â”€â”€
         const absJournee = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau==='journee');
         if (absJournee) {
-          const absLabelsJ = {conge:'🏖️ Congé',maladie:'🤒 Maladie',formation:'📚 Formation',absence:'❌ Absence'};
+          const absLabelsJ = {conge:'ðŸ–ï¸ CongÃ©',maladie:'ðŸ¤’ Maladie',formation:'ðŸ“š Formation',absence:'âŒ Absence'};
           const addBtn = canEdit ? `<button class="dplane-cell-add" title="Ajouter" onclick="dplaneOuvrirMenu('${m.id}','${dateJ}','matin',this)" style="margin-left:6px;">+</button>` : '';
           return `<td colspan="2" style="background:#fff8f0;">
             <div class="dplane-cell" style="justify-content:center;">
-              <span class="dplane-absence">${absLabelsJ[absJournee.type_absence]||absJournee.type_absence} <span style="font-size:10px;opacity:.7;">(journée)</span>
-                ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerAbsenceUI('${absJournee.id}')" style="cursor:pointer;margin-left:4px;">×</span>`:''}
+              <span class="dplane-absence">${absLabelsJ[absJournee.type_absence]||absJournee.type_absence} <span style="font-size:10px;opacity:.7;">(journÃ©e)</span>
+                ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerAbsenceUI('${absJournee.id}')" style="cursor:pointer;margin-left:4px;">Ã—</span>`:''}
               </span>${addBtn}
             </div>
           </td>`;
         }
-        // ── Entrées "journée" activité : 1 seul TD colspan=2 ──
+        // â”€â”€ EntrÃ©es "journÃ©e" activitÃ© : 1 seul TD colspan=2 â”€â”€
         const journeeTags = planning.filter(p => p.gestionnaire_id===m.id && p.jour===dateJ && p.creneau==='journee');
         const hasJournee = journeeTags.length > 0;
         const matinAbs  = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau==='matin');
@@ -211,12 +211,12 @@ async function renderDplaneGrille() {
           return `<td colspan="2" style="background:rgba(74,126,199,0.04);"><div class="dplane-cell" style="justify-content:center;flex-wrap:wrap;">${tagsHtml}${addBtn}</div></td>`;
         }
 
-        // ── Cellules normales Matin + Après-midi ──
+        // â”€â”€ Cellules normales Matin + AprÃ¨s-midi â”€â”€
         return creneaux.map(creneau => {
           const abs = absences.find(a => a.gestionnaire_id===m.id && a.jour===dateJ && a.creneau===creneau);
           if (abs) return `<td style="background:#fff8f0;"><div class="dplane-cell">
             <span class="dplane-absence">${absLabels[abs.type_absence]||abs.type_absence}
-              ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerAbsenceUI('${abs.id}')" style="cursor:pointer;margin-left:4px;opacity:.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">×</span>`:''}
+              ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerAbsenceUI('${abs.id}')" style="cursor:pointer;margin-left:4px;opacity:.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">Ã—</span>`:''}
             </span></div></td>`;
           const tags = planning.filter(p => p.gestionnaire_id===m.id && p.jour===dateJ && p.creneau===creneau);
           const tagsHtml = tags.map(renderTag).join('');
@@ -232,28 +232,28 @@ async function renderDplaneGrille() {
   if (btnP && canEdit) {
     if (hasBrou) {
       btnP.disabled = false;
-      btnP.title = '📢 Publier les brouillons de la semaine';
+      btnP.title = 'ðŸ“¢ Publier les brouillons de la semaine';
       btnP.style.opacity = '1';
       btnP.style.cursor = 'pointer';
     } else {
       btnP.disabled = true;
-      btnP.title = 'Rien à publier cette semaine';
+      btnP.title = 'Rien Ã  publier cette semaine';
       btnP.style.opacity = '.35';
       btnP.style.cursor = 'default';
     }
   }
 }
 
-// ── Menu contextuel smart (position auto haut/bas) ──
+// â”€â”€ Menu contextuel smart (position auto haut/bas) â”€â”€
 function dplaneOuvrirMenu(gestionnaireId, jour, creneau, btn) {
   document.getElementById('dplane-ctx-menu')?.remove();
   const menu = document.createElement('div');
   menu.id = 'dplane-ctx-menu';
   menu.style.cssText = 'position:fixed;background:white;border:1px solid var(--gray-200);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:6px;z-index:3000;min-width:200px;max-height:80vh;overflow-y:auto;';
 
-  const crLabel = creneau === 'matin' ? 'Matin' : 'Après-midi';
+  const crLabel = creneau === 'matin' ? 'Matin' : 'AprÃ¨s-midi';
 
-  // Activités -- bouton 📅 compact inline
+  // ActivitÃ©s -- bouton ðŸ“… compact inline
   const actsHtml = dplaneActivites.map(a => `
     <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--gray-100);">
       <div onclick="dplaneAjouterPlanningUI('${gestionnaireId}','${jour}','${creneau}','${a.id}',false)"
@@ -263,11 +263,11 @@ function dplaneOuvrirMenu(gestionnaireId, jour, creneau, btn) {
         <span style="flex:1;">${a.nom}</span>
       </div>
       <button onclick="dplaneAjouterPlanningUI('${gestionnaireId}','${jour}','${creneau}','${a.id}',true)"
-              title="Ajouter pour toute la journée (Matin + Après-midi)"
+              title="Ajouter pour toute la journÃ©e (Matin + AprÃ¨s-midi)"
               style="padding:0 12px;border:none;border-left:1px solid var(--gray-100);background:transparent;cursor:pointer;font-size:13px;color:var(--gray-400);border-radius:0 6px 6px 0;transition:all .15s;white-space:nowrap;"
               onmouseover="this.parentElement.style.background='';this.style.background='var(--rose)';this.style.color='white';this.style.borderColor='var(--rose)'"
               onmouseout="this.style.background='transparent';this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-100)'">
-        📅
+        ðŸ“…
       </button>
     </div>`).join('');
 
@@ -282,7 +282,7 @@ function dplaneOuvrirMenu(gestionnaireId, jour, creneau, btn) {
   menu.innerHTML = actsHtml + absItem;
   document.body.appendChild(menu);
 
-  // ── Position intelligente (haut si proche bas d'écran) ──
+  // â”€â”€ Position intelligente (haut si proche bas d'Ã©cran) â”€â”€
   const rect = btn.getBoundingClientRect();
   const menuH = menu.offsetHeight || (dplaneActivites.length * 56 + 80);
   const spaceBelow = window.innerHeight - rect.bottom;
@@ -300,22 +300,22 @@ function dplaneOuvrirMenu(gestionnaireId, jour, creneau, btn) {
   }, 100);
 }
 
-// ── Ajouter activité (journeeEntiere = creneau 'journee' = 1 seul record + colspan) ──
+// â”€â”€ Ajouter activitÃ© (journeeEntiere = creneau 'journee' = 1 seul record + colspan) â”€â”€
 async function dplaneAjouterPlanningUI(gestionnaireId, jour, creneau, activiteId, journeeEntiere) {
   document.getElementById('dplane-ctx-menu')?.remove();
-  if (!currentUserData) { showNotif('Session expirée, reconnectez-vous', 'error'); return; }
+  if (!currentUserData) { showNotif('Session expirÃ©e, reconnectez-vous', 'error'); return; }
   const managerId = currentUserData.id;
   const crCible = journeeEntiere ? 'journee' : creneau;
 
-  // Vérifier doublon
+  // VÃ©rifier doublon
   const { data: ex } = await db.from('dplane_planning').select('id')
     .eq('gestionnaire_id',gestionnaireId).eq('jour',jour).eq('creneau',crCible).eq('activite_id',activiteId).maybeSingle();
-  if (ex) { showNotif('Activité déjà présente sur ce créneau', 'info'); return; }
+  if (ex) { showNotif('ActivitÃ© dÃ©jÃ  prÃ©sente sur ce crÃ©neau', 'info'); return; }
 
   const ok = await dplaneAjouterPlanning(managerId, gestionnaireId, jour, crCible, activiteId, dplaneBrouillonMode);
   if (ok) {
-    const label = journeeEntiere ? '📅 Activité ajoutée pour la journée ✓' : 'Activité ajoutée ✓';
-    showNotif(dplaneBrouillonMode ? `✏️ Brouillon : ${label}` : label, 'success');
+    const label = journeeEntiere ? 'ðŸ“… ActivitÃ© ajoutÃ©e pour la journÃ©e âœ“' : 'ActivitÃ© ajoutÃ©e âœ“';
+    showNotif(dplaneBrouillonMode ? `âœï¸ Brouillon : ${label}` : label, 'success');
     await renderDplaneGrille();
   } else {
     showNotif('Erreur lors de l\'ajout', 'error');
@@ -323,45 +323,45 @@ async function dplaneAjouterPlanningUI(gestionnaireId, jour, creneau, activiteId
 }
 
 async function dplaneSupprimerPlanningUI(planningId) {
-  dplaneConfirm('Supprimer cette activité ?', '🗑️', async () => {
+  dplaneConfirm('Supprimer cette activitÃ© ?', 'ðŸ—‘ï¸', async () => {
     const ok = await dplaneSupprimerPlanning(planningId);
-    if (ok) { showNotif('Activité supprimée', 'success'); await renderDplaneGrille(); }
+    if (ok) { showNotif('ActivitÃ© supprimÃ©e', 'success'); await renderDplaneGrille(); }
     else showNotif('Erreur lors de la suppression', 'error');
   });
 }
 
-// ── Modal Absence ──
+// â”€â”€ Modal Absence â”€â”€
 async function dplaneAjouterAbsenceUI(gestionnaireId, jour, creneau) {
   document.getElementById('dplane-ctx-menu')?.remove();
   document.getElementById('dplane-absence-modal')?.remove();
   window._dplAbsParams = { gestionnaireId, jour, creneau };
   const lundi=dplaneGetLundiSemaine(dplaneSemaineOffset);
   window._dplAbsJoursSemaine = Array.from({length:5},(_,i)=>{ const d=new Date(lundi); d.setDate(lundi.getDate()+i); return dplaneDateStr(d); });
-  const creneauxLabels={matin:'Matin',apresmidi:'Après-midi'};
+  const creneauxLabels={matin:'Matin',apresmidi:'AprÃ¨s-midi'};
   const dateAffich=new Date(jour+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   const overlay=document.createElement('div');
   overlay.className='dplane-popup-overlay'; overlay.id='dplane-absence-modal';
   overlay.innerHTML=`
     <div class="dplane-popup" style="max-width:420px;width:95vw;">
-      <h2 style="margin-bottom:4px;">🗓️ Ajouter une absence</h2>
+      <h2 style="margin-bottom:4px;">ðŸ—“ï¸ Ajouter une absence</h2>
       <div class="dplane-date">${dateAffich}</div>
       <label style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.5px;display:block;margin:16px 0 8px;">Type d'absence</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;">
-        ${[{value:'conge',label:'Congé',icon:'🏖️'},{value:'maladie',label:'Maladie',icon:'🤒'},{value:'formation',label:'Formation',icon:'📚'},{value:'absence',label:'Absence',icon:'❌'}].map(t=>`
+        ${[{value:'conge',label:'CongÃ©',icon:'ðŸ–ï¸'},{value:'maladie',label:'Maladie',icon:'ðŸ¤’'},{value:'formation',label:'Formation',icon:'ðŸ“š'},{value:'absence',label:'Absence',icon:'âŒ'}].map(t=>`
           <label class="_dabs-lbl" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;cursor:pointer;font-size:13px;transition:all .15s;">
             <input type="radio" name="dabs-type" value="${t.value}" style="accent-color:var(--rose);" onclick="_dplHighlightLabel(this,'_dabs-lbl','--rose','--rose-light')">
             ${t.icon} ${t.label}</label>`).join('')}
       </div>
-      <label style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px;">Portée</label>
+      <label style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px;">PortÃ©e</label>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;">
-        ${[{value:'creneau',icon:'🕐',label:`Ce créneau <strong>(${creneauxLabels[creneau]})</strong>`,c:true},{value:'journee',icon:'📅',label:'Toute la journée',c:false},{value:'semaine',icon:'📆',label:'Toute la semaine (Lun→Ven)',c:false}].map(p=>`
+        ${[{value:'creneau',icon:'ðŸ•',label:`Ce crÃ©neau <strong>(${creneauxLabels[creneau]})</strong>`,c:true},{value:'journee',icon:'ðŸ“…',label:'Toute la journÃ©e',c:false},{value:'semaine',icon:'ðŸ“†',label:'Toute la semaine (Lunâ†’Ven)',c:false}].map(p=>`
           <label class="_dabs-plbl" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border:1.5px solid ${p.c?'var(--rose)':'var(--gray-300)'};border-radius:8px;cursor:pointer;font-size:13px;background:${p.c?'var(--rose-light)':''};transition:all .15s;">
             <input type="radio" name="dabs-portee" value="${p.value}" ${p.c?'checked':''} style="accent-color:var(--rose);" onclick="_dplHighlightLabel(this,'_dabs-plbl','--rose','--rose-light')">
             <span>${p.icon} ${p.label}</span></label>`).join('')}
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary" onclick="document.getElementById('dplane-absence-modal').remove()" style="flex:1;">Annuler</button>
-        <button class="btn btn-primary" onclick="dplaneConfirmerAbsence()" style="flex:1;">✓ Confirmer</button>
+        <button class="btn btn-primary" onclick="dplaneConfirmerAbsence()" style="flex:1;">âœ“ Confirmer</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -381,8 +381,8 @@ async function dplaneConfirmerAbsence() {
   const joursSemaine=window._dplAbsJoursSemaine||[];
   const typeEl=document.querySelector('input[name="dabs-type"]:checked');
   const porteeEl=document.querySelector('input[name="dabs-portee"]:checked');
-  if (!typeEl) { showNotif('Sélectionnez un type d\'absence','error'); return; }
-  if (!currentUserData) { showNotif('Session expirée','error'); return; }
+  if (!typeEl) { showNotif('SÃ©lectionnez un type d\'absence','error'); return; }
+  if (!currentUserData) { showNotif('Session expirÃ©e','error'); return; }
   const type=typeEl.value, portee=porteeEl?.value||'creneau', managerId=currentUserData.id;
   document.getElementById('dplane-absence-modal')?.remove();
   let ok=false;
@@ -398,16 +398,16 @@ async function dplaneConfirmerAbsence() {
       if (!(await dplaneAjouterAbsence(managerId, gestionnaireId, j, 'journee', type))) ok = false;
     }
   }
-  if(ok){showNotif('Absence ajoutée ✓','success');await renderDplaneGrille();}
+  if(ok){showNotif('Absence ajoutÃ©e âœ“','success');await renderDplaneGrille();}
   else showNotif('Erreur lors de l\'ajout','error');
 }
 
 async function dplaneSupprimerAbsenceUI(absenceId) {
-  // Récupérer l'absence pour savoir si elle fait partie d'une série semaine
+  // RÃ©cupÃ©rer l'absence pour savoir si elle fait partie d'une sÃ©rie semaine
   const { data: abs } = await db.from('dplane_absences').select('*').eq('id', absenceId).maybeSingle();
   if (!abs) return;
 
-  // Chercher d'autres absences identiques (même gestionnaire + même type) dans la semaine courante
+  // Chercher d'autres absences identiques (mÃªme gestionnaire + mÃªme type) dans la semaine courante
   const lundi    = dplaneGetLundiSemaine(dplaneSemaineOffset);
   const vendredi = new Date(lundi); vendredi.setDate(lundi.getDate() + 4);
   const { data: semaine } = await db.from('dplane_absences')
@@ -420,10 +420,10 @@ async function dplaneSupprimerAbsenceUI(absenceId) {
   const autresJours = (semaine || []).filter(a => a.id !== absenceId);
 
   if (autresJours.length >= 1) {
-    // Il y a d'autres jours → proposer choix
+    // Il y a d'autres jours â†’ proposer choix
     document.getElementById('dplane-abs-del-modal')?.remove();
-    const absLabels = {conge:'Congé',maladie:'Maladie',formation:'Formation',absence:'Absence'};
-    // Stocker les IDs dans window pour éviter les guillemets cassés dans onclick
+    const absLabels = {conge:'CongÃ©',maladie:'Maladie',formation:'Formation',absence:'Absence'};
+    // Stocker les IDs dans window pour Ã©viter les guillemets cassÃ©s dans onclick
     window._dplAbsSingleId = absenceId;
     window._dplAbsWeekIds  = (semaine || []).map(a => a.id);
 
@@ -432,18 +432,18 @@ async function dplaneSupprimerAbsenceUI(absenceId) {
     overlay.id = 'dplane-abs-del-modal';
     overlay.innerHTML = `
       <div class="dplane-popup" style="max-width:380px;text-align:center;padding:28px;">
-        <div style="font-size:36px;margin-bottom:12px;">🗑️</div>
+        <div style="font-size:36px;margin-bottom:12px;">ðŸ—‘ï¸</div>
         <h3 style="color:var(--navy);margin-bottom:8px;">Supprimer l'absence</h3>
         <p style="color:var(--gray-500);font-size:13px;margin-bottom:20px;">
-          Cette absence <strong>${absLabels[abs.type_absence]||abs.type_absence}</strong> est présente sur 
+          Cette absence <strong>${absLabels[abs.type_absence]||abs.type_absence}</strong> est prÃ©sente sur 
           <strong>${(semaine||[]).length} jour${(semaine||[]).length>1?'s':''}</strong> cette semaine.
         </p>
         <div style="display:flex;flex-direction:column;gap:10px;">
           <button class="btn btn-secondary" style="padding:12px;" onclick="_dplAbsSupprJour()">
-            📅 Ce jour uniquement
+            ðŸ“… Ce jour uniquement
           </button>
           <button class="btn btn-primary" style="padding:12px;background:#e5195e;border-color:#e5195e;" onclick="_dplAbsSupprSemaine()">
-            🗓️ Toute la semaine (${(semaine||[]).length} jour${(semaine||[]).length>1?'s':''})
+            ðŸ—“ï¸ Toute la semaine (${(semaine||[]).length} jour${(semaine||[]).length>1?'s':''})
           </button>
           <button class="btn btn-secondary" style="font-weight:400;color:var(--gray-500);" onclick="document.getElementById('dplane-abs-del-modal').remove()">
             Annuler
@@ -453,9 +453,9 @@ async function dplaneSupprimerAbsenceUI(absenceId) {
     document.body.appendChild(overlay);
     overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
   } else {
-    // Une seule absence → suppression directe
-    dplaneConfirm('Supprimer cette absence ?', '🗑️', async () => {
-      await dplaneSupprimerAbsenceConfirm([absenceId], 'Absence supprimée ✓');
+    // Une seule absence â†’ suppression directe
+    dplaneConfirm('Supprimer cette absence ?', 'ðŸ—‘ï¸', async () => {
+      await dplaneSupprimerAbsenceConfirm([absenceId], 'Absence supprimÃ©e âœ“');
     });
   }
 }
@@ -469,68 +469,68 @@ async function dplaneSupprimerAbsenceConfirm(ids, msg) {
   else showNotif('Erreur lors de la suppression', 'error');
 }
 
-// Helpers appelés depuis les boutons du modal (évite les guillemets dans onclick)
+// Helpers appelÃ©s depuis les boutons du modal (Ã©vite les guillemets dans onclick)
 async function _dplAbsSupprJour() {
   document.getElementById('dplane-abs-del-modal')?.remove();
-  await dplaneSupprimerAbsenceConfirm([window._dplAbsSingleId], 'Absence du jour supprimée ✓');
+  await dplaneSupprimerAbsenceConfirm([window._dplAbsSingleId], 'Absence du jour supprimÃ©e âœ“');
 }
 async function _dplAbsSupprSemaine() {
   document.getElementById('dplane-abs-del-modal')?.remove();
-  await dplaneSupprimerAbsenceConfirm(window._dplAbsWeekIds || [], 'Absences de la semaine supprimées ✓');
+  await dplaneSupprimerAbsenceConfirm(window._dplAbsWeekIds || [], 'Absences de la semaine supprimÃ©es âœ“');
 }
 
-// ── Copier semaine ──
+// â”€â”€ Copier semaine â”€â”€
 async function dplaneCopierSemaineUI() {
-  if (!currentUserData) { showNotif('Session expirée','error'); return; }
+  if (!currentUserData) { showNotif('Session expirÃ©e','error'); return; }
   const lundi=dplaneGetLundiSemaine(dplaneSemaineOffset);
   const vendredi=new Date(lundi); vendredi.setDate(lundi.getDate()+4);
-  dplaneConfirm('Copier le planning de cette semaine vers la semaine suivante ?', '📋', async () => {
+  dplaneConfirm('Copier le planning de cette semaine vers la semaine suivante ?', 'ðŸ“‹', async () => {
     const result=await dplaneCopierSemaine(dplaneDateStr(lundi),dplaneDateStr(vendredi),currentUserData.id);
-    showNotif(`${result.succes} entrée(s) copiée(s)${result.erreurs?`, ${result.erreurs} erreur(s)`:''}`,result.erreurs?'error':'success');
+    showNotif(`${result.succes} entrÃ©e(s) copiÃ©e(s)${result.erreurs?`, ${result.erreurs} erreur(s)`:''}`,result.erreurs?'error':'success');
     await renderDplaneGrille();
   });
 }
 
-// ── Mode brouillon ──
+// â”€â”€ Mode brouillon â”€â”€
 function dplaneToggleBrouillon() {
   dplaneBrouillonMode = !dplaneBrouillonMode;
   const btn=document.getElementById('btn-brouillon');
   if(btn){
-    btn.textContent=dplaneBrouillonMode?'✏️ Mode brouillon actif':'✏️ Mode brouillon';
+    btn.textContent=dplaneBrouillonMode?'âœï¸ Mode brouillon actif':'âœï¸ Mode brouillon';
     btn.style.cssText=dplaneBrouillonMode?'background:var(--rose);color:white;border-color:var(--rose);':'';
   }
-  showNotif(dplaneBrouillonMode?'✏️ Mode brouillon -- ajouts invisibles aux gestionnaires':'Mode brouillon désactivé','info');
+  showNotif(dplaneBrouillonMode?'âœï¸ Mode brouillon -- ajouts invisibles aux gestionnaires':'Mode brouillon dÃ©sactivÃ©','info');
 }
 
 async function dplanePublierToutUI() {
   const lundi=dplaneGetLundiSemaine(dplaneSemaineOffset);
   const vendredi=new Date(lundi); vendredi.setDate(lundi.getDate()+4);
-  dplaneConfirm('Publier tous les brouillons de cette semaine ?\nLes gestionnaires pourront voir le planning.','📢', async () => {
+  dplaneConfirm('Publier tous les brouillons de cette semaine ?\nLes gestionnaires pourront voir le planning.','ðŸ“¢', async () => {
     const ok=await dplanePublierToutBrouillon(dplaneDateStr(lundi),dplaneDateStr(vendredi));
-    if(ok){showNotif('✅ Planning publié !','success');await renderDplaneGrille();}
+    if(ok){showNotif('âœ… Planning publiÃ© !','success');await renderDplaneGrille();}
     else showNotif('Erreur lors de la publication','error');
   });
 }
 
-// ── Gestion activités ──
+// â”€â”€ Gestion activitÃ©s â”€â”€
 async function dplaneOuvrirGestionActivites() {
   const toutes=await dplaneGetAllActivites();
   const overlay=document.createElement('div');
   overlay.className='dplane-popup-overlay'; overlay.id='dplane-activites-modal';
   overlay.innerHTML=`
     <div class="dplane-popup" style="max-width:520px;width:95vw;">
-      <h2>⚙️ Gérer les activités</h2>
+      <h2>âš™ï¸ GÃ©rer les activitÃ©s</h2>
       <div id="dplane-acti-list" style="max-height:280px;overflow-y:auto;margin-bottom:16px;">
         ${toutes.map(a=>`
           <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--gray-200);">
             <div style="width:20px;height:20px;border-radius:4px;background:${a.couleur_hex};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></div>
             <span style="flex:1;font-size:13px;font-weight:600;">${a.nom}</span>
-            <span style="font-size:11px;color:${a.actif?'#16a34a':'#dc2626'};font-weight:600;min-width:70px;">${a.actif?'✅ Active':'❌ Inactive'}</span>
-            <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="dplaneToggleActivite('${a.id}',${a.actif})">${a.actif?'Désactiver':'Activer'}</button>
+            <span style="font-size:11px;color:${a.actif?'#16a34a':'#dc2626'};font-weight:600;min-width:70px;">${a.actif?'âœ… Active':'âŒ Inactive'}</span>
+            <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="dplaneToggleActivite('${a.id}',${a.actif})">${a.actif?'DÃ©sactiver':'Activer'}</button>
           </div>`).join('')}
       </div>
       <div style="border-top:1px solid var(--gray-200);padding-top:16px;">
-        <h3 style="font-size:14px;margin:0 0 12px;font-weight:700;">➕ Nouvelle activité</h3>
+        <h3 style="font-size:14px;margin:0 0 12px;font-weight:700;">âž• Nouvelle activitÃ©</h3>
         <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:10px;align-items:end;">
           <div>
             <label style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Nom</label>
@@ -541,7 +541,7 @@ async function dplaneOuvrirGestionActivites() {
             <input id="dplane-new-act-couleur" type="color" value="#4A7EC7" style="width:50px;height:38px;padding:2px;border:1.5px solid var(--gray-300);border-radius:6px;cursor:pointer;">
           </div>
         </div>
-        <button class="btn btn-primary" onclick="dplaneCreerActivite()" style="width:100%;">✓ Créer l'activité</button>
+        <button class="btn btn-primary" onclick="dplaneCreerActivite()" style="width:100%;">âœ“ CrÃ©er l'activitÃ©</button>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:16px;">
         <button class="btn btn-secondary" onclick="document.getElementById('dplane-activites-modal').remove()">Fermer</button>
@@ -554,9 +554,9 @@ async function dplaneOuvrirGestionActivites() {
 async function dplaneCreerActivite() {
   const nom = document.getElementById('dplane-new-act-nom')?.value?.trim();
   const couleur = document.getElementById('dplane-new-act-couleur')?.value || '#4A7EC7';
-  if (!nom) { showNotif("Entrez un nom pour l'activité", "error"); return; }
+  if (!nom) { showNotif("Entrez un nom pour l'activitÃ©", "error"); return; }
 
-  // Générer un code unique depuis le nom (ex: "Pré-ouvertures" → "prouvertures")
+  // GÃ©nÃ©rer un code unique depuis le nom (ex: "PrÃ©-ouvertures" â†’ "prouvertures")
   const code = nom.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // supprimer accents
     .replace(/[^a-z0-9]/g, '_')                          // remplacer non-alphanum
@@ -568,7 +568,7 @@ async function dplaneCreerActivite() {
 
   if (error) {
     console.error('dplaneCreerActivite error:', error);
-    // Si couleur_hex échoue aussi, essayer couleurhex (ancien schéma)
+    // Si couleur_hex Ã©choue aussi, essayer couleurhex (ancien schÃ©ma)
     if (error.message?.includes('couleur_hex') || error.code === '42703') {
       const { error: error2 } = await db.from('dplane_activites').insert({ nom, couleurhex: couleur, actif: true });
       if (error2) { showNotif('Erreur : ' + (error2.message || 'colonne inconnue'), 'error'); return; }
@@ -580,7 +580,7 @@ async function dplaneCreerActivite() {
   document.getElementById('dplane-activites-modal')?.remove();
   dplaneActivites = await dplaneGetActivites();
   await renderDplaneGrille();
-  showNotif(`Activité "${nom}" créée ✓`, 'success');
+  showNotif(`ActivitÃ© "${nom}" crÃ©Ã©e âœ“`, 'success');
 }
 
 async function dplaneToggleActivite(activiteId, actuelActif) {
@@ -589,10 +589,10 @@ async function dplaneToggleActivite(activiteId, actuelActif) {
   document.getElementById('dplane-activites-modal')?.remove();
   dplaneActivites=await dplaneGetActivites();
   await renderDplaneGrille();
-  showNotif(`Activité ${!actuelActif?'activée':'désactivée'}`,'success');
+  showNotif(`ActivitÃ© ${!actuelActif?'activÃ©e':'dÃ©sactivÃ©e'}`,'success');
 }
 
-// ── Init ──
+// â”€â”€ Init â”€â”€
 async function dplaneInit() {
   if (!currentUserData) { setTimeout(dplaneInit, 300); return; }
   dplaneActivites = await dplaneGetActivites();
@@ -604,7 +604,7 @@ async function dplaneInit() {
   ['btn-copier-semaine','btn-brouillon','btn-gerer-activites','btn-reinit-semaine'].forEach(id => {
     const b = document.getElementById(id); if (b) b.style.display = canEdit ? '' : 'none';
   });
-  // Publier : visible managers/admin, grisé par défaut
+  // Publier : visible managers/admin, grisÃ© par dÃ©faut
   const btnP = document.getElementById('btn-publier-brouillon');
   if (btnP) {
     btnP.style.display = canEdit ? '' : 'none';
@@ -614,11 +614,11 @@ async function dplaneInit() {
   const btnMon = document.getElementById('btn-mon-planning');
   if (btnMon) btnMon.style.display = isGest ? '' : 'none';
 
-  // Brouillon actif par défaut → UI du bouton
+  // Brouillon actif par dÃ©faut â†’ UI du bouton
   if (canEdit) {
     const btnBrou = document.getElementById('btn-brouillon');
     if (btnBrou && dplaneBrouillonMode) {
-      btnBrou.textContent = '✏️ Mode brouillon actif';
+      btnBrou.textContent = 'âœï¸ Mode brouillon actif';
       btnBrou.style.cssText = 'background:var(--rose);color:white;border-color:var(--rose);';
     }
   }
@@ -628,7 +628,7 @@ async function dplaneInit() {
   if (isGest) setTimeout(dplaneBriefingGestionnaire, 1200);
 }
 
-// ── Switcher ──
+// â”€â”€ Switcher â”€â”€
 function switchTool(tool) {
   const tabs=document.getElementById('tabs-container');
   const mc=document.getElementById('main-content');
@@ -645,6 +645,7 @@ function switchTool(tool) {
   }
 }
 // FIN DPLANE v5.0
+
 
 
 
