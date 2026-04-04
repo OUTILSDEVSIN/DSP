@@ -4,7 +4,6 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ===== VARIABLES GLOBALES PARTAGÉES =====
 let currentUser = null;
 let currentUserData = null;
 let currentTab = 'dashboard';
@@ -15,6 +14,5 @@ let filterGestionnaire = '';
 let filterStatut = '';
 let currentHabilitations = null;
 
-// ===== INDICATEUR ENVIRONNEMENT =====
 const IS_STAGING = false;
-const ENV_LABEL = '🚀 PRODUCTION';
+const ENV_LABEL = 'PRODUCTION';
