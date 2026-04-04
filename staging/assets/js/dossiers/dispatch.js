@@ -16,9 +16,10 @@ async function renderDispatch() {
 }
 
 async function fetchDispatch() {
+  // Pas de jointure FK — on résout le nom du gestionnaire via allUsers (déjà chargé)
   const { data, error } = await db
     .from('dossiers')
-    .select('*, attribué_à:utilisateurs!dossiers_attribué_à_fkey(id,prenom,nom)')
+    .select('*')
     .order('created_at', { ascending: false });
   if (error) { console.error('[fetchDispatch]', error); allDispatch = []; return; }
   allDispatch = data || [];
@@ -33,10 +34,13 @@ function renderDispatchTable() {
   const gestionnaires = allUsers.filter(u => ['gestionnaire','superviseur'].includes(u.role));
 
   const rows = page.map(d => {
-    const attrib = d.attribué_à;
-    const current = attrib ? escapeHtml(attrib.prenom + ' ' + attrib.nom) : '<em>Non attribué</em>';
+    // Résolution du nom via allUsers — pas de jointure Supabase nécessaire
+    const attrib = allUsers.find(u => u.id === d['attribué_à']);
+    const current = attrib
+      ? escapeHtml(attrib.prenom + ' ' + attrib.nom)
+      : '<em>Non attribué</em>';
     const opts = gestionnaires.map(u =>
-      `<option value="${u.id}"${attrib?.id === u.id ? ' selected' : ''}>${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</option>`
+      `<option value="${u.id}"${d['attribué_à'] === u.id ? ' selected' : ''}>${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</option>`
     ).join('');
     return `
       <tr>
@@ -95,7 +99,7 @@ function changeDispatchPage(n) {
 async function doDispatch(dossierId) {
   const userId = document.getElementById('dispatch-select-' + dossierId)?.value;
   if (!userId) return showNotif('Choisissez un gestionnaire', 'warning');
-  const { error } = await db.from('dossiers').update({ attribué_à: userId }).eq('id', dossierId);
+  const { error } = await db.from('dossiers').update({ 'attribué_à': userId }).eq('id', dossierId);
   if (error) return showNotif('Erreur : ' + error.message, 'error');
   const u = allUsers.find(x => x.id === userId);
   showNotif(`✅ Attribué à ${u?.prenom || ''} ${u?.nom || ''}`, 'success');
@@ -134,7 +138,7 @@ function showBulkDispatchModal() {
 async function doBulkDispatch(ids) {
   const userId = document.getElementById('bulk-dispatch-select')?.value;
   if (!userId) return showNotif('Choisissez un gestionnaire', 'warning');
-  const { error } = await db.from('dossiers').update({ attribué_à: userId }).in('id', ids);
+  const { error } = await db.from('dossiers').update({ 'attribué_à': userId }).in('id', ids);
   if (error) return showNotif('Erreur : ' + error.message, 'error');
   const u = allUsers.find(x => x.id === userId);
   closeModal('bulk-dispatch-modal');
