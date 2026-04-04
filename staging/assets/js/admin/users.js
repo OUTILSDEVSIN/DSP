@@ -38,6 +38,76 @@ async function renderUtilisateurs() {
   document.getElementById('main-content').innerHTML = html;
 }
 
+// ── HABILITATIONS ───────────────────────────────────────────────────────
+function showHabilitationsModal() {
+  const roles = ['gestionnaire', 'superviseur', 'manager', 'admin'];
+  const rows = allUsers.map(u => {
+    const opts = roles.map(r =>
+      `<option value="${r}"${u.role === r ? ' selected' : ''}>${r.charAt(0).toUpperCase() + r.slice(1)}</option>`
+    ).join('');
+    return `
+      <tr>
+        <td>${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</td>
+        <td style="font-size:11px;color:#888">${escapeHtml(u.email)}</td>
+        <td>
+          <select class="form-control" style="font-size:12px;padding:4px 8px" id="hab-role-${u.id}"
+            ${currentUserData.id === u.id ? 'disabled title="Vous ne pouvez pas changer votre propre rôle"' : ''}>
+            ${opts}
+          </select>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'habilitations-modal';
+  modal.innerHTML = `
+    <div class="modal" style="width:560px;max-width:95vw">
+      <h2 style="color:var(--navy);margin-bottom:18px">🔑 Habilitations — Rôles de l'équipe</h2>
+      <table style="width:100%">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:#888;text-transform:uppercase">Membre</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:#888;text-transform:uppercase">Email</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:#888;text-transform:uppercase">Rôle</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('habilitations-modal')">Annuler</button>
+        <button class="btn btn-primary"   onclick="doSaveHabilitations()">Enregistrer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function doSaveHabilitations() {
+  const errors = [];
+  const promises = allUsers
+    .filter(u => currentUserData.id !== u.id) // on ne touche pas à son propre rôle
+    .map(async u => {
+      const select = document.getElementById('hab-role-' + u.id);
+      if (!select) return;
+      const newRole = select.value;
+      if (newRole === u.role) return; // pas de changement
+      const { error } = await db.from('utilisateurs').update({ role: newRole }).eq('id', u.id);
+      if (error) errors.push(`${u.prenom} ${u.nom} : ${error.message}`);
+      else await auditLog('MODIF_ROLE', `${u.prenom} ${u.nom} → ${newRole}`);
+    });
+
+  await Promise.all(promises);
+  closeModal('habilitations-modal');
+
+  if (errors.length) {
+    showNotif('⚠️ Erreurs : ' + errors.join(' | '), 'error');
+  } else {
+    showNotif('✅ Habilitations mises à jour !', 'success');
+  }
+  await loadAllUsers();
+  renderUtilisateurs();
+}
+
 // ── MODIFIER PROFIL & RÔLE ──────────────────────────────────────────────
 function showEditUser(id, prenom, nom, email, role) {
   const isSelf = currentUserData.email === email;
@@ -140,13 +210,11 @@ async function doAddUser() {
     return;
   }
 
-  // 1. Créer le compte Auth Supabase
   const { error: authErr } = await db.auth.signUp({ email, password });
   if (authErr) {
     if (errEl) { errEl.textContent = 'Erreur Auth : ' + authErr.message; errEl.style.display = 'block'; }
     return;
   }
-  // 2. Insérer dans la table utilisateurs
   const { error: dbErr } = await db.from('utilisateurs').insert({ prenom, nom, email, role, actif: true });
   if (dbErr) {
     if (errEl) { errEl.textContent = 'Erreur base : ' + dbErr.message; errEl.style.display = 'block'; }

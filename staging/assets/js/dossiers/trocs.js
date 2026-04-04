@@ -5,10 +5,10 @@ async function renderTrocs() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement…</div>';
   await loadAllUsers();
 
-  // Récupère les dossiers de l'équipe potentiellement échangeables
+  // Table correcte : dvol_dossiers — pas de jointure FK, résolution via allUsers
   const { data, error } = await db
-    .from('dossiers')
-    .select('*, attribué_à:utilisateurs!dossiers_attribué_à_fkey(id,prenom,nom)')
+    .from('dvol_dossiers')
+    .select('*')
     .not('attribué_à', 'is', null)
     .order('created_at', { ascending: false });
 
@@ -23,17 +23,22 @@ async function renderTrocs() {
   );
 
   const rows = dossiers.map(d => {
-    const prenom = d.attribué_à?.prenom || '-';
-    const nom    = d.attribué_à?.nom    || '';
-    const opts   = autresGestionnaires.map(u =>
+    // Résolution du gestionnaire actuel via allUsers — cohérent avec dispatch.js
+    const attrib = allUsers.find(u => u.id === d['attribué_à']);
+    const nomActuel = attrib
+      ? escapeHtml(attrib.prenom + ' ' + attrib.nom)
+      : '<em>Non attribué</em>';
+
+    const opts = autresGestionnaires.map(u =>
       `<option value="${u.id}">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</option>`
     ).join('');
+
     return `
       <tr>
         <td>${escapeHtml(d.numero_sinistre || '-')}</td>
         <td>${escapeHtml(d.assure_nom      || '-')}</td>
         <td>${badgeStatut(d.statut)}</td>
-        <td>${escapeHtml(prenom + ' ' + nom)}</td>
+        <td>${nomActuel}</td>
         <td>
           <select class="form-control form-control-sm" id="troc-select-${d.id}">
             <option value="">-- Choisir --</option>
@@ -67,7 +72,7 @@ async function renderTrocs() {
 async function doTroc(dossierId) {
   const targetId = document.getElementById('troc-select-' + dossierId)?.value;
   if (!targetId) return showNotif('Choisissez un destinataire', 'warning');
-  const { error } = await db.from('dossiers').update({ attribué_à: targetId }).eq('id', dossierId);
+  const { error } = await db.from('dvol_dossiers').update({ 'attribué_à': targetId }).eq('id', dossierId);
   if (error) return showNotif('Erreur troc : ' + error.message, 'error');
   const dest = allUsers.find(u => u.id === targetId);
   showNotif(`Dossier transféré à ${dest?.prenom || ''} ${dest?.nom || ''}`, 'success');
