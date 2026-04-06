@@ -13,7 +13,6 @@ async function renderAdminUsers() {
   const container = document.getElementById('main-content');
   if (!container) return;
 
-  // Recharger les users à jour
   await loadAllUsers();
 
   const isAdmin = currentUserData && currentUserData.role === 'admin';
@@ -23,7 +22,6 @@ async function renderAdminUsers() {
     return;
   }
 
-  // ── Barre de recherche + bouton ajout ──
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
       <h2 style="font-size:18px;font-weight:800;color:var(--navy);margin:0;">👥 Gestion des utilisateurs</h2>
@@ -31,11 +29,11 @@ async function renderAdminUsers() {
         <input type="text" id="admin-user-search" placeholder="Rechercher…"
           oninput="filterAdminUsers()"
           style="padding:7px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;min-width:200px;">
+        ${isAdmin ? '<button class="btn btn-secondary" style="font-size:13px;" onclick="showTab(\'habilitations\')" title="Gérer les habilitations">🔐 Habilitations</button>' : ''}
         ${isAdmin ? '<button class="btn btn-primary" style="font-size:13px;" onclick="showAddUserModal()">➕ Ajouter</button>' : ''}
       </div>
     </div>`;
 
-  // ── Tableau ──
   html += `
     <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;" id="admin-users-table">
@@ -68,17 +66,16 @@ function renderAdminUsersRows(users, isAdmin) {
   }
 
   const roleColors = {
-    admin:      { bg: '#fef3c7', color: '#92400e' },
-    manager:    { bg: '#dbeafe', color: '#1e40af' },
+    admin:        { bg: '#fef3c7', color: '#92400e' },
+    manager:      { bg: '#dbeafe', color: '#1e40af' },
     gestionnaire: { bg: '#f3f4f6', color: '#374151' },
-    lecteur:    { bg: '#f0fdf4', color: '#166534' }
+    lecteur:      { bg: '#f0fdf4', color: '#166534' }
   };
 
   tbody.innerHTML = users.map(function(u) {
     var rc = roleColors[u.role] || { bg: '#f3f4f6', color: '#374151' };
     var roleBadge = '<span style="background:' + rc.bg + ';color:' + rc.color + ';padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;">' + (u.role || '—') + '</span>';
 
-    // Badge niveau
     var niveau = u.niveau || 'normal';
     var niveauBadge;
     if (niveau === 'debutant') {
@@ -87,19 +84,17 @@ function renderAdminUsersRows(users, isAdmin) {
       niveauBadge = '<span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;">✅ Normal</span>';
     }
 
-    // Sélecteur niveau (admin uniquement, seulement pour gestionnaires)
     var niveauCell;
     if (isAdmin && u.role === 'gestionnaire') {
       niveauCell = '<select onchange="updateNiveau(\'' + u.id + '\', this.value)" '
         + 'style="padding:4px 8px;border:1.5px solid #ddd;border-radius:7px;font-size:12px;cursor:pointer;background:white;">'
-        + '<option value="normal"'  + (niveau === 'normal'   ? ' selected' : '') + '>✅ Normal</option>'
+        + '<option value="normal"'   + (niveau === 'normal'   ? ' selected' : '') + '>✅ Normal</option>'
         + '<option value="debutant"' + (niveau === 'debutant' ? ' selected' : '') + '>🌱 Débutant</option>'
         + '</select>';
     } else {
       niveauCell = niveauBadge;
     }
 
-    // Toggle actif
     var actifToggle = '<button onclick="toggleUserActif(\'' + u.id + '\', ' + u.actif + ')" '
       + 'style="background:' + (u.actif ? '#dcfce7' : '#fee2e2') + ';color:' + (u.actif ? '#166534' : '#dc2626') + ';'
       + 'border:none;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;">'
@@ -147,7 +142,6 @@ async function updateNiveau(userId, niveau) {
   var { error } = await db.from('utilisateurs').update({ niveau: niveau }).eq('id', userId);
   if (error) { showNotif('Erreur mise à jour niveau : ' + error.message, 'error'); return; }
   await auditLog('USER_NIVEAU_CHANGE', 'Utilisateur ' + userId + ' → niveau=' + niveau);
-  // Mettre à jour allUsers en mémoire sans recharger toute la page
   var u = allUsers.find(function(x) { return x.id === userId; });
   if (u) u.niveau = niveau;
   showNotif(niveau === 'debutant' ? '🌱 Niveau Débutant enregistré.' : '✅ Niveau Normal enregistré.', 'success');
