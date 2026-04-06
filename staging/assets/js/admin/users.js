@@ -29,7 +29,6 @@ async function renderAdminUsers() {
         <input type="text" id="admin-user-search" placeholder="Rechercher…"
           oninput="filterAdminUsers()"
           style="padding:7px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;min-width:200px;">
-        ${isAdmin ? '<button class="btn btn-secondary" style="font-size:13px;" onclick="showTab(\'habilitations\')" title="Gérer les habilitations">🔐 Habilitations</button>' : ''}
         ${isAdmin ? '<button class="btn btn-primary" style="font-size:13px;" onclick="showAddUserModal()">➕ Ajouter</button>' : ''}
       </div>
     </div>`;
