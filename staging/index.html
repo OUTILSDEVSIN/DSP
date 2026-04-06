@@ -14,10 +14,9 @@
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/screens.css">
 
-
   <!-- ===== CACHE BUSTING ===== -->
   <script>
-    var _APP_VERSION = '2.5.54';
+    var _APP_VERSION = '2.5.55';
     var storedVersion = null;
     try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== _APP_VERSION) {
@@ -27,6 +26,7 @@
       try { sessionStorage.setItem('dispatchis_version', _APP_VERSION); } catch(e) {}
     }
   </script>
+
   <!-- ===== CDN ===== -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -46,10 +46,8 @@
     cursor:pointer; font-size:10px; padding:1px 6px; font-weight:700;">✕</button>
 </div>
 <style>
-  /* Décale le contenu pour ne pas être caché sous le bandeau */
   body { padding-top: 28px; }
 </style>
-
 
 <div id="login-screen">
   <div class="login-box">
@@ -102,7 +100,6 @@
   <div class="tabs" id="tabs-container"></div>
   <div class="content" id="main-content"></div>
 
-
 <!-- ===== DPLANE SCREEN ===== -->
 <div id="dplane-screen" style="display:none;">
   <div class="content">
@@ -114,7 +111,7 @@
         <p style="font-size:12px;color:var(--gray-600);margin:2px 0 0;">Planning intelligent de l'équipe</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-<button class="btn btn-secondary dplane-today-btn" onclick="dplaneGoToday()">Aujourd'hui</button>
+        <button class="btn btn-secondary dplane-today-btn" onclick="dplaneGoToday()">Aujourd'hui</button>
         <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(-1)">◀ Semaine préc.</button>
         <button class="btn btn-secondary dplane-today-btn" onclick="dplaneNavSemaine(1)">Semaine suiv. ▶</button>
         <button class="btn btn-secondary" onclick="dplaneOuvrirGestionActivites()" id="btn-gerer-activites" style="display:none;" title="Gérer les activités">⚙️ Activités</button>
@@ -170,7 +167,10 @@
 <script src="assets/js/dashboard/kpis.js"></script>
 <script src="assets/js/dashboard/stats.js"></script>
 
-<!-- 8. Init final (appels init au chargement) -->
+<!-- 8. Dplane -->
+<script src="assets/js/dplane/dplane.js"></script>
+
+<!-- 9. Init final (appels init au chargement) -->
 <script src="assets/js/init.js"></script>
 
 </body>
