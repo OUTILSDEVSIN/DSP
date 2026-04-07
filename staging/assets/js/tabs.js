@@ -15,6 +15,7 @@ function buildTabs() {
 }
 
 function showTab(id) {
+  // Reset filtres seulement si on QUITTE attribution
   if (currentTab === 'attribution' && id !== 'attribution') {
     searchQuery = '';
     window._fPortefeuille = ''; window._fType = ''; window._fNature = '';
@@ -24,16 +25,21 @@ function showTab(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   const el = document.getElementById('tab-' + id);
   if (el) el.classList.add('active');
-  if (id === 'dashboard')    renderDashboard();
-  else if (id === 'import')       renderImport();
-  else if (id === 'attribution')  renderAttribution();
-  else if (id === 'mesdossiers')  renderMesDossiers();
-  else if (id === 'utilisateurs') renderAdminUsers();
-  else if (id === 'audit')        renderAuditLogs();
-  else if (id === 'stats')        renderStats();
+  if (id === 'dashboard') renderDashboard();
+  else if (id === 'import') renderImport();
+  else if (id === 'attribution') renderAttribution();
+  else if (id === 'mesdossiers') renderMesDossiers();
+  else if (id === 'utilisateurs') renderUtilisateurs();
+  else if (id === 'audit') renderAuditLogs();
+  else if (id === 'stats') renderStats();
 }
 
 // ===== LOAD DATA =====
+async function loadAllUsers() {
+  const { data } = await db.from('utilisateurs').select('id,nom,prenom,role,email,actif').eq('actif', true);
+  allUsers = data || [];
+}
+
 async function loadDossiers() {
   const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat').order('created_at', { ascending: true });
   allDossiers = data || [];
