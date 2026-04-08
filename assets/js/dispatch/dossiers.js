@@ -58,6 +58,15 @@ async function recupererDossier(dossierId) {
 
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
+  // 🔑 FIX : on est en train de re-rendre la page complète.
+  // Si trocModeActive est resté true d'un état précédent (ex: après actionTroc),
+  // setupTrocRowSelection() verrouille toutes les checkboxes traité.
+  // On force la remise à zéro ici avant tout rendu.
+  if (trocModeActive) {
+    trocModeActive = false;
+    dossiersSelectionnes = [];
+  }
+
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
   await loadAllUsers();
@@ -71,8 +80,9 @@ async function renderMesDossiers() {
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
   // Bouton troc : visible pour gestionnaire et admin
+  // 🔑 FIX badge dupliqué : on NE MET PLUS le <span> badge ici.
+  // C'est rafraichirBadgeTroc() (appelé en fin de rendu) qui gère seul le badge numérique.
   const canTroc = ['gestionnaire', 'manager', 'admin'].includes(currentUserData.role);
-  const nbTrocs = typeof _trocsActifs !== 'undefined' ? _trocsActifs.length : 0;
   const btnTroc = canTroc
     ? `<button class="btn btn-secondary" id="btn-troc" onclick="onBtnTrocClick()" title="Trocs"
         style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-weight:600;">
@@ -80,7 +90,7 @@ async function renderMesDossiers() {
           <path d="M17 4l4 4-4 4"/><line x1="3" y1="8" x2="21" y2="8"/>
           <path d="M7 20l-4-4 4-4"/><line x1="21" y1="16" x2="3" y2="16"/>
         </svg>
-        Troc${nbTrocs > 0 ? ' <span style="background:#e67e22;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;margin-left:2px;">' + nbTrocs + '</span>' : ''}
+        Troc
       </button>`
     : '';
 
@@ -194,8 +204,8 @@ async function renderMesDossiers() {
   }
   html += '</tbody></table></div>';
   document.getElementById('main-content').innerHTML = html;
-  // Réinitialiser le badge troc après rendu
+  // Réinitialiser le badge troc après rendu (seul responsable du badge numérique)
   if (typeof rafraichirBadgeTroc === 'function') rafraichirBadgeTroc();
-  // Activer la sélection de lignes pour le mode troc
+  // Activer la sélection de lignes pour le mode troc (trocModeActive est false ici → pas de verrouillage)
   if (typeof setupTrocRowSelection === 'function') setupTrocRowSelection();
 }
