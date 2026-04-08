@@ -500,6 +500,18 @@ async function renderTrocCard(troc) {
 async function actionTroc(action, trocId) {
   document.getElementById('panel-trocs')?.remove();
 
+  // 🔑 FIX : s'assurer que le mode troc est bien désactivé avant tout re-rendu
+  if (trocModeActive) {
+    trocModeActive = false;
+    dossiersSelectionnes = [];
+    const tbody = document.querySelector('tbody');
+    tbody && tbody.classList.remove('troc-mode');
+    const trocBar = document.getElementById('troc-selection-bar');
+    if (trocBar) trocBar.style.display = 'none';
+    const btnTroc = document.getElementById('btn-troc');
+    if (btnTroc) btnTroc.style.display = ['gestionnaire','manager','admin'].includes(currentUserData.role) ? 'inline-flex' : 'none';
+  }
+
   const { data: troc, error: errLoad } = await db.from('trocs').select('*').eq('id', trocId).single();
   if (errLoad || !troc) { showNotif('Troc introuvable.', 'error'); return; }
 
