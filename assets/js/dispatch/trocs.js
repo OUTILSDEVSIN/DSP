@@ -527,9 +527,12 @@ async function actionTroc(action, trocId) {
     refuse:  '❌ Contre-proposition refusée.'
   };
   showNotif(msgs[action] || 'Troc mis à jour.', action === 'accepte' ? 'success' : 'info');
+
   await rafraichirBadgeTroc();
   await loadDossiers();
-  renderAttribution && renderAttribution();
+  if (action === 'accepte') {
+    renderAttribution && renderAttribution();
+  }
 }
 
 async function _executerEchangeTroc(troc) {
