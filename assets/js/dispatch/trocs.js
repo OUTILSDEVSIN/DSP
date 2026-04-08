@@ -529,7 +529,10 @@ async function actionTroc(action, trocId) {
   showNotif(msgs[action] || 'Troc mis à jour.', action === 'accepte' ? 'success' : 'info');
 
   await rafraichirBadgeTroc();
+  // 🔑 FIX : reconstruire dossiersTrocEnCours avant de re-rendre
+  await loadTrocsActifsDetails();
   await loadDossiers();
+  if (typeof renderMesDossiers === 'function') renderMesDossiers();
   if (action === 'accepte') {
     renderAttribution && renderAttribution();
   }
