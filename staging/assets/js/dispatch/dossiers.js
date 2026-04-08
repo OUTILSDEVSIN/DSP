@@ -17,7 +17,7 @@ async function toggleTraiteMesDossiers(id, checked) {
     }
   }
   await auditLog(checked ? 'TRAITEMENT_DOSSIER' : 'REOUVERTURE_DOSSIER',
-    (checked ? 'Dossier marqué traité' : 'Dossier réouvert') + ' -- id:' + id);
+    (checked ? 'Dossier marqué traité' : 'Dossier rouvert') + ' -- id:' + id);
   showNotif(checked ? '✅ Dossier marqué comme traité.' : '🔄 Dossier réouvert.', 'success');
   await loadDossiers();
   renderMesDossiers();
@@ -61,14 +61,16 @@ async function renderMesDossiers() {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
-  // Bouton troc : petit bouton icône, visible gestionnaire ET admin
+  // Bouton troc : texte lisible, visible gestionnaire ET admin
   const canTroc = ['gestionnaire', 'admin'].includes(currentUserData.role);
   const btnTroc = canTroc
-    ? `<button class="btn btn-secondary" id="btn-troc" onclick="toggleTrocMode()" title="Proposer un troc"
-        style="display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;min-width:unset;border-radius:8px;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M17 4l4 4-4 4"/><path d="M3 12h18"/><path d="M7 20l-4-4 4-4"/><path d="M21 12H3"/>
+    ? `<button class="btn btn-secondary" id="btn-troc" onclick="toggleTrocMode()" title="Proposer un échange de dossiers"
+        style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-weight:600;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M17 4l4 4-4 4"/><line x1="3" y1="8" x2="21" y2="8"/>
+          <path d="M7 20l-4-4 4-4"/><line x1="21" y1="16" x2="3" y2="16"/>
         </svg>
+        Troc
       </button>`
     : '';
 
@@ -81,7 +83,7 @@ async function renderMesDossiers() {
     <div class="table-toolbar">
       <h2>Mes dossiers</h2>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button>
+        <button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier supplémentaire</button>
         ${btnTroc}
       </div>
     </div>

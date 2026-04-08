@@ -14,7 +14,6 @@ function toggleTrocMode() {
     if (btnTroc) btnTroc.style.display = 'none';
     if (trocBar) trocBar.style.display = 'flex';
     dossiersSelectionnes = [];
-    // Afficher les colonnes checkbox
     document.querySelectorAll('.troc-check-col').forEach(el => el.style.display = '');
     updateTrocCount();
   } else {
@@ -22,7 +21,6 @@ function toggleTrocMode() {
     // FIX: admin ET gestionnaire voient le bouton réapparaître
     if (btnTroc) btnTroc.style.display = ['gestionnaire', 'admin'].includes(currentUserData.role) ? 'inline-flex' : 'none';
     if (trocBar) trocBar.style.display = 'none';
-    // Masquer et décocher les colonnes checkbox
     document.querySelectorAll('.troc-check-col').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
     dossiersSelectionnes = [];
@@ -38,30 +36,84 @@ function updateTrocCount() {
   if (btnProp) btnProp.disabled = count === 0;
 }
 
-// Modal proposer troc
+// Modal proposer troc — pattern DOM natif (pas de createModal)
 function openTrocModal() {
-  const gestionnaires = (allUsers || []).filter(u => u.role === 'gestionnaire' && u.id !== currentUserData.id && u.actif !== false);
-  const modal = createModal(`
-    <h2>↔️ Proposer un troc</h2>
-    <div class="troc-dossier-list">
-      ${dossiersSelectionnes.map(d => `<div class="troc-dossier-item"><span>📄 ${d.nom || d.id}</span></div>`).join('')}
-    </div>
-    <label>Destinataire :</label>
-    <select id="troc-destinataire" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);">
-      ${gestionnaires.map(g => `<option value="${g.id}">${g.prenom} ${g.nom}</option>`).join('')}
-    </select>
-    <p style="font-size:12px;color:var(--gray-600);margin:12px 0 0;">Le destinataire choisira ses dossiers en échange</p>
-    <div class="troc-actions">
-      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="envoyerTrocPropose()">✉️ Envoyer</button>
-    </div>
-  `, 'troc-modal');
+  const existing = document.getElementById('troc-propose-modal');
+  if (existing) existing.remove();
+
+  const gestionnaires = (allUsers || []).filter(u =>
+    u.role === 'gestionnaire' && u.id !== currentUserData.id && u.actif !== false
+  );
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'troc-propose-modal';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'max-width:460px;text-align:left';
+
+  // Titre
+  const titre = document.createElement('h2');
+  titre.style.marginBottom = '16px';
+  titre.textContent = '⇄ Proposer un troc';
+  modal.appendChild(titre);
+
+  // Liste des dossiers sélectionnés
+  const listWrap = document.createElement('div');
+  listWrap.style.cssText = 'background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px;margin-bottom:16px;max-height:160px;overflow-y:auto;';
+  dossiersSelectionnes.forEach(d => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:4px 0;font-size:13px;border-bottom:1px solid #eee;';
+    item.innerHTML = '📄 <strong>' + (d.nom || d.id) + '</strong>';
+    listWrap.appendChild(item);
+  });
+  modal.appendChild(listWrap);
+
+  // Sélection destinataire
+  const label = document.createElement('label');
+  label.textContent = 'Destinataire :';
+  label.style.cssText = 'font-weight:600;display:block;margin-bottom:6px;';
+  modal.appendChild(label);
+
+  const select = document.createElement('select');
+  select.id = 'troc-destinataire';
+  select.style.cssText = 'width:100%;padding:8px;border:1px solid var(--gray-300,#ddd);border-radius:var(--radius-sm,6px);margin-bottom:8px;';
+  select.innerHTML = '<option value="">-- Choisir un gestionnaire --</option>'
+    + gestionnaires.map(g => `<option value="${g.id}">${g.prenom} ${g.nom}</option>`).join('');
+  modal.appendChild(select);
+
+  const note = document.createElement('p');
+  note.style.cssText = 'font-size:12px;color:#888;margin:0 0 18px;';
+  note.textContent = 'Le destinataire choisira ses dossiers en échange.';
+  modal.appendChild(note);
+
+  // Boutons
+  const btns = document.createElement('div');
+  btns.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+
+  const btnAnnuler = document.createElement('button');
+  btnAnnuler.className = 'btn btn-secondary';
+  btnAnnuler.textContent = 'Annuler';
+  btnAnnuler.onclick = () => closeModal('troc-propose-modal');
+
+  const btnEnvoyer = document.createElement('button');
+  btnEnvoyer.className = 'btn btn-primary';
+  btnEnvoyer.textContent = '✉️ Envoyer';
+  btnEnvoyer.onclick = () => envoyerTrocPropose();
+
+  btns.appendChild(btnAnnuler);
+  btns.appendChild(btnEnvoyer);
+  modal.appendChild(btns);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 }
 
 // Envoyer proposition
 async function envoyerTrocPropose() {
   const destinataireId = document.getElementById('troc-destinataire').value;
-  if (!destinataireId) return showNotif('Choisissez un destinataire', 'error');
+  if (!destinataireId) { showNotif('Choisissez un destinataire', 'error'); return; }
 
   const { error } = await db.from('trocs').insert({
     from_id: currentUserData.id,
@@ -70,8 +122,9 @@ async function envoyerTrocPropose() {
     status: 'en_attente'
   });
 
-  closeModal();
+  closeModal('troc-propose-modal');
   toggleTrocMode();
+
   if (!error) {
     showNotif('Proposition envoyée !', 'success');
     await db.channel('trocs').send({
@@ -79,6 +132,8 @@ async function envoyerTrocPropose() {
       event: 'nouveau_troc',
       payload: { from_id: currentUserData.id, dossiers: dossiersSelectionnes.length }
     });
+  } else {
+    showNotif('Erreur lors de l\'envoi : ' + error.message, 'error');
   }
 }
 
@@ -93,18 +148,26 @@ function setupTrocRealtime() {
 
 // Popup realtime troc
 function showTrocPopup(payload) {
-  const exp = allUsers.find(u => u.id === payload.from_id);
-  createModal(`
-    <h3>↔️ ${exp?.prenom || 'Un collègue'} vous propose un troc</h3>
-    <div class="troc-dossiers-proposes">
-      <strong>${payload.dossiers} dossier${payload.dossiers > 1 ? 's' : ''}</strong>
-    </div>
-    <div class="troc-actions">
-      <button class="btn btn-danger" onclick="refuserTroc()">❌ Refuser</button>
-      <button class="btn btn-warning" onclick="ouvrirContreProposition()">🔄 Contre-proposer</button>
-      <button class="btn btn-success" onclick="accepterTroc()">✅ Accepter</button>
-    </div>
-  `, 'troc-popup');
+  const existing = document.getElementById('troc-popup-modal');
+  if (existing) existing.remove();
+
+  const exp = (allUsers || []).find(u => u.id === payload.from_id);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'troc-popup-modal';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = 'max-width:400px;text-align:center';
+  modal.innerHTML = '<h3 style="margin-bottom:10px">⇄ ' + (exp?.prenom || 'Un collègue') + ' vous propose un troc</h3>'
+    + '<div style="margin:12px 0;font-size:14px"><strong>' + payload.dossiers + ' dossier' + (payload.dossiers > 1 ? 's' : '') + '</strong></div>'
+    + '<div style="display:flex;gap:10px;justify-content:center;margin-top:16px">'
+    + '<button class="btn btn-danger" onclick="refuserTroc()">❌ Refuser</button>'
+    + '<button class="btn btn-warning" onclick="ouvrirContreProposition()">🔄 Contre-proposer</button>'
+    + '<button class="btn btn-success" onclick="accepterTroc()">✅ Accepter</button>'
+    + '</div>';
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 }
 
 // Écoute clics sur les cases troc
@@ -127,7 +190,7 @@ document.addEventListener('click', e => {
   updateTrocCount();
 });
 
-// FIX: admin ET gestionnaire voient le bouton au chargement
+// Admin ET gestionnaire voient le bouton au chargement
 function initTrocButton() {
   if (!currentUserData) return;
   if (['gestionnaire', 'admin'].includes(currentUserData.role)) {
