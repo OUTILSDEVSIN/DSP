@@ -23,6 +23,7 @@ async function toggleTraiteMesDossiers(id, checked) {
   renderMesDossiers();
 }
 // ===== FIN TOGGLE TRAITÉ MES DOSSIERS =====
+
 // ===== RÉCUPÉRER UN DOSSIER (gestionnaire) =====
 async function recupererDossier(dossierId) {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
@@ -48,78 +49,6 @@ async function recupererDossier(dossierId) {
 }
 // ===== FIN RÉCUPÉRER DOSSIER =====
 
-// ===== GESTION MODE TROC =====
-window._trocMode = false;
-window._trocSelection = new Set();
-
-function toggleTrocMode() {
-  window._trocMode = !window._trocMode;
-  window._trocSelection = new Set();
-
-  const bar = document.getElementById('troc-selection-bar');
-  const btnTroc = document.getElementById('btn-troc');
-  const trocCol = document.querySelectorAll('.troc-col');
-  const tbody = document.querySelector('#main-content table tbody');
-
-  if (window._trocMode) {
-    // Afficher la barre + colonne checkbox + masquer le bouton
-    if (bar) bar.style.display = 'flex';
-    if (btnTroc) btnTroc.style.display = 'none';
-    trocCol.forEach(c => c.style.display = '');
-    // Ajouter les cases à cocher dans chaque ligne
-    if (tbody) {
-      tbody.querySelectorAll('tr').forEach(tr => {
-        const firstTd = tr.querySelector('td');
-        if (!firstTd) return;
-        const dossierRef = firstTd.querySelector('strong');
-        if (!dossierRef) return;
-        const id = tr.getAttribute('data-id');
-        const td = document.createElement('td');
-        td.className = 'troc-col';
-        td.style.textAlign = 'center';
-        td.innerHTML = `<input type="checkbox" class="troc-checkbox" data-id="${id}"
-          style="width:16px;height:16px;accent-color:#f39c12;cursor:pointer"
-          onchange="toggleTrocSelection('${id}', this.checked)">`;
-        tr.insertBefore(td, tr.firstChild);
-      });
-    }
-    // Ajouter th colonne troc
-    const thead = document.querySelector('#main-content table thead tr');
-    if (thead && !thead.querySelector('.troc-th')) {
-      const th = document.createElement('th');
-      th.className = 'troc-th troc-col';
-      th.textContent = '✓';
-      th.style.width = '36px';
-      thead.insertBefore(th, thead.firstChild);
-    }
-  } else {
-    // Annuler : masquer barre, réafficher bouton, supprimer colonne
-    if (bar) bar.style.display = 'none';
-    if (btnTroc) btnTroc.style.display = 'inline-flex';
-    // Supprimer les colonnes troc ajoutées dynamiquement
-    document.querySelectorAll('.troc-col').forEach(c => c.remove());
-    updateTrocCount();
-  }
-}
-
-function toggleTrocSelection(id, checked) {
-  if (checked) {
-    window._trocSelection.add(String(id));
-  } else {
-    window._trocSelection.delete(String(id));
-  }
-  updateTrocCount();
-}
-
-function updateTrocCount() {
-  const count = window._trocSelection ? window._trocSelection.size : 0;
-  const span = document.getElementById('troc-count');
-  const btnProposer = document.getElementById('btn-troc-proposer');
-  if (span) span.textContent = count + ' dossier' + (count > 1 ? 's' : '') + ' sélectionné' + (count > 1 ? 's' : '');
-  if (btnProposer) btnProposer.disabled = count === 0;
-}
-// ===== FIN GESTION MODE TROC =====
-
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
@@ -132,17 +61,13 @@ async function renderMesDossiers() {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
-  // Réinitialiser le mode troc au rechargement
-  window._trocMode = false;
-  window._trocSelection = new Set();
-
-  // Bouton troc visible pour gestionnaires ET admins — petit bouton icône
+  // Bouton troc : petit bouton icône, visible gestionnaire ET admin
   const canTroc = ['gestionnaire', 'admin'].includes(currentUserData.role);
   const btnTroc = canTroc
     ? `<button class="btn btn-secondary" id="btn-troc" onclick="toggleTrocMode()" title="Proposer un troc"
-        style="display:inline-flex;align-items:center;justify-content:center;gap:0;padding:7px 10px;min-width:unset;border-radius:8px;" >
+        style="display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;min-width:unset;border-radius:8px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
+          <path d="M17 4l4 4-4 4"/><path d="M3 12h18"/><path d="M7 20l-4-4 4-4"/><path d="M21 12H3"/>
         </svg>
       </button>`
     : '';
@@ -166,23 +91,18 @@ async function renderMesDossiers() {
       <button class="btn btn-secondary" onclick="toggleTrocMode()" style="padding:6px 14px;">Annuler</button>
     </div>
     <table><thead><tr>
+      <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
       <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
       <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
     </tr></thead><tbody>`;
+
   if (!mesDossiers.length) {
-    html += '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
+    html += `<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>`;
   } else {
     const monNomMD = currentUserData.prenom + ' ' + currentUserData.nom;
     const histoMapMD = window._historiqueMap || {};
     const histoActifMD = window._historiqueActif !== false;
-    function _isPrioMD(d) {
-      var pf  = (d.portefeuille||'').toUpperCase();
-      var tp  = (d.type||'').toUpperCase();
-      var nat = (d.nature_label||d.nature||'').toUpperCase();
-      var hasRef = histoActifMD && histoMapMD[d.ref_sinistre] && histoMapMD[d.ref_sinistre].gestionnaire === monNomMD;
-      return pf.includes('OPTINEO') || tp.includes('MRH') || tp.includes('HABITATION')
-          || nat.includes('BRIS DE GLACE') || nat.includes('BDG') || hasRef;
-    }
+
     var _recuperesMD = JSON.parse(safeSession.getItem('_recuperesMD') || '[]');
     var _recuperesSetMD = new Set(_recuperesMD.map(Number));
     mesDossiers.sort(function(a, b) {
@@ -222,7 +142,13 @@ async function renderMesDossiers() {
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
-      html += `<tr data-id="${d.id}" style="${isRelance ? 'background:#fffde7;border-left:3px solid #f39c12' : (dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : '')}">
+      html += `<tr
+        data-dossier-id="${d.id}"
+        data-dossier-nom="${d.ref_sinistre}"
+        style="${isRelance ? 'background:#fffde7;border-left:3px solid #f39c12' : (dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : '')}">
+        <td class="troc-check-col" style="display:none;text-align:center;">
+          <input type="checkbox" class="row-check" style="width:16px;height:16px;accent-color:#f39c12;cursor:pointer;">
+        </td>
         <td><strong>${d.ref_sinistre}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
           ${isRelance ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}

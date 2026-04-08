@@ -10,23 +10,32 @@ function toggleTrocMode() {
   const trocBar = document.getElementById('troc-selection-bar');
 
   if (trocModeActive) {
-    tbody.classList.add('troc-mode');
-    btnTroc.style.display = 'none';
-    trocBar.style.display = 'flex';
+    if (tbody) tbody.classList.add('troc-mode');
+    if (btnTroc) btnTroc.style.display = 'none';
+    if (trocBar) trocBar.style.display = 'flex';
     dossiersSelectionnes = [];
+    // Afficher les colonnes checkbox
+    document.querySelectorAll('.troc-check-col').forEach(el => el.style.display = '');
     updateTrocCount();
   } else {
-    tbody.classList.remove('troc-mode');
-    btnTroc.style.display = currentUserData.role === 'gestionnaire' ? 'inline-flex' : 'none';
-    trocBar.style.display = 'none';
+    if (tbody) tbody.classList.remove('troc-mode');
+    // FIX: admin ET gestionnaire voient le bouton réapparaître
+    if (btnTroc) btnTroc.style.display = ['gestionnaire', 'admin'].includes(currentUserData.role) ? 'inline-flex' : 'none';
+    if (trocBar) trocBar.style.display = 'none';
+    // Masquer et décocher les colonnes checkbox
+    document.querySelectorAll('.troc-check-col').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
+    dossiersSelectionnes = [];
   }
 }
 
 // Update compteur sélection
 function updateTrocCount() {
   const count = dossiersSelectionnes.length;
-  document.getElementById('troc-count').textContent = `${count} dossier${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}(s)`;
-  document.getElementById('btn-troc-proposer').disabled = count === 0;
+  const spanEl = document.getElementById('troc-count');
+  const btnProp = document.getElementById('btn-troc-proposer');
+  if (spanEl) spanEl.textContent = `${count} dossier${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`;
+  if (btnProp) btnProp.disabled = count === 0;
 }
 
 // Modal proposer troc
@@ -65,7 +74,6 @@ async function envoyerTrocPropose() {
   toggleTrocMode();
   if (!error) {
     showNotif('Proposition envoyée !', 'success');
-    // Realtime notification au destinataire
     await db.channel('trocs').send({
       type: 'broadcast',
       event: 'nouveau_troc',
@@ -74,7 +82,7 @@ async function envoyerTrocPropose() {
   }
 }
 
-// Realtime troc (à ajouter au channel supabase_realtime)
+// Realtime troc
 function setupTrocRealtime() {
   db.channel('trocs')
     .on('broadcast', { event: 'nouveau_troc' }, ({ payload }) => {
@@ -91,10 +99,6 @@ function showTrocPopup(payload) {
     <div class="troc-dossiers-proposes">
       <strong>${payload.dossiers} dossier${payload.dossiers > 1 ? 's' : ''}</strong>
     </div>
-    <div class="troc-dossiers-echange">
-      <h4>Vos dossiers disponibles :</h4>
-      ${/* Ici liste des dossiers non-traités avec checkboxes */ ''}
-    </div>
     <div class="troc-actions">
       <button class="btn btn-danger" onclick="refuserTroc()">❌ Refuser</button>
       <button class="btn btn-warning" onclick="ouvrirContreProposition()">🔄 Contre-proposer</button>
@@ -103,25 +107,30 @@ function showTrocPopup(payload) {
   `, 'troc-popup');
 }
 
-// Toggle checkbox troc sur les lignes
+// Écoute clics sur les cases troc
 document.addEventListener('click', e => {
-  if (trocModeActive && e.target.classList.contains('row-check')) {
-    const row = e.target.closest('tr');
-    const dossierId = row.dataset.dossierId; // à adapter selon votre structure
-    if (dossiersSelectionnes.some(d => d.id === dossierId)) {
-      dossiersSelectionnes = dossiersSelectionnes.filter(d => d.id !== dossierId);
-    } else {
-      dossiersSelectionnes.push({ id: dossierId, nom: row.dataset.dossierNom });
-    }
-    e.target.checked = !e.target.checked;
-    updateTrocCount();
+  if (!trocModeActive) return;
+  const cb = e.target.closest('.row-check');
+  if (!cb) return;
+  const row = cb.closest('tr');
+  if (!row) return;
+  const dossierId = row.dataset.dossierId;
+  const dossierNom = row.dataset.dossierNom || dossierId;
+  const idx = dossiersSelectionnes.findIndex(d => d.id === dossierId);
+  if (idx >= 0) {
+    dossiersSelectionnes.splice(idx, 1);
+    cb.checked = false;
+  } else {
+    dossiersSelectionnes.push({ id: dossierId, nom: dossierNom });
+    cb.checked = true;
   }
+  updateTrocCount();
 });
 
-// Afficher bouton troc si gestionnaire (appelé après login)
+// FIX: admin ET gestionnaire voient le bouton au chargement
 function initTrocButton() {
   if (!currentUserData) return;
-  if (currentUserData.role === 'gestionnaire') {
+  if (['gestionnaire', 'admin'].includes(currentUserData.role)) {
     const btn = document.getElementById('btn-troc');
     if (btn) btn.style.display = 'inline-flex';
   }
