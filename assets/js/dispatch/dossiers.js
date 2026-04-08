@@ -1,5 +1,12 @@
 // ===== TOGGLE TRAITÉ DANS MES DOSSIERS =====
 async function toggleTraiteMesDossiers(id, checked) {
+  // Bloquer si dossier en troc actif
+  if (isDossierEnTroc && isDossierEnTroc(id)) {
+    showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc avant de le marquer traité.', 'error');
+    await loadDossiers();
+    renderMesDossiers();
+    return;
+  }
   const newStatut = checked ? 'traite' : 'ouvert';
   const { error } = await db.from('dossiers').update({
     traite: checked,
@@ -23,16 +30,15 @@ async function toggleTraiteMesDossiers(id, checked) {
   renderMesDossiers();
 }
 // ===== FIN TOGGLE TRAITÉ MES DOSSIERS =====
+
 // ===== RÉCUPÉRER UN DOSSIER (gestionnaire) =====
 async function recupererDossier(dossierId) {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
-  // Vérification concurrence : relire le dossier en base
   const { data: fresh, error: errFresh } = await db.from('dossiers')
     .select('id, gestionnaire, statut, verrouille, ref_sinistre')
     .eq('id', dossierId).maybeSingle();
   if (errFresh) { showNotif('Erreur : ' + errFresh.message, 'error'); return; }
   if (!fresh) { showNotif('Dossier introuvable.', 'error'); return; }
-  // Premier arrivé premier servi
   if (fresh.gestionnaire && fresh.gestionnaire !== '') {
     showNotif('⚠️ Ce dossier vient d\'être récupéré par ' + fresh.gestionnaire + '.', 'error');
     await loadDossiers(); renderAttribution(); return;
@@ -49,11 +55,14 @@ async function recupererDossier(dossierId) {
   renderAttribution();
 }
 // ===== FIN RÉCUPÉRER DOSSIER =====
+
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
   await loadAllUsers();
+  // Charger les trocs actifs pour badge
+  if (typeof loadTrocsActifsDetails === 'function') await loadTrocsActifsDetails();
   var resHistoMD = await db.from('historique_sinistres').select('ref_sinistre, gestionnaire, date_traitement');
   window._historiqueMap = {};
   if (resHistoMD.data) resHistoMD.data.forEach(function(h){ window._historiqueMap[h.ref_sinistre] = h; });
@@ -77,31 +86,15 @@ async function renderMesDossiers() {
     const monNomMD = currentUserData.prenom + ' ' + currentUserData.nom;
     const histoMapMD = window._historiqueMap || {};
     const histoActifMD = window._historiqueActif !== false;
-    // Trier : dossiers "déjà traités par moi" en premier
-    // Tri fixe : prioritaires non traités → autres non traités → traités (stable par ID)
-    function _isPrioMD(d) {
-      var pf  = (d.portefeuille||'').toUpperCase();
-      var tp  = (d.type||'').toUpperCase();
-      var nat = (d.nature_label||d.nature||'').toUpperCase();
-      var hasRef = histoActifMD && histoMapMD[d.ref_sinistre] && histoMapMD[d.ref_sinistre].gestionnaire === monNomMD;
-      return pf.includes('OPTINEO') || tp.includes('MRH') || tp.includes('HABITATION')
-          || nat.includes('BRIS DE GLACE') || nat.includes('BDG') || hasRef;
-    }
-    // Dossiers récupérés manuellement en cours de session → mis en bas
     var _recuperesMD = JSON.parse(safeSession.getItem('_recuperesMD') || '[]');
     var _recuperesSetMD = new Set(_recuperesMD.map(Number));
     mesDossiers.sort(function(a, b) {
-      // Dossiers récupérés manuellement → en bas
       var aR = _recuperesSetMD.has(a.id) ? 1 : 0;
       var bR = _recuperesSetMD.has(b.id) ? 1 : 0;
       if (aR !== bR) return aR - bR;
-      // Ordre fixe par ID (ordre d'import) -- jamais modifié par statut traité
       return (a.id || 0) - (b.id || 0);
     });
-    // Récupérer refs relancées depuis sessionStorage
     const relancesRefs = JSON.parse(safeSession.getItem('relances_notif') || '[]');
-
-    // Pop-up temps réel si des relances concernent ce gestionnaire
     const mesRelances = mesDossiers.filter(d => relancesRefs.includes(d.ref_sinistre));
     if (mesRelances.length > 0) {
       setTimeout(function() {
@@ -118,7 +111,6 @@ async function renderMesDossiers() {
           + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(&apos;relance-notif-modal&apos;)">✅ J\'ai compris</button>'
           + '</div>';
         document.body.appendChild(relanceModal);
-        // Vider la notif après affichage
         safeSession.setItem('relances_notif', JSON.stringify(
           relancesRefs.filter(r => !mesRelances.map(d => d.ref_sinistre).includes(r))
         ));
@@ -132,10 +124,19 @@ async function renderMesDossiers() {
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
-      html += `<tr style="${isRelance ? 'background:#fffde7;border-left:3px solid #f39c12' : (dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : '')}">
-        <td><strong>${d.ref_sinistre}</strong>
+      // Badge troc en cours
+      const enTroc = typeof isDossierEnTroc === 'function' && isDossierEnTroc(d.id);
+      // Style de ligne
+      let rowStyle = '';
+      if (enTroc) rowStyle = 'background:#fffde7;border-left:3px solid #f39c12;';
+      else if (isRelance) rowStyle = 'background:#fffde7;border-left:3px solid #f39c12';
+      else if (dejaTraiteParMoi) rowStyle = 'background:#fffbea;border-left:3px solid #ffc107';
+      html += `<tr style="${rowStyle}">
+        <td>
+          <strong>${d.ref_sinistre}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
-          ${isRelance ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}
+          ${enTroc ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">⇄ Troc en cours</span>' : ''}
+          ${isRelance && !enTroc ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}
           ${dejaTraiteParMoi ? `<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">📌 Déjà traité le ${new Date(histoEntryMD.date_traitement).toLocaleDateString('fr-FR')}</div>` : ''}
         </td>
         <td>${d.ref_contrat}</td>
@@ -143,9 +144,17 @@ async function renderMesDossiers() {
         <td>${d.portefeuille}</td>
         <td>${statutBadge(d.statut, d.verrouille)}</td>
         <td style="text-align:center">
-          <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-            style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
-            onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">
+          ${enTroc
+            ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+                <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
+                  style="width:17px;height:17px;accent-color:var(--rose);cursor:not-allowed;opacity:.4"
+                  disabled title="Troc en cours — action bloquée">
+                <span style="font-size:9px;color:#e67e22;font-weight:700">⇄ Troc</span>
+               </div>`
+            : `<input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
+                style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
+                onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">`
+          }
         </td>
       </tr>`;
     });
@@ -153,4 +162,3 @@ async function renderMesDossiers() {
   html += '</tbody></table></div>';
   document.getElementById('main-content').innerHTML = html;
 }
-
