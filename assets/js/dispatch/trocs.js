@@ -85,7 +85,16 @@ function updateTrocCount() {
 }
 
 // ── PROPOSER UN TROC (modal) ──────────────────────────────
-function openTrocModal() {
+async function openTrocModal() {
+  // 🔒 Vérification anti-doublon : charger les trocs actifs frais
+  await loadTrocsActifsDetails();
+  const dossiersBloqués = dossiersSelectionnes.filter(d => isDossierEnTroc(d.id));
+  if (dossiersBloqués.length > 0) {
+    const refs = dossiersBloqués.map(d => d.ref_sinistre || d.id).join(', ');
+    showNotif(`⚠️ Dossier(s) déjà en troc actif : ${refs}. Retirez-les avant de proposer.`, 'error');
+    return;
+  }
+
   const gestionnaires = (allUsers || []).filter(u =>
     ['gestionnaire','manager'].includes(u.role) &&
     u.id !== currentUserData.id &&
@@ -130,6 +139,16 @@ async function envoyerTrocPropose() {
   const destinataireId = document.getElementById('troc-destinataire')?.value;
   if (!destinataireId) return showNotif('Choisissez un destinataire', 'error');
 
+  // 🔒 Double-vérification juste avant l'INSERT
+  await loadTrocsActifsDetails();
+  const dossiersBloqués = dossiersSelectionnes.filter(d => isDossierEnTroc(d.id));
+  if (dossiersBloqués.length > 0) {
+    const refs = dossiersBloqués.map(d => d.ref_sinistre || d.id).join(', ');
+    showNotif(`⚠️ Dossier(s) déjà en troc actif : ${refs}`, 'error');
+    document.getElementById('modal-troc-proposer')?.remove();
+    return;
+  }
+
   const { data: trocInsere, error } = await db.from('trocs').insert({
     from_id: currentUserData.id,
     to_id: parseInt(destinataireId),
@@ -140,7 +159,13 @@ async function envoyerTrocPropose() {
   document.getElementById('modal-troc-proposer')?.remove();
   toggleTrocMode();
 
-  if (error) { showNotif('Erreur lors de l\'envoi : ' + error.message, 'error'); return; }
+  if (error) {
+    const msg = error.message && error.message.includes('TROC_CONFLIT')
+      ? '⚠️ Un dossier est déjà engagé dans un troc actif.'
+      : 'Erreur lors de l\'envoi : ' + error.message;
+    showNotif(msg, 'error');
+    return;
+  }
 
   showNotif('✉️ Proposition de troc envoyée !', 'success');
   await rafraichirBadgeTroc();
@@ -159,7 +184,6 @@ async function envoyerTrocPropose() {
       }
     });
   } catch(e) {
-    // Fallback httpSend
     try {
       await db.channel('trocs-notifs').httpSend({
         type: 'broadcast',
@@ -247,7 +271,6 @@ async function openTrocsPanel() {
   const existing = document.getElementById('panel-trocs');
   if (existing) existing.remove();
 
-  // Charger tous les trocs actifs impliquant l'utilisateur
   const { data: trocs, error } = await db.from('trocs')
     .select('*')
     .or('from_id.eq.' + currentUserData.id + ',to_id.eq.' + currentUserData.id)
@@ -297,12 +320,10 @@ async function renderTrocCard(troc) {
   const isSender   = troc.from_id === currentUserData.id;
   const isReceiver = troc.to_id   === currentUserData.id;
 
-  // Badges dossiers proposés
   const dossiersProposes = troc.dossiers_proposes || [];
   const dossiersEchange  = troc.dossiers_en_echange || [];
   const contreFromId     = troc.contre_from_id;
 
-  // Récupérer les refs sinistres pour affichage lisible
   let refsProposees = dossiersProposes;
   let refsEchange   = dossiersEchange;
   if (allDossiers && allDossiers.length) {
@@ -318,7 +339,6 @@ async function renderTrocCard(troc) {
 
   const isContrePropo = troc.status === 'contre_proposition';
 
-  // Statut label
   const statusLabel = isContrePropo
     ? '<span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">🔄 Contre-proposition</span>'
     : '<span style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">⏳ En attente</span>';
@@ -330,18 +350,15 @@ async function renderTrocCard(troc) {
     '<span style="background:#27ae60;color:#fff;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;margin:2px">' + r + '</span>'
   ).join('');
 
-  // Déterminer l'affichage des colonnes
   let colonneGauche = '';
   let colonneDroite = '';
 
   if (!isContrePropo) {
-    // Troc simple : from propose, to n'a pas encore répondu
     colonneGauche = '<div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Ce que propose <strong>' + fromNom + '</strong></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + (badgesFrom || '<em style="font-size:11px;color:var(--gray-400)">Aucun</em>') + '</div>';
     colonneDroite = '<div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">En attente de <strong>' + toNom + '</strong></div>'
       + '<div style="font-size:12px;color:var(--gray-400);font-style:italic">— À définir —</div>';
   } else {
-    // Contre-proposition : afficher les deux côtés
     const contreUser = (allUsers || []).find(u => u.id === contreFromId);
     const contreNom  = contreUser ? contreUser.prenom + ' ' + contreUser.nom : 'Collègue';
     colonneGauche = '<div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Propose <strong>' + fromNom + '</strong></div>'
@@ -350,11 +367,9 @@ async function renderTrocCard(troc) {
       + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + (badgesTo || '<em style="font-size:11px;color:var(--gray-400)">Aucun</em>') + '</div>';
   }
 
-  // Boutons d'action selon le rôle et le statut
   let actionsBtns = '';
 
   if (!isContrePropo && isReceiver) {
-    // Destinataire peut : Accepter | Refuser | Contre-proposer
     actionsBtns = '<button class="btn btn-danger" style="font-size:12px;padding:5px 12px" onclick="actionTroc(\'annule\',\''
       + troc.id + '\')">❌ Refuser</button>'
       + '<button class="btn btn-warning" style="font-size:12px;padding:5px 12px" onclick="openContrePropositionModal(\''
@@ -362,17 +377,14 @@ async function renderTrocCard(troc) {
       + '<button class="btn btn-success" style="font-size:12px;padding:5px 12px" onclick="actionTroc(\'accepte\',\''
       + troc.id + '\')">✅ Accepter</button>';
   } else if (isContrePropo && isSender) {
-    // L'initiateur reçoit la contre-proposition : Accepter ou Refuser
     actionsBtns = '<button class="btn btn-danger" style="font-size:12px;padding:5px 12px" onclick="actionTroc(\'refuse\',\''
       + troc.id + '\')">❌ Refuser</button>'
       + '<button class="btn btn-success" style="font-size:12px;padding:5px 12px" onclick="actionTroc(\'accepte\',\''
       + troc.id + '\')">✅ Accepter la contre-proposition</button>';
   } else if (!isContrePropo && isSender) {
-    // Initiateur attend → peut juste annuler
     actionsBtns = '<button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="actionTroc(\'annule\',\''
       + troc.id + '\')">🗑️ Annuler ma proposition</button>';
   } else if (isContrePropo && isReceiver) {
-    // Contre-proposant attend la réponse
     actionsBtns = '<button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="actionTroc(\'annule\',\''
       + troc.id + '\')">🗑️ Annuler ma contre-proposition</button>';
   }
@@ -402,12 +414,10 @@ async function actionTroc(action, trocId) {
   const { error } = await db.from('trocs').update({ status: action }).eq('id', trocId);
   if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
 
-  // Si accepté : transférer les dossiers
   if (action === 'accepte') {
     await _executerEchangeTroc(troc);
   }
 
-  // Déterminer qui notifier
   const notifTargetId = troc.from_id === currentUserData.id ? troc.to_id : troc.from_id;
   const eventName     = action === 'accepte' ? 'troc_accepte' : 'troc_refuse';
 
@@ -433,7 +443,6 @@ async function actionTroc(action, trocId) {
 async function _executerEchangeTroc(troc) {
   const fromUser = (allUsers || []).find(u => u.id === troc.from_id);
   const toUser   = (allUsers || []).find(u => u.id === troc.to_id);
-  // On échange les gestionnaires : dossiers_proposes → to, dossiers_en_echange → from
   const fromNom = fromUser ? fromUser.prenom + ' ' + fromUser.nom : null;
   const toNom   = toUser   ? toUser.prenom   + ' ' + toUser.nom   : null;
 
@@ -459,14 +468,12 @@ async function openContrePropositionModal(trocId) {
   const { data: troc, error: errLoad } = await db.from('trocs').select('*').eq('id', trocId).single();
   if (errLoad || !troc) { showNotif('Troc introuvable.', 'error'); return; }
 
-  // Dossiers proposés par l'initiateur (pour affichage gauche)
   const dossiersProposes = troc.dossiers_proposes || [];
   let refsProposees = dossiersProposes.map(id => {
     const d = allDossiers && allDossiers.find(x => String(x.id) === String(id));
     return d ? d.ref_sinistre : id;
   });
 
-  // Mes propres dossiers disponibles (non traités, en cours)
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiersDispo = (allDossiers || []).filter(d =>
     d.gestionnaire === monNom &&
@@ -487,7 +494,6 @@ async function openContrePropositionModal(trocId) {
 
   inner.innerHTML = '<h2 style="margin-bottom:16px">🔄 Faire une contre-proposition</h2>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">'
-    // Colonne gauche : ce que l'autre propose (lecture seule)
     + '<div style="background:var(--gray-50,#f8f9fa);border-radius:10px;padding:14px">'
     + '<h4 style="font-size:13px;color:var(--gray-600);margin-bottom:10px">📋 Ce que l\'autre propose</h4>'
     + '<div style="display:flex;flex-wrap:wrap;gap:5px">'
@@ -495,7 +501,6 @@ async function openContrePropositionModal(trocId) {
         '<span style="background:var(--navy,#1a2b49);color:#fff;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:700">' + r + '</span>'
       ).join('')
     + '</div></div>'
-    // Colonne droite : mes dossiers à sélectionner
     + '<div style="background:var(--gray-50,#f8f9fa);border-radius:10px;padding:14px">'
     + '<h4 style="font-size:13px;color:var(--gray-600);margin-bottom:10px">✏️ Vos dossiers à proposer en échange</h4>'
     + '<p style="font-size:11px;color:var(--gray-400);margin-bottom:8px">Sélectionnez 1 ou plusieurs dossiers (sans obligation de symétrie)</p>'
@@ -527,6 +532,21 @@ async function envoyerContreProposition(trocId) {
   const coches = [...document.querySelectorAll('.contre-propos-cb:checked')].map(cb => parseInt(cb.value));
   if (coches.length === 0) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
 
+  // 🔒 Vérification anti-doublon pour la contre-proposition
+  await loadTrocsActifsDetails();
+  const blockedIds = coches.filter(id => {
+    return (window._trocsActifsDetails || []).some(t => {
+      if (String(t.id) === String(trocId)) return false; // ignorer le troc courant
+      const proposes = t.dossiers_proposes || [];
+      const echange  = t.dossiers_en_echange || [];
+      return [...proposes, ...echange].some(tid => String(tid) === String(id));
+    });
+  });
+  if (blockedIds.length > 0) {
+    showNotif('⚠️ Certains dossiers sont déjà engagés dans un autre troc actif.', 'error');
+    return;
+  }
+
   const { data: troc } = await db.from('trocs').select('*').eq('id', trocId).single();
   if (!troc) { showNotif('Troc introuvable.', 'error'); return; }
 
@@ -538,12 +558,17 @@ async function envoyerContreProposition(trocId) {
 
   document.getElementById('modal-contre-proposition')?.remove();
 
-  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+  if (error) {
+    const msg = error.message && error.message.includes('TROC_CONFLIT')
+      ? '⚠️ Un dossier est déjà engagé dans un autre troc actif.'
+      : 'Erreur : ' + error.message;
+    showNotif(msg, 'error');
+    return;
+  }
 
   showNotif('🔄 Contre-proposition envoyée !', 'success');
   await rafraichirBadgeTroc();
 
-  // Notifier l'initiateur
   try {
     await db.channel('trocs-notifs').httpSend({
       type: 'broadcast',
@@ -579,7 +604,6 @@ document.addEventListener('click', e => {
 });
 
 // ── BADGE TROC EN COURS SUR LA LIGNE DOSSIER ─────────────
-// Appelée depuis renderAttribution / renderMesDossiers pour savoir si un dossier est dans un troc actif
 function isDossierEnTroc(dossierId) {
   if (!window._trocsActifsDetails) return false;
   return window._trocsActifsDetails.some(t => {
