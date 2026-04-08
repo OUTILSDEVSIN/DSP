@@ -149,9 +149,10 @@ async function envoyerTrocPropose() {
     return;
   }
 
+  // ✅ FIX: destinataireId est un UUID — ne pas utiliser parseInt()
   const { data: trocInsere, error } = await db.from('trocs').insert({
     from_id: currentUserData.id,
-    to_id: parseInt(destinataireId),
+    to_id: destinataireId,
     dossiers_proposes: dossiersSelectionnes.map(d => d.id),
     status: 'en_attente'
   }).select().single();
@@ -178,7 +179,7 @@ async function envoyerTrocPropose() {
       payload: {
         troc_id: trocInsere.id,
         from_id: currentUserData.id,
-        to_id: parseInt(destinataireId),
+        to_id: destinataireId,
         nb_dossiers: dossiersSelectionnes.length,
         from_prenom: currentUserData.prenom
       }
@@ -191,7 +192,7 @@ async function envoyerTrocPropose() {
         payload: {
           troc_id: trocInsere.id,
           from_id: currentUserData.id,
-          to_id: parseInt(destinataireId),
+          to_id: destinataireId,
           nb_dossiers: dossiersSelectionnes.length,
           from_prenom: currentUserData.prenom
         }
@@ -501,27 +502,19 @@ async function openContrePropositionModal(trocId) {
         '<span style="background:var(--navy,#1a2b49);color:#fff;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:700">' + r + '</span>'
       ).join('')
     + '</div></div>'
-    + '<div style="background:var(--gray-50,#f8f9fa);border-radius:10px;padding:14px">'
+    + '<div id="contre-selection-zone" style="background:var(--gray-50,#f8f9fa);border-radius:10px;padding:14px">'
     + '<h4 style="font-size:13px;color:var(--gray-600);margin-bottom:10px">✏️ Vos dossiers à proposer en échange</h4>'
-    + '<p style="font-size:11px;color:var(--gray-400);margin-bottom:8px">Sélectionnez 1 ou plusieurs dossiers (sans obligation de symétrie)</p>'
-    + '<div id="contre-propos-liste" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto">'
-    + (mesDossiersDispo.length === 0
-        ? '<em style="font-size:12px;color:var(--gray-400)">Aucun dossier disponible</em>'
-        : mesDossiersDispo.map(d =>
-            '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:4px 6px;border-radius:5px;hover:background:#eee">'
-            + '<input type="checkbox" class="contre-propos-cb" value="' + d.id + '" style="width:15px;height:15px;accent-color:var(--rose,#e74c3c)">'
-            + '<span><strong>' + d.ref_sinistre + '</strong>'
-            + (d.nature_label ? ' – ' + d.nature_label : '')
-            + '</span></label>'
-          ).join('')
-      )
+    + '<div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto">'
+    + mesDossiersDispo.map(d =>
+        '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'
+        + '<input type="checkbox" value="' + d.id + '" style="width:15px;height:15px"> '
+        + (d.ref_sinistre || d.id)
+        + '</label>'
+      ).join('')
     + '</div></div></div>'
     + '<div style="display:flex;gap:10px;justify-content:flex-end">'
-    + '<button class="btn btn-secondary" onclick="document.getElementById(\'modal-contre-proposition\').remove();openTrocsPanel()">Annuler</button>'
-    + '<button class="btn btn-warning" onclick="envoyerContreProposition(\''
-    + trocId + '\')"'
-    + (mesDossiersDispo.length === 0 ? ' disabled' : '')
-    + '>🔄 Envoyer ma contre-proposition</button>'
+    + '<button class="btn btn-secondary" onclick="document.getElementById(\'modal-contre-proposition\').remove()">Annuler</button>'
+    + '<button class="btn btn-primary" onclick="envoyerContreProposition(\'' + trocId + '\')">🔄 Envoyer la contre-proposition</button>'
     + '</div>';
 
   overlay.appendChild(inner);
@@ -529,42 +522,26 @@ async function openContrePropositionModal(trocId) {
 }
 
 async function envoyerContreProposition(trocId) {
-  const coches = [...document.querySelectorAll('.contre-propos-cb:checked')].map(cb => parseInt(cb.value));
-  if (coches.length === 0) { showNotif('Sélectionnez au moins un dossier.', 'error'); return; }
+  const checkboxes = document.querySelectorAll('#contre-selection-zone input[type="checkbox"]:checked');
+  const dossiersEchange = Array.from(checkboxes).map(cb => cb.value);
 
-  // 🔒 Vérification anti-doublon pour la contre-proposition
-  await loadTrocsActifsDetails();
-  const blockedIds = coches.filter(id => {
-    return (window._trocsActifsDetails || []).some(t => {
-      if (String(t.id) === String(trocId)) return false; // ignorer le troc courant
-      const proposes = t.dossiers_proposes || [];
-      const echange  = t.dossiers_en_echange || [];
-      return [...proposes, ...echange].some(tid => String(tid) === String(id));
-    });
-  });
-  if (blockedIds.length > 0) {
-    showNotif('⚠️ Certains dossiers sont déjà engagés dans un autre troc actif.', 'error');
+  if (dossiersEchange.length === 0) {
+    showNotif('Sélectionnez au moins un dossier à proposer en échange.', 'error');
     return;
   }
 
-  const { data: troc } = await db.from('trocs').select('*').eq('id', trocId).single();
-  if (!troc) { showNotif('Troc introuvable.', 'error'); return; }
+  const { data: troc, error: errLoad } = await db.from('trocs').select('*').eq('id', trocId).single();
+  if (errLoad || !troc) { showNotif('Troc introuvable.', 'error'); return; }
 
   const { error } = await db.from('trocs').update({
-    dossiers_en_echange: coches,
-    contre_from_id: currentUserData.id,
-    status: 'contre_proposition'
+    status: 'contre_proposition',
+    dossiers_en_echange: dossiersEchange,
+    contre_from_id: currentUserData.id
   }).eq('id', trocId);
 
   document.getElementById('modal-contre-proposition')?.remove();
 
-  if (error) {
-    const msg = error.message && error.message.includes('TROC_CONFLIT')
-      ? '⚠️ Un dossier est déjà engagé dans un autre troc actif.'
-      : 'Erreur : ' + error.message;
-    showNotif(msg, 'error');
-    return;
-  }
+  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
 
   showNotif('🔄 Contre-proposition envoyée !', 'success');
   await rafraichirBadgeTroc();
@@ -575,49 +552,10 @@ async function envoyerContreProposition(trocId) {
       event: 'contre_proposition',
       payload: {
         troc_id: trocId,
-        from_id: currentUserData.id,
+        // ✅ FIX: utiliser directement l'UUID sans parseInt
         to_id: troc.from_id,
-        nb_dossiers: coches.length,
         from_prenom: currentUserData.prenom
       }
     });
   } catch(e) { /* silencieux */ }
 }
-
-// ── CHECKBOX SÉLECTION TROC SUR LES LIGNES ───────────────
-document.addEventListener('click', e => {
-  if (!trocModeActive) return;
-  if (!e.target.classList.contains('row-check')) return;
-  const row = e.target.closest('tr');
-  if (!row) return;
-  const dossierId = row.dataset.id || row.dataset.dossierId;
-  const dossierRef = row.dataset.ref || row.querySelector('td strong')?.textContent || dossierId;
-  e.preventDefault();
-  if (dossiersSelectionnes.some(d => String(d.id) === String(dossierId))) {
-    dossiersSelectionnes = dossiersSelectionnes.filter(d => String(d.id) !== String(dossierId));
-    e.target.checked = false;
-  } else {
-    dossiersSelectionnes.push({ id: dossierId, ref_sinistre: dossierRef, nom: dossierRef });
-    e.target.checked = true;
-  }
-  updateTrocCount();
-});
-
-// ── BADGE TROC EN COURS SUR LA LIGNE DOSSIER ─────────────
-function isDossierEnTroc(dossierId) {
-  if (!window._trocsActifsDetails) return false;
-  return window._trocsActifsDetails.some(t => {
-    const proposes = t.dossiers_proposes || [];
-    const echange  = t.dossiers_en_echange || [];
-    return [...proposes, ...echange].some(id => String(id) === String(dossierId));
-  });
-}
-
-async function loadTrocsActifsDetails() {
-  const { data } = await db.from('trocs')
-    .select('id, dossiers_proposes, dossiers_en_echange, status')
-    .in('status', ['en_attente', 'contre_proposition']);
-  window._trocsActifsDetails = data || [];
-}
-
-// ===== FIN TROCS =====
