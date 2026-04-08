@@ -69,10 +69,13 @@ function toggleTrocMode() {
     if (trocBar) { trocBar.style.display = 'flex'; }
     dossiersSelectionnes = [];
     updateTrocCount();
+    // Activer les checkboxes dès l'entrée en mode
+    setupTrocRowSelection();
   } else {
     tbody && tbody.classList.remove('troc-mode');
     if (btnTroc) btnTroc.style.display = ['gestionnaire','manager','admin'].includes(currentUserData.role) ? 'inline-flex' : 'none';
     if (trocBar) trocBar.style.display = 'none';
+    dossiersSelectionnes = [];
   }
 }
 
@@ -82,6 +85,67 @@ function updateTrocCount() {
   if (el) el.textContent = `${count} dossier${count !== 1 ? 's' : ''} sélectionné${count !== 1 ? 's' : ''}`;
   const btn = document.getElementById('btn-troc-proposer');
   if (btn) btn.disabled = count === 0;
+}
+
+// ── SÉLECTION DES LIGNES EN MODE TROC ────────────────────
+function setupTrocRowSelection() {
+  // Rendre les colonnes checkbox visibles
+  document.querySelectorAll('.troc-check-col').forEach(el => {
+    el.style.display = trocModeActive ? 'table-cell' : 'none';
+  });
+
+  // Wirer chaque checkbox aux dossiers sélectionnés
+  document.querySelectorAll('.row-check').forEach(cb => {
+    // Éviter le double-binding
+    cb.replaceWith(cb.cloneNode(true));
+  });
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.addEventListener('change', function() {
+      const tr = this.closest('tr');
+      if (!tr) return;
+      const id = tr.dataset.dossierId;
+      const nom = tr.dataset.dossierNom;
+      if (!id) return;
+      if (this.checked) {
+        // Éviter les doublons
+        if (!dossiersSelectionnes.find(d => String(d.id) === String(id))) {
+          dossiersSelectionnes.push({ id, ref_sinistre: nom, nom });
+        }
+      } else {
+        dossiersSelectionnes = dossiersSelectionnes.filter(d => String(d.id) !== String(id));
+      }
+      updateTrocCount();
+    });
+  });
+}
+
+// ── HELPERS TROCS ACTIFS ──────────────────────────────────
+let _trocsActifsDetails = [];
+window.dossiersTrocEnCours = new Set();
+
+async function loadTrocsActifsDetails() {
+  if (!currentUserData) return;
+  const { data } = await db.from('trocs')
+    .select('id, from_id, to_id, dossiers_proposes, dossiers_en_echange, status')
+    .or('from_id.eq.' + currentUserData.id + ',to_id.eq.' + currentUserData.id)
+    .in('status', ['en_attente', 'contre_proposition']);
+  _trocsActifsDetails = data || [];
+  // Reconstruire le Set des ids de dossiers en troc
+  window.dossiersTrocEnCours = new Set();
+  _trocsActifsDetails.forEach(t => {
+    (t.dossiers_proposes || []).forEach(id => window.dossiersTrocEnCours.add(String(id)));
+    (t.dossiers_en_echange || []).forEach(id => window.dossiersTrocEnCours.add(String(id)));
+  });
+  _trocsActifs = data || [];
+}
+
+// Alias utilisé dans dossiers.js (loadTrocsEnCours)
+async function loadTrocsEnCours() {
+  return loadTrocsActifsDetails();
+}
+
+function isDossierEnTroc(id) {
+  return window.dossiersTrocEnCours && window.dossiersTrocEnCours.has(String(id));
 }
 
 // ── PROPOSER UN TROC (modal) ──────────────────────────────
@@ -149,7 +213,6 @@ async function envoyerTrocPropose() {
     return;
   }
 
-  // ✅ FIX: destinataireId est un UUID — ne pas utiliser parseInt()
   const { data: trocInsere, error } = await db.from('trocs').insert({
     from_id: currentUserData.id,
     to_id: destinataireId,
@@ -171,7 +234,6 @@ async function envoyerTrocPropose() {
   showNotif('✉️ Proposition de troc envoyée !', 'success');
   await rafraichirBadgeTroc();
 
-  // Notification realtime au destinataire via httpSend
   try {
     await db.channel('trocs-notifs').send({
       type: 'broadcast',
@@ -552,7 +614,6 @@ async function envoyerContreProposition(trocId) {
       event: 'contre_proposition',
       payload: {
         troc_id: trocId,
-        // ✅ FIX: utiliser directement l'UUID sans parseInt
         to_id: troc.from_id,
         from_prenom: currentUserData.prenom
       }
