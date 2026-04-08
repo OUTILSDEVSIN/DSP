@@ -61,8 +61,9 @@ async function renderMesDossiers() {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
-  // Bouton troc visible pour TOUS les gestionnaires
-  const btnTroc = currentUserData.role === 'gestionnaire'
+  // Bouton troc visible pour gestionnaires ET admins
+  const canTroc = ['gestionnaire', 'admin'].includes(currentUserData.role);
+  const btnTroc = canTroc
     ? '<button class="btn btn-secondary" id="btn-troc" onclick="toggleTrocMode()" style="display:inline-flex;align-items:center;gap:6px;">&#x21C4; Proposer un troc</button>'
     : '';
 
@@ -94,8 +95,6 @@ async function renderMesDossiers() {
     const monNomMD = currentUserData.prenom + ' ' + currentUserData.nom;
     const histoMapMD = window._historiqueMap || {};
     const histoActifMD = window._historiqueActif !== false;
-    // Trier : dossiers "déjà traités par moi" en premier
-    // Tri fixe : prioritaires non traités → autres non traités → traités (stable par ID)
     function _isPrioMD(d) {
       var pf  = (d.portefeuille||'').toUpperCase();
       var tp  = (d.type||'').toUpperCase();
@@ -104,21 +103,16 @@ async function renderMesDossiers() {
       return pf.includes('OPTINEO') || tp.includes('MRH') || tp.includes('HABITATION')
           || nat.includes('BRIS DE GLACE') || nat.includes('BDG') || hasRef;
     }
-    // Dossiers récupérés manuellement en cours de session → mis en bas
     var _recuperesMD = JSON.parse(safeSession.getItem('_recuperesMD') || '[]');
     var _recuperesSetMD = new Set(_recuperesMD.map(Number));
     mesDossiers.sort(function(a, b) {
-      // Dossiers récupérés manuellement → en bas
       var aR = _recuperesSetMD.has(a.id) ? 1 : 0;
       var bR = _recuperesSetMD.has(b.id) ? 1 : 0;
       if (aR !== bR) return aR - bR;
-      // Ordre fixe par ID (ordre d'import) -- jamais modifié par statut traité
       return (a.id || 0) - (b.id || 0);
     });
-    // Récupérer refs relancées depuis sessionStorage
     const relancesRefs = JSON.parse(safeSession.getItem('relances_notif') || '[]');
 
-    // Pop-up temps réel si des relances concernent ce gestionnaire
     const mesRelances = mesDossiers.filter(d => relancesRefs.includes(d.ref_sinistre));
     if (mesRelances.length > 0) {
       setTimeout(function() {
@@ -135,7 +129,6 @@ async function renderMesDossiers() {
           + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(&apos;relance-notif-modal&apos;)">✅ J\'ai compris</button>'
           + '</div>';
         document.body.appendChild(relanceModal);
-        // Vider la notif après affichage
         safeSession.setItem('relances_notif', JSON.stringify(
           relancesRefs.filter(r => !mesRelances.map(d => d.ref_sinistre).includes(r))
         ));
