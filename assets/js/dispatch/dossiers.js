@@ -69,19 +69,46 @@ async function renderMesDossiers() {
   window._historiqueActif = true;
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
+
+  // Bouton troc : visible pour gestionnaire et admin
+  const canTroc = ['gestionnaire', 'manager', 'admin'].includes(currentUserData.role);
+  const nbTrocs = typeof _trocsActifs !== 'undefined' ? _trocsActifs.length : 0;
+  const btnTroc = canTroc
+    ? `<button class="btn btn-secondary" id="btn-troc" onclick="onBtnTrocClick()" title="Trocs"
+        style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-weight:600;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M17 4l4 4-4 4"/><line x1="3" y1="8" x2="21" y2="8"/>
+          <path d="M7 20l-4-4 4-4"/><line x1="21" y1="16" x2="3" y2="16"/>
+        </svg>
+        Troc${nbTrocs > 0 ? ' <span style="background:#e67e22;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;margin-left:2px;">' + nbTrocs + '</span>' : ''}
+      </button>`
+    : '';
+
   let html = `<div class="stats-grid">
     <div class="stat-card"><div class="number">${mesDossiers.length}</div><div class="label">Mes dossiers</div></div>
     <div class="stat-card"><div class="number" style="color:#27ae60">${mesDossiers.filter(d=>d.traite).length}</div><div class="label">Traités</div></div>
     <div class="stat-card"><div class="number" style="color:#e67e22">${mesDossiers.filter(d=>!d.traite).length}</div><div class="label">En cours</div></div>
   </div>
   <div class="table-container">
-    <div class="table-toolbar"><h2>Mes dossiers</h2><button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button></div>
+    <div class="table-toolbar">
+      <h2>Mes dossiers</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button>
+        ${btnTroc}
+      </div>
+    </div>
+    <div id="troc-selection-bar" style="display:none;align-items:center;gap:12px;padding:10px 16px;background:#fff8e1;border:1px solid #f39c12;border-radius:8px;margin-bottom:12px;">
+      <span id="troc-count" style="font-weight:600;color:#e67e22;">0 dossier sélectionné</span>
+      <button class="btn btn-primary" id="btn-troc-proposer" onclick="openTrocModal()" disabled style="padding:6px 14px;">✉️ Envoyer la proposition</button>
+      <button class="btn btn-secondary" onclick="toggleTrocMode()" style="padding:6px 14px;">Annuler</button>
+    </div>
     <table><thead><tr>
+      <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
       <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
       <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
-    html += '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
+    html += '<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
   } else {
     const monNomMD = currentUserData.prenom + ' ' + currentUserData.nom;
     const histoMapMD = window._historiqueMap || {};
@@ -108,7 +135,7 @@ async function renderMesDossiers() {
           + '<h2 style="color:#e67e22">Dossier(s) relancé(s)</h2>'
           + '<p style="color:#666;font-size:13px;margin:8px 0 16px">Le manager a importé une nouvelle remontée.<br>Les dossiers suivants nécessitent votre attention :</p>'
           + '<ul style="text-align:left;margin:0 0 16px 16px;padding:0">' + notifHtml + '</ul>'
-          + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(&apos;relance-notif-modal&apos;)">✅ J\'ai compris</button>'
+          + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(\'relance-notif-modal\')">✅ J\'ai compris</button>'
           + '</div>';
         document.body.appendChild(relanceModal);
         safeSession.setItem('relances_notif', JSON.stringify(
@@ -131,7 +158,13 @@ async function renderMesDossiers() {
       if (enTroc) rowStyle = 'background:#fffde7;border-left:3px solid #f39c12;';
       else if (isRelance) rowStyle = 'background:#fffde7;border-left:3px solid #f39c12';
       else if (dejaTraiteParMoi) rowStyle = 'background:#fffbea;border-left:3px solid #ffc107';
-      html += `<tr style="${rowStyle}">
+      html += `<tr
+        data-dossier-id="${d.id}"
+        data-dossier-nom="${d.ref_sinistre}"
+        style="${rowStyle}">
+        <td class="troc-check-col" style="display:none;text-align:center;">
+          <input type="checkbox" class="row-check" style="width:16px;height:16px;accent-color:#f39c12;cursor:pointer;">
+        </td>
         <td>
           <strong>${d.ref_sinistre}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
@@ -161,4 +194,8 @@ async function renderMesDossiers() {
   }
   html += '</tbody></table></div>';
   document.getElementById('main-content').innerHTML = html;
+  // Réinitialiser le badge troc après rendu
+  if (typeof rafraichirBadgeTroc === 'function') rafraichirBadgeTroc();
+  // Activer la sélection de lignes pour le mode troc
+  if (typeof setupTrocRowSelection === 'function') setupTrocRowSelection();
 }
