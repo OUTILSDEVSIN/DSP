@@ -1,5 +1,10 @@
 // ===== TOGGLE TRAITÉ DANS MES DOSSIERS =====
 async function toggleTraiteMesDossiers(id, checked) {
+  // Bloquer si troc en cours
+  if (window.dossiersTrocEnCours && window.dossiersTrocEnCours.has(String(id))) {
+    showNotif('⚠️ Ce dossier est impliqué dans un troc en cours. Traitez ou annulez le troc d\'abord.', 'error');
+    await renderMesDossiers(); return;
+  }
   const newStatut = checked ? 'traite' : 'ouvert';
   const { error } = await db.from('dossiers').update({
     traite: checked,
@@ -17,7 +22,7 @@ async function toggleTraiteMesDossiers(id, checked) {
     }
   }
   await auditLog(checked ? 'TRAITEMENT_DOSSIER' : 'REOUVERTURE_DOSSIER',
-    (checked ? 'Dossier marqué traité' : 'Dossier rouvert') + ' -- id:' + id);
+    (checked ? 'Dossier marqué traité' : 'Dossier réouvert') + ' -- id:' + id);
   showNotif(checked ? '✅ Dossier marqué comme traité.' : '🔄 Dossier réouvert.', 'success');
   await loadDossiers();
   renderMesDossiers();
@@ -33,7 +38,7 @@ async function recupererDossier(dossierId) {
   if (errFresh) { showNotif('Erreur : ' + errFresh.message, 'error'); return; }
   if (!fresh) { showNotif('Dossier introuvable.', 'error'); return; }
   if (fresh.gestionnaire && fresh.gestionnaire !== '') {
-    showNotif('⚠️ Ce dossier vient d\'être récupéré par ' + fresh.gestionnaire + '.', 'error');
+    showNotif('⚠️ Ce dossier vient d\'\u00eatre récupéré par ' + fresh.gestionnaire + '.', 'error');
     await loadDossiers(); renderAttribution(); return;
   }
   const { error } = await db.from('dossiers').update({
@@ -54,6 +59,9 @@ async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
   await loadAllUsers();
+  // Charger les trocs en cours pour badge + blocage
+  await loadTrocsEnCours();
+
   var resHistoMD = await db.from('historique_sinistres').select('ref_sinistre, gestionnaire, date_traitement');
   window._historiqueMap = {};
   if (resHistoMD.data) resHistoMD.data.forEach(function(h){ window._historiqueMap[h.ref_sinistre] = h; });
@@ -61,16 +69,16 @@ async function renderMesDossiers() {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
-  // Bouton troc : texte lisible, visible gestionnaire ET admin
+  // Bouton troc : ouvre panel ou sélection
   const canTroc = ['gestionnaire', 'admin'].includes(currentUserData.role);
   const btnTroc = canTroc
-    ? `<button class="btn btn-secondary" id="btn-troc" onclick="toggleTrocMode()" title="Proposer un échange de dossiers"
+    ? `<button class="btn btn-secondary" id="btn-troc" onclick="onBtnTrocClick()" title="Trocs"
         style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-weight:600;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M17 4l4 4-4 4"/><line x1="3" y1="8" x2="21" y2="8"/>
           <path d="M7 20l-4-4 4-4"/><line x1="21" y1="16" x2="3" y2="16"/>
         </svg>
-        Troc
+        Troc${window.dossiersTrocEnCours.size > 0 ? ' <span style="background:#e67e22;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;margin-left:2px;">' + window.dossiersTrocEnCours.size + '</span>' : ''}
       </button>`
     : '';
 
@@ -83,7 +91,7 @@ async function renderMesDossiers() {
     <div class="table-toolbar">
       <h2>Mes dossiers</h2>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier supplémentaire</button>
+        <button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button>
         ${btnTroc}
       </div>
     </div>
@@ -144,16 +152,21 @@ async function renderMesDossiers() {
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
+      // Badge troc en cours
+      const enTroc = window.dossiersTrocEnCours && window.dossiersTrocEnCours.has(String(d.id));
+
       html += `<tr
         data-dossier-id="${d.id}"
         data-dossier-nom="${d.ref_sinistre}"
-        style="${isRelance ? 'background:#fffde7;border-left:3px solid #f39c12' : (dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : '')}">
+        style="${enTroc ? 'background:#fff8e1;border-left:3px solid #e67e22;' : (isRelance ? 'background:#fffde7;border-left:3px solid #f39c12' : (dejaTraiteParMoi ? 'background:#fffbea;border-left:3px solid #ffc107' : ''))}">
         <td class="troc-check-col" style="display:none;text-align:center;">
           <input type="checkbox" class="row-check" style="width:16px;height:16px;accent-color:#f39c12;cursor:pointer;">
         </td>
-        <td><strong>${d.ref_sinistre}</strong>
+        <td>
+          <strong>${d.ref_sinistre}</strong>
           <button class="btn-copy" onclick="copyRef('${d.ref_sinistre}', '${statut}', '${d.id}', this)" title="Copier la référence">📋</button>
-          ${isRelance ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}
+          ${enTroc ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #e67e22;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#b45309;margin-left:4px;" title="Troc en attente de réponse">⇄ Troc en cours</span>' : ''}
+          ${isRelance && !enTroc ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}
           ${dejaTraiteParMoi ? `<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">📌 Déjà traité le ${new Date(histoEntryMD.date_traitement).toLocaleDateString('fr-FR')}</div>` : ''}
         </td>
         <td>${d.ref_contrat}</td>
@@ -161,9 +174,12 @@ async function renderMesDossiers() {
         <td>${d.portefeuille}</td>
         <td>${statutBadge(d.statut, d.verrouille)}</td>
         <td style="text-align:center">
-          <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-            style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
+          <input type="checkbox" class="traite-checkbox"
+            ${d.traite ? 'checked' : ''}
+            ${enTroc ? 'disabled title="Troc en cours — impossible de marquer traité"' : ''}
+            style="width:17px;height:17px;accent-color:var(--rose);cursor:${enTroc ? 'not-allowed' : 'pointer'};opacity:${enTroc ? '0.4' : '1'};"
             onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">
+          ${enTroc ? '<div style="font-size:10px;color:#e67e22;margin-top:2px;">⇄ Troc</div>' : ''}
         </td>
       </tr>`;
     });
