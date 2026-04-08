@@ -60,13 +60,30 @@ async function renderMesDossiers() {
   window._historiqueActif = true;
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
+
+  // Bouton troc visible pour TOUS les gestionnaires
+  const btnTroc = currentUserData.role === 'gestionnaire'
+    ? '<button class="btn btn-secondary" id="btn-troc" onclick="toggleTrocMode()" style="display:inline-flex;align-items:center;gap:6px;">&#x21C4; Proposer un troc</button>'
+    : '';
+
   let html = `<div class="stats-grid">
     <div class="stat-card"><div class="number">${mesDossiers.length}</div><div class="label">Mes dossiers</div></div>
     <div class="stat-card"><div class="number" style="color:#27ae60">${mesDossiers.filter(d=>d.traite).length}</div><div class="label">Traités</div></div>
     <div class="stat-card"><div class="number" style="color:#e67e22">${mesDossiers.filter(d=>!d.traite).length}</div><div class="label">En cours</div></div>
   </div>
   <div class="table-container">
-    <div class="table-toolbar"><h2>Mes dossiers</h2><button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button></div>
+    <div class="table-toolbar">
+      <h2>Mes dossiers</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button>
+        ${btnTroc}
+      </div>
+    </div>
+    <div id="troc-selection-bar" style="display:none;align-items:center;gap:12px;padding:10px 16px;background:#fff8e1;border:1px solid #f39c12;border-radius:8px;margin-bottom:12px;">
+      <span id="troc-count" style="font-weight:600;color:#e67e22;">0 dossier sélectionné</span>
+      <button class="btn btn-primary" id="btn-troc-proposer" onclick="openTrocModal()" disabled style="padding:6px 14px;">✉️ Envoyer la proposition</button>
+      <button class="btn btn-secondary" onclick="toggleTrocMode()" style="padding:6px 14px;">Annuler</button>
+    </div>
     <table><thead><tr>
       <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
       <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
@@ -153,4 +170,3 @@ async function renderMesDossiers() {
   html += '</tbody></table></div>';
   document.getElementById('main-content').innerHTML = html;
 }
-
