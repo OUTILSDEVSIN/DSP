@@ -69,13 +69,15 @@ function toggleTrocMode() {
     if (trocBar) { trocBar.style.display = 'flex'; }
     dossiersSelectionnes = [];
     updateTrocCount();
-    // Activer les checkboxes dès l'entrée en mode
+    // Activer les checkboxes de sélection + verrouiller "traité"
     setupTrocRowSelection();
   } else {
     tbody && tbody.classList.remove('troc-mode');
     if (btnTroc) btnTroc.style.display = ['gestionnaire','manager','admin'].includes(currentUserData.role) ? 'inline-flex' : 'none';
     if (trocBar) trocBar.style.display = 'none';
     dossiersSelectionnes = [];
+    // Déverrouiller les checkboxes "traité" (sauf celles déjà en troc Supabase)
+    _unlockTraiteCheckboxes();
   }
 }
 
@@ -94,7 +96,19 @@ function setupTrocRowSelection() {
     el.style.display = trocModeActive ? 'table-cell' : 'none';
   });
 
-  // Wirer chaque checkbox aux dossiers sélectionnés
+  // Verrouiller TOUTES les checkboxes "traité" pendant le mode troc
+  if (trocModeActive) {
+    document.querySelectorAll('.traite-checkbox').forEach(cb => {
+      if (!cb.disabled) {
+        cb.disabled = true;
+        cb.style.cursor = 'not-allowed';
+        cb.style.opacity = '0.4';
+        cb.dataset.trocLocked = 'true'; // marquer pour pouvoir déverrouiller après
+      }
+    });
+  }
+
+  // Wirer chaque checkbox de sélection aux dossiers sélectionnés
   document.querySelectorAll('.row-check').forEach(cb => {
     // Éviter le double-binding
     cb.replaceWith(cb.cloneNode(true));
@@ -116,6 +130,21 @@ function setupTrocRowSelection() {
       }
       updateTrocCount();
     });
+  });
+}
+
+// ── DÉVERROUILLER "TRAITÉ" APRÈS ANNULATION DU MODE TROC ─
+function _unlockTraiteCheckboxes() {
+  document.querySelectorAll('.traite-checkbox[data-troc-locked="true"]').forEach(cb => {
+    const tr = cb.closest('tr');
+    const id = tr ? tr.dataset.dossierId : null;
+    // Ne déverrouiller que si le dossier n'est pas réellement en troc Supabase
+    if (!id || !isDossierEnTroc(id)) {
+      cb.disabled = false;
+      cb.style.cursor = 'pointer';
+      cb.style.opacity = '1';
+    }
+    delete cb.dataset.trocLocked;
   });
 }
 
