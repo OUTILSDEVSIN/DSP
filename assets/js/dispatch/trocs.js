@@ -263,6 +263,12 @@ async function envoyerTrocPropose() {
   showNotif('✉️ Proposition de troc envoyée !', 'success');
   await rafraichirBadgeTroc();
 
+  // ✅ FIX : reconstruire dossiersTrocEnCours et re-rendre le tableau
+  // pour que les dossiers proposés apparaissent immédiatement verrouillés
+  await loadTrocsActifsDetails();
+  await loadDossiers();
+  if (typeof renderMesDossiers === 'function') renderMesDossiers();
+
   try {
     await db.channel('trocs-notifs').send({
       type: 'broadcast',
