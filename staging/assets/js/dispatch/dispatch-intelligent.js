@@ -21,12 +21,12 @@ function showGestionnairesModal() {
     modal.className = 'modal-overlay';
     modal.id = 'gest-modal';
     modal.innerHTML = '<div class="modal" style="max-width:500px">'
-        + '<h2>👥 Sélection des gestionnaires</h2>'
+        + '<h2>\uD83D\uDC65 Sélection des gestionnaires</h2>'
         + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Cochez les gestionnaires qui recevront des dossiers aujourd\'hui.</p>'
         + '<div style="max-height:300px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--gray-100)">' + items + '</div>'
         + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">'
         + '<button class="btn btn-secondary" id="btn-gest-cancel">Annuler</button>'
-        + '<button class="btn btn-primary" id="btn-gest-confirm">Suivant →</button>'
+        + '<button class="btn btn-primary" id="btn-gest-confirm">Suivant \u2192</button>'
         + '</div></div>';
     document.body.appendChild(modal);
     document.getElementById('btn-gest-cancel').onclick = function() { closeModal('gest-modal'); };
@@ -46,7 +46,7 @@ function showRepartitionModal() {
     modal.className = 'modal-overlay';
     modal.id = 'repart-modal';
     modal.innerHTML = '<div class="modal" style="max-width:420px">'
-        + '<h2>⚙️ Mode de répartition</h2>'
+        + '<h2>\u2699\uFE0F Mode de répartition</h2>'
         + '<div id="box-auto" style="display:flex;align-items:center;gap:12px;padding:16px;border:2px solid var(--rose);border-radius:var(--radius-md);margin-bottom:10px;cursor:pointer;background:#fff5f7">'
         + '<input type="radio" id="r-auto" name="repart-mode" value="auto" checked style="width:18px;height:18px;accent-color:var(--rose)">'
         + '<div><strong>Automatique</strong><br><small style="color:var(--gray-600)">Dispatch intelligent par habilitations (10/gestionnaire)</small></div></div>'
@@ -101,7 +101,7 @@ async function showPropositionModal() {
         var s = (d.statut||'').toLowerCase();
         return s === 'nonattribue' || s === '' || !d.gestionnaire || d.gestionnaire === '';
     }).sort(function(a, b) {
-        return _priScore(b) - _priScore(a); // score décroissant = priorités d'abord
+        return _priScore(b) - _priScore(a);
     });
 
     var modal = document.createElement('div');
@@ -109,78 +109,96 @@ async function showPropositionModal() {
     modal.id = 'proposition-modal';
     modal.style.zIndex = 4000;
 
-    var usedIds = [];
     var propData = {};
+    activeGest.forEach(function(g) { propData[String(g.id)] = { g: g, dossiers: [] }; });
 
     // ── PRÉ-ASSIGNATION HISTORIQUE ─────────────────────────────
-    var dossiersPreAssignes = {};
-    var idsPreAssignes = [];
+    var idsDejaAssignes = [];
     if (histoPropActif) {
-      dossiersLibres.forEach(function(d) {
-        var hEntry = histoPropMap[d.ref_sinistre];
-        if (!hEntry) return;
-        var refGest = activeGest.find(function(g) {
-          return (g.prenom + ' ' + g.nom) === hEntry.gestionnaire;
+        dossiersLibres.forEach(function(d) {
+            var hEntry = histoPropMap[d.ref_sinistre];
+            if (!hEntry) return;
+            var refGest = activeGest.find(function(g) {
+                return (g.prenom + ' ' + g.nom) === hEntry.gestionnaire;
+            });
+            if (!refGest) return;
+            var hab2 = habMap[String(refGest.id)];
+            var pf2  = hab2 ? (hab2.portefeuille && hab2.portefeuille.length > 0 ? hab2.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
+            var tp2  = hab2 ? (hab2.type && hab2.type.length > 0 ? hab2.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
+            var nat2 = hab2 ? (hab2.nature && hab2.nature.length > 0 ? hab2.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
+            var okPf2  = !pf2  || pf2.length  === 0 || pf2.some(function(p){ return (d.portefeuille||'').toUpperCase().includes(p); });
+            var okTp2  = !tp2  || tp2.length  === 0 || tp2.some(function(p){ return (d.type||'').toUpperCase().includes(p); });
+            var okNat2 = !nat2 || nat2.length === 0 || nat2.some(function(p){ return (d.nature||'').toUpperCase().includes(p); });
+            if (!okPf2 || !okTp2 || !okNat2) return;
+            var gid = String(refGest.id);
+            if (propData[gid].dossiers.length < 10) {
+                propData[gid].dossiers.push(d);
+                idsDejaAssignes.push(d.id);
+            }
         });
-        if (!refGest) return;
-        var hab2 = habMap[String(refGest.id)];
-        var pf2  = hab2 ? (hab2.portefeuille && hab2.portefeuille.length > 0 ? hab2.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
-        var tp2  = hab2 ? (hab2.type && hab2.type.length > 0 ? hab2.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
-        var nat2 = hab2 ? (hab2.nature && hab2.nature.length > 0 ? hab2.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
-        var okPf2  = !pf2  || pf2.length  === 0 || pf2.some(function(p){ return (d.portefeuille||'').toUpperCase().includes(p); });
-        var okTp2  = !tp2  || tp2.length  === 0 || tp2.some(function(p){ return (d.type||'').toUpperCase().includes(p); });
-        var okNat2 = !nat2 || nat2.length === 0 || nat2.some(function(p){ return (d.nature||'').toUpperCase().includes(p); });
-        if (!okPf2 || !okTp2 || !okNat2) return;
-        if (!dossiersPreAssignes[String(refGest.id)]) dossiersPreAssignes[String(refGest.id)] = [];
-        dossiersPreAssignes[String(refGest.id)].push(d);
-        idsPreAssignes.push(d.id);
-      });
-      dossiersLibres = dossiersLibres.filter(function(d){ return !idsPreAssignes.includes(d.id); });
     }
     // ── FIN PRÉ-ASSIGNATION ────────────────────────────────────
 
+    // ── DISTRIBUTION ROUND-ROBIN ÉQUITABLE ────────────────────
+    // Pour chaque dossier restant, on cherche le gestionnaire habilité
+    // ayant le moins de dossiers assignés ET n'ayant pas atteint son Max (10 par défaut).
+    // On tourne jusqu'à ce que plus aucun dossier ne puisse être assigné.
+
+    // Pré-calculer les habilitations normalisées pour chaque gestionnaire
+    var gestHab = {};
     activeGest.forEach(function(g) {
         var hab = habMap[String(g.id)];
-
-        // Habilitations normalisées
-        // null = aucune fiche → pas de restriction
-        // []   = fiche vide  → rien n'est autorisé
-        // [..] = fiche avec valeurs → filtre appliqué
-        var pf  = hab
-                    ? (hab.portefeuille && hab.portefeuille.length > 0
-                        ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); })
-                        : [])
-                    : null;
-        var tp  = hab
-                    ? (hab.type && hab.type.length > 0
-                        ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); })
-                        : [])
-                    : null;
-        var nat = hab
-                    ? (hab.nature && hab.nature.length > 0
-                        ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); })
-                        : [])
-                    : null;
-
-        // dossiersLibres déjà triés MRH/BDG globalement -- filtrer par habilitation
-        var eligible = dossiersLibres.filter(function(d) {
-            if (usedIds.includes(d.id)) return false;
-            var dPf  = (d.portefeuille||'').toUpperCase().trim();
-            var dTp  = normalizeType(d.type);
-            var dNat = (d.nature||'').toUpperCase().trim();
-            var okPf  = !pf  || pf.includes(dPf);
-            var okTp  = !tp  || tp.includes(dTp);
-            var okNat = !nat || nat.includes(dNat);
-            return okPf && okTp && okNat;
-        }).slice(0, 10);
-
-        eligible.forEach(function(d) { usedIds.push(d.id); });
-        // Fusionner pré-assignés (en tête) + éligibles normaux
-        var preA = dossiersPreAssignes[String(g.id)] || [];
-        var eligibleIds = eligible.map(function(d){ return d.id; });
-        var preAFiltered = preA.filter(function(d){ return !eligibleIds.includes(d.id); });
-        propData[String(g.id)] = { g: g, dossiers: preAFiltered.concat(eligible) };
+        gestHab[String(g.id)] = {
+            pf:  hab ? (hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null,
+            tp:  hab ? (hab.type && hab.type.length > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null,
+            nat: hab ? (hab.nature && hab.nature.length > 0 ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null
+        };
     });
+
+    function gestPeutPrendre(g, d) {
+        var h = gestHab[String(g.id)];
+        var dPf  = (d.portefeuille||'').toUpperCase().trim();
+        var dTp  = normalizeType(d.type);
+        var dNat = (d.nature||'').toUpperCase().trim();
+        var okPf  = !h.pf  || h.pf.includes(dPf);
+        var okTp  = !h.tp  || h.tp.includes(dTp);
+        var okNat = !h.nat || h.nat.includes(dNat);
+        return okPf && okTp && okNat;
+    }
+
+    var dossiersRestants = dossiersLibres.filter(function(d) {
+        return !idsDejaAssignes.includes(d.id);
+    });
+
+    var MAX_PAR_DEFAUT = 10;
+    var continuer = true;
+    while (continuer && dossiersRestants.length > 0) {
+        continuer = false;
+        for (var di = 0; di < dossiersRestants.length; di++) {
+            var d = dossiersRestants[di];
+            // Trouver le gestionnaire habilité avec le moins de dossiers, pas encore à son Max
+            var candidat = null;
+            var minCount = Infinity;
+            for (var gi = 0; gi < activeGest.length; gi++) {
+                var g = activeGest[gi];
+                var gid = String(g.id);
+                var count = propData[gid].dossiers.length;
+                if (count >= MAX_PAR_DEFAUT) continue;
+                if (!gestPeutPrendre(g, d)) continue;
+                if (count < minCount) {
+                    minCount = count;
+                    candidat = g;
+                }
+            }
+            if (candidat) {
+                propData[String(candidat.id)].dossiers.push(d);
+                dossiersRestants.splice(di, 1);
+                di--;
+                continuer = true;
+            }
+        }
+    }
+    // ── FIN ROUND-ROBIN ────────────────────────────────────────
 
     var blocks = '';
     activeGest.forEach(function(g) {
@@ -191,12 +209,12 @@ async function showPropositionModal() {
                 + '<input type="checkbox" class="dossier-sel-cb" data-gest-id="' + g.id + '" style="width:14px;height:14px;accent-color:var(--rose);cursor:pointer;flex-shrink:0">'
                 + '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:12px">' + (d.ref_sinistre||'') + '</span>'
                 + '<span style="font-size:11px;color:var(--gray-600);flex:1">' + (d.portefeuille||'') + ' | ' + (d.type||'') + ' | ' + (d.nature||'') + '</span>'
-                + '<select data-dossier-move="' + d.id + '" data-current-gest="' + g.id + '" title="Déplacer vers..." style="font-size:11px;padding:2px 4px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;max-width:130px"><option value="">↔️ Déplacer</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
-                + '<button data-dossier-rm="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">✕</button>'
+                + '<select data-dossier-move="' + d.id + '" data-current-gest="' + g.id + '" title="Déplacer vers..." style="font-size:11px;padding:2px 4px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;max-width:130px"><option value="">\u21D4\uFE0F Déplacer</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
+                + '<button data-dossier-rm="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">\u2715</button>'
                 + '</div>';
         });
         if (prop.dossiers.length === 0) {
-            dLines = '<div style="padding:12px;text-align:center;color:var(--gray-600);font-size:13px">⚠️ Aucun dossier éligible pour les habilitations de ce gestionnaire</div>';
+            dLines = '<div style="padding:12px;text-align:center;color:var(--gray-600);font-size:13px">\u26A0\uFE0F Aucun dossier éligible pour les habilitations de ce gestionnaire</div>';
         }
         blocks += '<div style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:white">'
             + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
@@ -210,20 +228,20 @@ async function showPropositionModal() {
             + '<input type="checkbox" class="sel-all-block" data-gestid="' + g.id + '" style="width:14px;height:14px;accent-color:var(--rose);cursor:pointer" title="Tout sélectionner">'
             + '<span style="font-size:12px;color:var(--gray-600)">Tout sélectionner</span>'
             + '<span style="flex:1"></span>'
-            + '<select class="bulk-move-sel" data-gestid="' + g.id + '" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:6px;display:none"><option value="">↔️ Déplacer vers...</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '|' + og.prenom + ' ' + og.nom + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
-            + '<button class="bulk-rm-btn" data-gestid="' + g.id + '" style="font-size:11px;padding:3px 10px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;display:none">🗑️ Supprimer sélection</button>'
+            + '<select class="bulk-move-sel" data-gestid="' + g.id + '" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:6px;display:none"><option value="">\u21D4\uFE0F Déplacer vers...</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '|' + og.prenom + ' ' + og.nom + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
+            + '<button class="bulk-rm-btn" data-gestid="' + g.id + '" style="font-size:11px;padding:3px 10px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;display:none">\uD83D\uDDD1\uFE0F Supprimer sélection</button>'
             + '</div>'
             + '<div class="dossiers-list-block" data-gestid="' + g.id + '">' + dLines + '</div>'
             + '</div>';
     });
 
     modal.innerHTML = '<div class="modal" style="max-width:700px;width:95vw;max-height:88vh;overflow-y:auto">'
-        + '<h2>🚀 Proposition de dispatch intelligent</h2>'
+        + '<h2>\uD83D\uDE80 Proposition de dispatch intelligent</h2>'
         + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Dossiers filtrés par habilitations. Ajustez le nombre max ou supprimez des dossiers.</p>'
         + blocks
         + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
         + '<button class="btn btn-secondary" id="btn-prop-cancel">Annuler</button>'
-        + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 32px;font-weight:700">✅ DISPATCH</button>'
+        + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 32px;font-weight:700">\u2705 DISPATCH</button>'
         + '</div></div>';
 
     document.body.appendChild(modal);
@@ -246,10 +264,8 @@ async function showPropositionModal() {
                 if (!row) return;
                 var targetBlock = modal.querySelector('.dossiers-list-block[data-gestid="' + targetGestId + '"]');
                 if (!targetBlock) { this.value = ''; return; }
-                // Mettre à jour l'attribut current-gest
                 this.setAttribute('data-current-gest', targetGestId);
                 this.value = '';
-                // Retirer le message vide s'il existe
                 var emptyMsg = targetBlock.querySelector('[data-empty-msg]');
                 if (emptyMsg) emptyMsg.remove();
                 targetBlock.appendChild(row);
@@ -268,7 +284,6 @@ async function showPropositionModal() {
         });
     });
 
-    // Mise à jour de la barre d'actions groupées selon sélection
     function updateBulkBar(gestid) {
         var block = modal.querySelector('.dossiers-list-block[data-gestid="' + gestid + '"]');
         var selected = block ? block.querySelectorAll('.dossier-sel-cb:checked').length : 0;
@@ -278,11 +293,8 @@ async function showPropositionModal() {
         if (rmBtn)   rmBtn.style.display   = selected > 0 ? '' : 'none';
     }
 
-    // Afficher la barre quand une case est cochée
     modal.addEventListener('change', function(e) {
         if (e.target.classList.contains('dossier-sel-cb')) {
-            var gestid = e.target.dataset.gestId;
-            // Chercher le gestid dans la ligne parente
             var block = e.target.closest('.dossiers-list-block');
             if (block) updateBulkBar(block.dataset.gestid);
         }
@@ -326,10 +338,9 @@ async function showPropositionModal() {
     });
 
     document.getElementById('btn-do-dispatch').onclick = async function() {
-        // Animation pendant le dispatch
         var btnDispatch = this;
         btnDispatch.disabled = true;
-        btnDispatch.innerHTML = '<span style="display:inline-block;animation:spin 0.8s linear infinite">⏳</span> Dispatch en cours...';
+        btnDispatch.innerHTML = '<span style="display:inline-block;animation:spin 0.8s linear infinite">\u23F3</span> Dispatch en cours...';
         btnDispatch.style.opacity = '0.8';
         var assignments = [];
         var warnings = [];
@@ -345,10 +356,10 @@ async function showPropositionModal() {
             });
         });
         if (warnings.length > 0) {
-            var msg = '⚠️ Certains gestionnaires n\'ont pas reçu le nombre demandé :\n' + warnings.join('\n');
+            var msg = '\u26A0\uFE0F Certains gestionnaires n\'ont pas reçu le nombre demandé :\n' + warnings.join('\n');
             if (!confirm(msg + '\n\nContinuer quand même ?')) {
                 btnDispatch.disabled = false;
-                btnDispatch.innerHTML = '✅ DISPATCH';
+                btnDispatch.innerHTML = '\u2705 DISPATCH';
                 btnDispatch.style.opacity = '';
                 return;
             }
@@ -369,7 +380,6 @@ async function showPropositionModal() {
         await auditLog('DISPATCH', ok + ' dossiers - dispatch intelligent');
         await loadDossiers();
         renderDashboard();
-        // ── Alerte dossiers prioritaires non attribués ──
         checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, histoPropActif);
     };
 }
@@ -404,26 +414,24 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
 
     if (nonAttribuesPrio.length === 0) return;
 
-    // Détecter les motifs pour chaque dossier
     function getMotif(d) {
         var hasRef = histoPropActif && histoPropMap && histoPropMap[d.ref_sinistre];
         if (hasRef) {
             var refGestNom = histoPropMap[d.ref_sinistre].gestionnaire;
             var refGestActif = (activeGest||[]).some(function(g){ return (g.prenom+' '+g.nom) === refGestNom; });
-            if (!refGestActif) return '👤 Référent (<strong>' + refGestNom + '</strong>) non sélectionné pour ce dispatch';
+            if (!refGestActif) return '\uD83D\uDC64 Référent (<strong>' + refGestNom + '</strong>) non sélectionné pour ce dispatch';
         }
-        // Vérifier si un gestionnaire habilité existe dans activeGest
         var habiliteExiste = (activeGest||[]).some(function(g) {
             var hab = habMap ? habMap[String(g.id)] : null;
-            if (!hab) return true; // pas de fiche = pas de restriction
+            if (!hab) return true;
             var pf  = hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase(); }) : null;
             var tp  = hab.type && hab.type.length > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase(); }) : null;
             var okPf = !pf || pf.some(function(p){ return (d.portefeuille||'').toUpperCase().includes(p); });
             var okTp = !tp || tp.some(function(p){ return (d.type||'').toUpperCase().includes(p); });
             return okPf && okTp;
         });
-        if (!habiliteExiste) return '🚫 Aucun gestionnaire habilité pour ce type de dossier';
-        return '⚠️ Capacité maximale atteinte pour tous les gestionnaires habilités';
+        if (!habiliteExiste) return '\uD83D\uDEAB Aucun gestionnaire habilité pour ce type de dossier';
+        return '\u26A0\uFE0F Capacité maximale atteinte pour tous les gestionnaires habilités';
     }
 
     var rows = nonAttribuesPrio.map(function(d) {
@@ -437,7 +445,7 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
             + '<td style="padding:8px 10px">' + nat + '</td>'
             + '<td style="padding:8px 10px;font-size:12px">' + motif + '</td>'
             + '<td style="padding:8px 10px;text-align:center">'
-            + '<button class="btn btn-warning" style="font-size:11px;padding:4px 8px" onclick="forceAttribuerPrioritaire(' + d.id + ', this)">🔧 Forcer</button>'
+            + '<button class="btn btn-warning" style="font-size:11px;padding:4px 8px" onclick="forceAttribuerPrioritaire(' + d.id + ', this)">\uD83D\uDD27 Forcer</button>'
             + '</td></tr>';
     }).join('');
 
@@ -447,7 +455,7 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
     modal.style.zIndex = 5000;
     modal.innerHTML = '<div class="modal" style="max-width:960px;width:95vw;padding:28px">'
         + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
-        + '<div style="font-size:36px">⚠️</div>'
+        + '<div style="font-size:36px">\u26A0\uFE0F</div>'
         + '<div><h2 style="color:#e74c3c;margin:0">' + nonAttribuesPrio.length + ' dossier(s) prioritaire(s) non attribué(s)</h2>'
         + '<p style="color:#666;font-size:13px;margin:4px 0 0">Ces dossiers nécessitent une attention immédiate.</p></div></div>'
         + '<div style="overflow-x:auto;border:1px solid #eee;border-radius:8px">'
@@ -460,13 +468,12 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
         + '<tbody>' + rows + '</tbody></table></div>'
         + '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">'
         + '<button class="btn btn-secondary" onclick="closeModal(&quot;prio-alert-modal&quot;)">Ignorer pour l&apos;instant</button>'
-        + '<button class="btn btn-primary" onclick="closeModal(&quot;prio-alert-modal&quot;)">✅ Valider</button>'
+        + '<button class="btn btn-primary" onclick="closeModal(&quot;prio-alert-modal&quot;)">\u2705 Valider</button>'
         + '</div></div>';
     document.body.appendChild(modal);
 }
 
 async function forceAttribuerPrioritaire(dossierId, btn) {
-    // Ouvrir une mini-modale de sélection gestionnaire
     await loadAllUsers();
     var gests = (allUsers||[]).filter(function(u){ return ['gestionnaire','manager','admin'].includes(u.role) && u.actif; });
     var opts = gests.map(function(g){ return '<option value="' + (g.prenom+' '+g.nom) + '">' + g.prenom + ' ' + g.nom + '</option>'; }).join('');
@@ -495,10 +502,9 @@ async function doForceAttribution(dossierId) {
     if (r.error) { showNotif('Erreur : ' + r.error.message, 'error'); return; }
     await auditLog('FORCE_ATTRIBUTION_PRIORITAIRE', 'Dossier ' + dossierId + ' forcé vers ' + nom);
     closeModal('force-attr-modal');
-    // Retirer la ligne du tableau de la modale alerte
     var row = document.querySelector('#prio-alert-modal tr td button[onclick*="' + dossierId + '"]');
     if (row) row.closest('tr').style.opacity = '0.4';
-    showNotif('✅ Dossier attribué à ' + nom, 'success');
+    showNotif('\u2705 Dossier attribué à ' + nom, 'success');
     await loadDossiers();
 }
 // ===== FIN ALERTE PRIORITAIRES =====
