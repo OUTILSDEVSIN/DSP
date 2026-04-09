@@ -172,7 +172,7 @@ async function showPropositionModal() {
             var okTp  = !tp  || tp.includes(dTp);
             var okNat = !nat || nat.includes(dNat);
             return okPf && okTp && okNat;
-        }).slice(0, 10);
+        });
 
         eligible.forEach(function(d) { usedIds.push(d.id); });
         // Fusionner pré-assignés (en tête) + éligibles normaux
