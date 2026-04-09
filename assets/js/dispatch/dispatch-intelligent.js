@@ -220,7 +220,7 @@ async function showPropositionModal() {
             + '</div>';
     });
 
-    modal.innerHTML = '<div class="modal" style="max-width:700px;width:95vw;max-height:88vh;overflow-y:auto">'
+    modal.innerHTML = '<div class="modal" style="max-width:720px;width:95vw;max-height:88vh;overflow-y:auto">'
         + '<h2>🚀 Proposition de dispatch intelligent</h2>'
         + '<div id="global-dispatch-counter" style="font-size:12px;color:var(--gray-700);margin:-4px 0 8px 0;padding:6px 10px;background:#f5f5fb;border-radius:8px;border:1px solid #e0e3ff">'
         + 'Total libres : <strong>' + totalLibres + '</strong> · Déjà prévus : <strong>0</strong> · Reste à attribuer : <strong>' + totalLibres + '</strong>'
@@ -228,7 +228,10 @@ async function showPropositionModal() {
         + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Dossiers filtrés par habilitations. Ajustez le nombre max ou supprimez des dossiers.</p>'
         + blocks
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
-        + '<div id="global-dispatch-counter-footer" style="font-size:12px;color:var(--gray-700)"></div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--gray-700)">' 
+        + '<div id="global-dispatch-counter-footer"></div>'
+        + '<button id="btn-reeq" class="btn btn-light" style="padding:4px 10px;font-size:11px;align-self:flex-start">🔄 Rééquilibrer la proposition</button>'
+        + '</div>'
         + '<div style="display:flex;gap:12px;justify-content:flex-end">'
         + '<button class="btn btn-secondary" id="btn-prop-cancel">Annuler</button>'
         + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 32px;font-weight:700">✅ DISPATCH</button>'
@@ -237,10 +240,23 @@ async function showPropositionModal() {
     document.body.appendChild(modal);
     document.getElementById('btn-prop-cancel').onclick = function() { closeModal('proposition-modal'); };
 
+    // Bouton Rééquilibrer : on relance simplement une nouvelle proposition à partir de l'état actuel des dossiers
+    var btnReeq = document.getElementById('btn-reeq');
+    if (btnReeq) {
+        btnReeq.onclick = function() {
+            closeModal('proposition-modal');
+            // On relance showPropositionModal qui va lire les dossiers non attribués + habilitations
+            showPropositionModal();
+        };
+    }
+
     function recomputeGlobalCounters() {
         var totalAssigned = 0;
         modal.querySelectorAll('.dossiers-list-block').forEach(function(block){
-            totalAssigned += block.querySelectorAll('[data-dossier-id]').length;
+            // Ne compter que les lignes visibles (respect du Max)
+            totalAssigned += Array.from(block.querySelectorAll('[data-dossier-id]')).filter(function(row){
+                return row.style.display !== 'none';
+            }).length;
         });
         var remaining = totalLibres - totalAssigned;
         var txt = 'Total libres : <strong>' + totalLibres + '</strong> · Déjà prévus : <strong>' + totalAssigned + '</strong> · Reste à attribuer : <strong>' + Math.max(remaining,0) + '</strong>';
