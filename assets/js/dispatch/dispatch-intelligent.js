@@ -49,7 +49,7 @@ function showRepartitionModal() {
         + '<h2>⚙️ Mode de répartition</h2>'
         + '<div id="box-auto" style="display:flex;align-items:center;gap:12px;padding:16px;border:2px solid var(--rose);border-radius:var(--radius-md);margin-bottom:10px;cursor:pointer;background:#fff5f7">'
         + '<input type="radio" id="r-auto" name="repart-mode" value="auto" checked style="width:18px;height:18px;accent-color:var(--rose)">'
-        + '<div><strong>Automatique</strong><br><small style="color:var(--gray-600)">Dispatch intelligent par habilitations (10/gestionnaire)</small></div></div>'
+        + '<div><strong>Automatique</strong><br><small style="color:var(--gray-600)">Dispatch intelligent par habilitations (15/gestionnaire)</small></div></div>'
         + '<div id="box-manual" style="display:flex;align-items:center;gap:12px;padding:16px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:20px;cursor:pointer">'
         + '<input type="radio" id="r-manual" name="repart-mode" value="manual" style="width:18px;height:18px;accent-color:var(--rose)">'
         + '<div><strong>Manuelle</strong><br><small style="color:var(--gray-600)">Aller directement au menu Attribution</small></div></div>'
@@ -157,8 +157,8 @@ async function showPropositionModal() {
         return okPf && okTp && okNat;
     }
 
-    // Max par défaut = 10 au départ (sera ajustable dans l'UI)
-    var DEFAULT_MAX = 10;
+    // Max par défaut = 15 au départ (sera ajustable dans l'UI)
+    var DEFAULT_MAX = 15;
     var maxPerGest = {};
     activeGest.forEach(function(g){ maxPerGest[String(g.id)] = DEFAULT_MAX; });
 
