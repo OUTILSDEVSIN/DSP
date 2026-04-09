@@ -182,6 +182,9 @@ async function showPropositionModal() {
         propData[String(g.id)] = { g: g, dossiers: preAFiltered.concat(eligible) };
     });
 
+    // Compteurs globaux
+    var totalLibres = dossiersLibres.length + Object.values(dossiersPreAssignes).reduce(function(acc, arr){ return acc + arr.length; }, 0);
+
     var blocks = '';
     activeGest.forEach(function(g) {
         var prop = propData[String(g.id)];
@@ -198,10 +201,10 @@ async function showPropositionModal() {
         if (prop.dossiers.length === 0) {
             dLines = '<div style="padding:12px;text-align:center;color:var(--gray-600);font-size:13px">⚠️ Aucun dossier éligible pour les habilitations de ce gestionnaire</div>';
         }
-        blocks += '<div style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:white">'
+        blocks += '<div class="gest-block" data-gestid="' + g.id + '" style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:white">'
             + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
             + '<div><strong style="color:var(--navy)">' + g.prenom + ' ' + g.nom + '</strong>'
-            + ' <span style="font-size:11px;color:var(--gray-600);background:var(--gray-100);padding:2px 8px;border-radius:10px">' + prop.dossiers.length + ' dossier(s)</span></div>'
+            + ' <span class="badge-count" style="font-size:11px;color:var(--gray-600);background:var(--gray-100);padding:2px 8px;border-radius:10px">' + prop.dossiers.length + ' dossier(s)</span></div>'
             + '<div style="display:flex;align-items:center;gap:6px">'
             + '<label style="font-size:12px;color:var(--gray-600)">Max :</label>'
             + '<input type="number" class="nb-dossiers-input" data-gestid="' + g.id + '" value="10" min="1" max="50" style="width:55px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:13px">'
@@ -219,20 +222,58 @@ async function showPropositionModal() {
 
     modal.innerHTML = '<div class="modal" style="max-width:700px;width:95vw;max-height:88vh;overflow-y:auto">'
         + '<h2>🚀 Proposition de dispatch intelligent</h2>'
+        + '<div id="global-dispatch-counter" style="font-size:12px;color:var(--gray-700);margin:-4px 0 8px 0;padding:6px 10px;background:#f5f5fb;border-radius:8px;border:1px solid #e0e3ff">'
+        + 'Total libres : <strong>' + totalLibres + '</strong> · Déjà prévus : <strong>0</strong> · Reste à attribuer : <strong>' + totalLibres + '</strong>'
+        + '</div>'
         + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Dossiers filtrés par habilitations. Ajustez le nombre max ou supprimez des dossiers.</p>'
         + blocks
-        + '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
+        + '<div id="global-dispatch-counter-footer" style="font-size:12px;color:var(--gray-700)"></div>'
+        + '<div style="display:flex;gap:12px;justify-content:flex-end">'
         + '<button class="btn btn-secondary" id="btn-prop-cancel">Annuler</button>'
         + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 32px;font-weight:700">✅ DISPATCH</button>'
-        + '</div></div>';
+        + '</div></div></div>';
 
     document.body.appendChild(modal);
     document.getElementById('btn-prop-cancel').onclick = function() { closeModal('proposition-modal'); };
 
+    function recomputeGlobalCounters() {
+        var totalAssigned = 0;
+        modal.querySelectorAll('.dossiers-list-block').forEach(function(block){
+            totalAssigned += block.querySelectorAll('[data-dossier-id]').length;
+        });
+        var remaining = totalLibres - totalAssigned;
+        var txt = 'Total libres : <strong>' + totalLibres + '</strong> · Déjà prévus : <strong>' + totalAssigned + '</strong> · Reste à attribuer : <strong>' + Math.max(remaining,0) + '</strong>';
+        var top = modal.querySelector('#global-dispatch-counter');
+        var bottom = modal.querySelector('#global-dispatch-counter-footer');
+        if (top) top.innerHTML = txt;
+        if (bottom) bottom.innerHTML = txt;
+    }
+
+    function applyMaxToGest(gestid) {
+        var input = modal.querySelector('.nb-dossiers-input[data-gestid="' + gestid + '"]');
+        var max = parseInt((input && input.value) || '10', 10);
+        var block = modal.querySelector('.dossiers-list-block[data-gestid="' + gestid + '"]');
+        if (!block) return;
+        var rows = Array.from(block.querySelectorAll('[data-dossier-id]'));
+        rows.forEach(function(row, idx){ row.style.display = idx < max ? '' : 'none'; });
+        var badge = modal.querySelector('.gest-block[data-gestid="' + gestid + '"] .badge-count');
+        if (badge) badge.textContent = Math.min(max, rows.length) + ' dossier(s)';
+        recomputeGlobalCounters();
+    }
+
+    modal.querySelectorAll('.nb-dossiers-input').forEach(function(inp){
+        inp.addEventListener('input', function(){ applyMaxToGest(this.dataset.gestid); });
+    });
+
     modal.querySelectorAll('[data-dossier-rm]').forEach(function(btn) {
         btn.onclick = function() {
             var row = this.closest('[data-dossier-id]');
-            if (row) row.remove();
+            if (row) {
+                var gestid = row.closest('.dossiers-list-block').dataset.gestid;
+                row.remove();
+                applyMaxToGest(gestid);
+            }
         };
     });
 
@@ -244,15 +285,16 @@ async function showPropositionModal() {
                 if (!targetGestId) return;
                 var row = this.closest('[data-dossier-id]');
                 if (!row) return;
+                var sourceGestId = row.closest('.dossiers-list-block').dataset.gestid;
                 var targetBlock = modal.querySelector('.dossiers-list-block[data-gestid="' + targetGestId + '"]');
                 if (!targetBlock) { this.value = ''; return; }
-                // Mettre à jour l'attribut current-gest
                 this.setAttribute('data-current-gest', targetGestId);
                 this.value = '';
-                // Retirer le message vide s'il existe
                 var emptyMsg = targetBlock.querySelector('[data-empty-msg]');
                 if (emptyMsg) emptyMsg.remove();
                 targetBlock.appendChild(row);
+                applyMaxToGest(sourceGestId);
+                applyMaxToGest(targetGestId);
             };
         });
     }
@@ -281,8 +323,6 @@ async function showPropositionModal() {
     // Afficher la barre quand une case est cochée
     modal.addEventListener('change', function(e) {
         if (e.target.classList.contains('dossier-sel-cb')) {
-            var gestid = e.target.dataset.gestId;
-            // Chercher le gestid dans la ligne parente
             var block = e.target.closest('.dossiers-list-block');
             if (block) updateBulkBar(block.dataset.gestid);
         }
@@ -298,6 +338,7 @@ async function showPropositionModal() {
                 if (row) row.remove();
             });
             modal.querySelector('.sel-all-block[data-gestid="' + gestid + '"]').checked = false;
+            applyMaxToGest(gestid);
             updateBulkBar(gestid);
         });
     });
@@ -318,11 +359,16 @@ async function showPropositionModal() {
                 if (row) { cb.checked = false; target.appendChild(row); }
             });
             this.value = '';
-            updateBulkBar(gestid);
-            updateBulkBar(targetGestId);
+            applyMaxToGest(gestid);
+            applyMaxToGest(targetGestId);
             modal.querySelector('.sel-all-block[data-gestid="' + gestid + '"]').checked = false;
             bindMoveSelects();
         });
+    });
+
+    // Initialiser Max pour tous les blocs
+    modal.querySelectorAll('.nb-dossiers-input').forEach(function(inp){
+        applyMaxToGest(inp.dataset.gestid);
     });
 
     document.getElementById('btn-do-dispatch').onclick = async function() {
@@ -333,8 +379,9 @@ async function showPropositionModal() {
         btnDispatch.style.opacity = '0.8';
         var assignments = [];
         activeGest.forEach(function(g) {
-            var nb = parseInt((document.querySelector('.nb-dossiers-input[data-gestid="' + g.id + '"]')||{}).value) || 10;
-            var rows = Array.from(document.querySelectorAll('.dossiers-list-block[data-gestid="' + g.id + '"] [data-dossier-id]')).slice(0, nb);
+            var block = document.querySelector('.dossiers-list-block[data-gestid="' + g.id + '"]');
+            if (!block) return;
+            var rows = Array.from(block.querySelectorAll('[data-dossier-id]')).filter(function(row){ return row.style.display !== 'none'; });
             var nom = g.prenom + ' ' + g.nom;
             rows.forEach(function(el) {
                 assignments.push({ dossierId: el.dataset.dossierId, nom: nom });
