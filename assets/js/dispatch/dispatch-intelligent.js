@@ -288,7 +288,7 @@ async function showPropositionModal() {
         }
     });
 
-    // ── SUPPRESSION EN MASSE ──────────────────────────────────────────
+    // ── SUPPRESSION EN MASSE ─────────────────────────────────────────-
     modal.querySelectorAll('.bulk-rm-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var gestid = this.dataset.gestid;
@@ -332,27 +332,14 @@ async function showPropositionModal() {
         btnDispatch.innerHTML = '<span style="display:inline-block;animation:spin 0.8s linear infinite">⏳</span> Dispatch en cours...';
         btnDispatch.style.opacity = '0.8';
         var assignments = [];
-        var warnings = [];
         activeGest.forEach(function(g) {
             var nb = parseInt((document.querySelector('.nb-dossiers-input[data-gestid="' + g.id + '"]')||{}).value) || 10;
             var rows = Array.from(document.querySelectorAll('.dossiers-list-block[data-gestid="' + g.id + '"] [data-dossier-id]')).slice(0, nb);
             var nom = g.prenom + ' ' + g.nom;
-            if (rows.length < nb) {
-                warnings.push(nom + ' : ' + rows.length + '/' + nb + ' dossier(s) seulement');
-            }
             rows.forEach(function(el) {
                 assignments.push({ dossierId: el.dataset.dossierId, nom: nom });
             });
         });
-        if (warnings.length > 0) {
-            var msg = '⚠️ Certains gestionnaires n\'ont pas reçu le nombre demandé :\n' + warnings.join('\n');
-            if (!confirm(msg + '\n\nContinuer quand même ?')) {
-                btnDispatch.disabled = false;
-                btnDispatch.innerHTML = '✅ DISPATCH';
-                btnDispatch.style.opacity = '';
-                return;
-            }
-        }
         var ok = 0;
         for (var i = 0; i < assignments.length; i++) {
             var a = assignments[i];
@@ -378,7 +365,7 @@ async function showPropositionModal() {
 
 
 
-// ===== ALERTE PRIORITAIRES NON ATTRIBUÉS =====
+// ===== ALERTE PRIORITAIRES NON ATTRIBUÉs =====
 async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, histoPropActif) {
     await loadDossiers();
     var PRIORITAIRES_ATTR = ['OPTINEO'];
