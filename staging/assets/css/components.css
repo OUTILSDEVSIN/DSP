@@ -166,6 +166,17 @@
   .dark-toggle:hover { background: rgba(255,255,255,0.1); }
   /* ===== FIN MODE SOMBRE ===== */
 
+  /* ===== LIGNES MES DOSSIERS — MODE CLAIR ===== */
+  .row-troc        { background: #fffde7; border-left: 3px solid #f39c12; }
+  .row-relance     { background: #fffde7; border-left: 3px solid #f39c12; }
+  .row-deja-traite { background: #fffbea; border-left: 3px solid #ffc107; }
+
+  /* ===== LIGNES MES DOSSIERS — MODE SOMBRE ===== */
+  body.dark-mode .row-troc,
+  body.dark-mode .row-relance     { background: #252836; border-left: 3px solid #f4b860; }
+  body.dark-mode .row-deja-traite { background: #201f10; border-left: 3px solid #f4b860; }
+  /* ===== FIN LIGNES MES DOSSIERS ===== */
+
   
   /* ===== DPLANE STYLES ===== */
   .tool-switcher { display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.08);border-radius:8px;padding:3px;margin-right:12px; }
