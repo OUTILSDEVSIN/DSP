@@ -156,6 +156,42 @@
   body.dark-mode td, body.dark-mode th { color: #d0d5e0; border-color: #2a2d3e; }
   body.dark-mode .notif-success { background: #1a4a2e; }
   body.dark-mode .notif-error { background: #4a1a1a; }
+
+  /* ===== MODE SOMBRE — LIGNES MES DOSSIERS ===== */
+  /* Lignes "Troc en cours" et "Relancé" : background:#fffde7 → sombre */
+  body.dark-mode tr[style*="background:#fffde7"] td,
+  body.dark-mode tr[style*="background: #fffde7"] td {
+    background: #2a2410 !important;
+    color: #d0d5e0 !important;
+  }
+  /* Ligne "Déjà traité par moi" : background:#fffbea → sombre */
+  body.dark-mode tr[style*="background:#fffbea"] td,
+  body.dark-mode tr[style*="background: #fffbea"] td {
+    background: #252215 !important;
+    color: #d0d5e0 !important;
+  }
+  /* Badges inline "Troc en cours" et "Relancé" : fond jaune → sombre */
+  body.dark-mode span[style*="background:#fff3cd"],
+  body.dark-mode span[style*="background: #fff3cd"] {
+    background: #3a2e0a !important;
+    border-color: #7a5c10 !important;
+    color: #f4b860 !important;
+  }
+  /* Badge "Déjà traité" : background:#fff3cd color:#856404 → sombre */
+  body.dark-mode div[style*="background:#fff3cd"],
+  body.dark-mode div[style*="background: #fff3cd"] {
+    background: #2e2508 !important;
+    border-color: #6b4e0a !important;
+    color: #e8c06a !important;
+  }
+  /* Date état : background:#e8f0fb → sombre */
+  body.dark-mode span[style*="background:#e8f0fb"],
+  body.dark-mode span[style*="background: #e8f0fb"] {
+    background: #1a2035 !important;
+    color: #a0b4d0 !important;
+  }
+  /* ===== FIN MODE SOMBRE — LIGNES MES DOSSIERS ===== */
+
   /* Toggle button */
   .dark-toggle {
     background: none; border: none; cursor: pointer;
