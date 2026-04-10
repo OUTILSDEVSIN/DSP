@@ -79,6 +79,33 @@ async function renderMesDossiers() {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
+  // ===== BUG-001 FIX : POPUP MATIN =====
+  // Afficher une fois par session le nombre réel de dossiers à traiter.
+  // Ancienne logique : basée sur relances_notif (sessionStorage vidé à chaque fermeture
+  // de navigateur) → affichait 0 au démarrage. Nouvelle logique : on compte directement
+  // les dossiers non traités depuis Supabase, déjà chargés dans mesDossiers.
+  var dossiersATraiter = mesDossiers.filter(function(d) { return !d.traite; });
+  var dejaVuPopupMatin = safeSession.getItem('popup_matin_vu');
+  if (dossiersATraiter.length > 0 && !dejaVuPopupMatin) {
+    safeSession.setItem('popup_matin_vu', '1');
+    setTimeout(function() {
+      if (document.getElementById('popup-matin-modal')) return;
+      var popupMatin = document.createElement('div');
+      popupMatin.className = 'modal-overlay';
+      popupMatin.id = 'popup-matin-modal';
+      popupMatin.style.zIndex = '6000';
+      popupMatin.innerHTML = '<div class="modal" style="max-width:420px;text-align:center">'
+        + '<div style="font-size:44px;margin-bottom:8px">📋</div>'
+        + '<h2 style="color:var(--navy)">Bonjour ' + currentUserData.prenom + ' !</h2>'
+        + '<p style="color:#666;font-size:13px;margin:8px 0 20px">Tu as <strong>'
+        + dossiersATraiter.length + ' dossier(s) à traiter</strong> aujourd\'hui.</p>'
+        + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(\'popup-matin-modal\')">C\'est parti ! 💪</button>'
+        + '</div>';
+      document.body.appendChild(popupMatin);
+    }, 600);
+  }
+  // ===== FIN BUG-001 FIX =====
+
   // Bouton troc : visible pour gestionnaire et admin
   // 🔑 FIX badge dupliqué : on NE MET PLUS le <span> badge ici.
   // C'est rafraichirBadgeTroc() (appelé en fin de rendu) qui gère seul le badge numérique.
@@ -148,6 +175,7 @@ async function renderMesDossiers() {
       return da - db2;
     });
 
+    // Logique relances conservée pour les badges "🔄 Relancé" sur les lignes du tableau
     const relancesRefs = JSON.parse(safeSession.getItem('relances_notif') || '[]');
     const mesRelances = mesDossiers.filter(d => relancesRefs.includes(d.ref_sinistre));
     if (mesRelances.length > 0) {
