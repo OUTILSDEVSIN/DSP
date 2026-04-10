@@ -114,23 +114,40 @@ async function renderMesDossiers() {
     </div>
     <table><thead><tr>
       <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
-      <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
+      <th>Réf. Sinistre</th><th style="white-space:nowrap">Date État</th><th>Réf. Contrat</th><th>Nature</th>
       <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
-    html += '<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
+    html += '<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
   } else {
     const monNomMD = currentUserData.prenom + ' ' + currentUserData.nom;
     const histoMapMD = window._historiqueMap || {};
     const histoActifMD = window._historiqueActif !== false;
     var _recuperesMD = JSON.parse(safeSession.getItem('_recuperesMD') || '[]');
     var _recuperesSetMD = new Set(_recuperesMD.map(Number));
+
+    // Tri par date_etat ascendant (plus ancienne en tête), nulls en dernier
+    var parseDateEtat = function(s) {
+      if (!s) return null;
+      // Format dd/mm/yyyy
+      var p = s.split('/');
+      if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+      return new Date(s);
+    };
     mesDossiers.sort(function(a, b) {
-      var aR = _recuperesSetMD.has(a.id) ? 1 : 0;
-      var bR = _recuperesSetMD.has(b.id) ? 1 : 0;
+      // Les dossiers récupérés en autonomie restent en tête
+      var aR = _recuperesSetMD.has(a.id) ? 0 : 1;
+      var bR = _recuperesSetMD.has(b.id) ? 0 : 1;
       if (aR !== bR) return aR - bR;
-      return (a.id || 0) - (b.id || 0);
+      // Puis tri par date_etat ascendant
+      var da = parseDateEtat(a.date_etat);
+      var db2 = parseDateEtat(b.date_etat);
+      if (!da && !db2) return 0;
+      if (!da) return 1;
+      if (!db2) return -1;
+      return da - db2;
     });
+
     const relancesRefs = JSON.parse(safeSession.getItem('relances_notif') || '[]');
     const mesRelances = mesDossiers.filter(d => relancesRefs.includes(d.ref_sinistre));
     if (mesRelances.length > 0) {
@@ -181,6 +198,9 @@ async function renderMesDossiers() {
           ${enTroc ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">⇄ Troc en cours</span>' : ''}
           ${isRelance && !enTroc ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #f39c12;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#e67e22;margin-left:4px">🔄 Relancé</span>' : ''}
           ${dejaTraiteParMoi ? `<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">📌 Déjà traité le ${new Date(histoEntryMD.date_traitement).toLocaleDateString('fr-FR')}</div>` : ''}
+        </td>
+        <td style="white-space:nowrap;font-size:12px;font-weight:600;color:#1B3461">
+          ${d.date_etat ? `<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">&#128197; ${d.date_etat}</span>` : '<span style="color:#bbb">--</span>'}
         </td>
         <td>${d.ref_contrat}</td>
         <td>${d.nature_label || d.nature}</td>
