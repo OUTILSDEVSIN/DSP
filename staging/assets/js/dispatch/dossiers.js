@@ -163,15 +163,16 @@ async function renderMesDossiers() {
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
       // Badge troc en cours
       const enTroc = typeof isDossierEnTroc === 'function' && isDossierEnTroc(d.id);
-      // Style de ligne
-      let rowStyle = '';
-      if (enTroc) rowStyle = 'background:#fffde7;border-left:3px solid #f39c12;';
-      else if (isRelance) rowStyle = 'background:#fffde7;border-left:3px solid #f39c12';
-      else if (dejaTraiteParMoi) rowStyle = 'background:#fffbea;border-left:3px solid #ffc107';
+      // 🔑 FIX dark-mode : on utilise des classes CSS à la place de styles inline
+      // Les couleurs sont gérées dans components.css (.row-troc, .row-relance, .row-deja-traite)
+      let rowClass = '';
+      if (enTroc)                rowClass = 'row-troc';
+      else if (isRelance)        rowClass = 'row-relance';
+      else if (dejaTraiteParMoi) rowClass = 'row-deja-traite';
       html += `<tr
         data-dossier-id="${d.id}"
         data-dossier-nom="${d.ref_sinistre}"
-        style="${rowStyle}">
+        class="${rowClass}">
         <td class="troc-check-col" style="display:none;text-align:center;">
           <input type="checkbox" class="row-check" style="width:16px;height:16px;accent-color:#f39c12;cursor:pointer;">
         </td>
