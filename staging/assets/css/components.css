@@ -167,9 +167,10 @@
   /* ===== FIN MODE SOMBRE ===== */
 
   /* ===== LIGNES MES DOSSIERS — MODE CLAIR ===== */
-  .row-troc        { background: #fffde7; border-left: 3px solid #f39c12; }
-  .row-relance     { background: #fffde7; border-left: 3px solid #f39c12; }
-  .row-deja-traite { background: #fffbea; border-left: 3px solid #ffc107; }
+  /* Fond teinté ambré sans border-left coloré — plus sobre et pro */
+  .row-troc        { background: #fffbf0; }
+  .row-relance     { background: #fffbf0; }
+  .row-deja-traite { background: #fffef5; }
 
   /* ===== LIGNES MES DOSSIERS — MODE SOMBRE ===== */
   body.dark-mode .row-troc,
