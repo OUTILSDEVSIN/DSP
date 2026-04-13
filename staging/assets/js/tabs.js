@@ -41,6 +41,6 @@ async function loadAllUsers() {
 }
 
 async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat').order('created_at', { ascending: true });
+  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat,is_dvol,assure_nom,date_passage_dvol,traite_at').order('created_at', { ascending: true });
   allDossiers = data || [];
 }
