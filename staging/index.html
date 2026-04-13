@@ -16,7 +16,7 @@
 
   <!-- ===== CACHE BUSTING ===== -->
   <script>
-    var _APP_VERSION = '2.5.55';
+    var _APP_VERSION = '2.6.0';
     var storedVersion = null;
     try { storedVersion = sessionStorage.getItem('dispatchis_version'); } catch(e) {}
     if (storedVersion && storedVersion !== _APP_VERSION) {
@@ -85,6 +85,9 @@
       <button class="tool-btn" id="btn-tool-dplane" onclick="switchTool('dplane')">
         <span class="d-letter">D</span>plane
       </button>
+      <button class="tool-btn" id="btn-tool-dvol" onclick="switchTool('dvol')">
+        <span class="d-letter">D</span>vol
+      </button>
     </div>
     <div class="header-right">
       <span class="header-username" id="header-name"></span>
@@ -136,6 +139,82 @@
 <!-- ===== FIN DPLANE SCREEN ===== -->
 
 
+<!-- ===== DVOL SCREEN ===== -->
+<div id="dvol-screen" style="display:none;">
+  <div class="content">
+
+    <!-- En-tête page -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1 style="font-size:20px;font-weight:800;color:var(--navy);margin:0;">
+          <span style="color:var(--rose);">D</span>vol
+        </h1>
+        <p style="font-size:12px;color:var(--gray-600);margin:2px 0 0;">Gestion des dossiers vol de véhicule</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-secondary" onclick="dvolCharger()">🔄 Actualiser</button>
+      </div>
+    </div>
+
+    <!-- ===== ENCART ACTIONS REQUISES ===== -->
+    <div id="dvol-encart-alertes" style="
+      background: linear-gradient(135deg, #fff0f4, #fff8fb);
+      border: 2px solid var(--rose, #e5195e);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: none;
+    ">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:20px;">🚨</span>
+        <h2 style="font-size:15px;font-weight:800;color:var(--rose, #e5195e);margin:0;">Actions requises</h2>
+        <span id="dvol-badge-alertes" style="
+          background:var(--rose, #e5195e);color:white;
+          font-size:11px;font-weight:700;
+          padding:2px 8px;border-radius:20px;
+        ">0</span>
+      </div>
+      <div id="dvol-liste-alertes" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- ===== TABLEAU LISTE DOSSIERS ===== -->
+    <div style="background:white;border-radius:12px;border:1px solid var(--gray-200, #e5e7eb);overflow:hidden;">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--gray-200, #e5e7eb);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <span style="font-size:14px;font-weight:700;color:var(--navy);">📋 Tous les dossiers VOL</span>
+        <span id="dvol-compteur" style="font-size:12px;color:var(--gray-500, #6b7280);">— dossiers</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:var(--gray-50, #f9fafb);border-bottom:1px solid var(--gray-200, #e5e7eb);">
+              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--navy);white-space:nowrap;">N° Dossier</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--navy);white-space:nowrap;">Assuré</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--navy);white-space:nowrap;">Compagnie</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--navy);white-space:nowrap;">Date vol</th>
+              <th style="padding:10px 14px;text-align:center;font-weight:700;color:var(--navy);white-space:nowrap;">J+X</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--navy);white-space:nowrap;">Statut</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--navy);white-space:nowrap;">Gestionnaire</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--navy);white-space:nowrap;">Docs</th>
+              <th style="padding:10px 14px;text-align:center;font-weight:700;color:var(--navy);white-space:nowrap;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dvol-tbody">
+            <tr>
+              <td colspan="9" style="text-align:center;padding:40px;color:var(--gray-400, #9ca3af);">
+                <div style="font-size:24px;margin-bottom:8px;">📂</div>
+                Chargement des dossiers…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+<!-- ===== FIN DVOL SCREEN ===== -->
+
+
 <!-- ===== JAVASCRIPT — ordre de chargement critique ===== -->
 <!-- 1. Config & init Supabase (doit être premier) -->
 <script src="assets/js/config.js"></script>
@@ -170,7 +249,10 @@
 <!-- 8. Dplane -->
 <script src="assets/js/dplane/dplane.js"></script>
 
-<!-- 9. Init final (appels init au chargement) -->
+<!-- 9. Dvol -->
+<script src="assets/js/dvol/dvol.js"></script>
+
+<!-- 10. Init final (appels init au chargement) -->
 <script src="assets/js/init.js"></script>
 
 </body>
