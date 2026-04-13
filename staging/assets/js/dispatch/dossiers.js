@@ -1,6 +1,5 @@
 // ===== TOGGLE TRAITÉ DANS MES DOSSIERS =====
 async function toggleTraiteMesDossiers(id, checked) {
-  // Bloquer si dossier en troc actif
   if (isDossierEnTroc && isDossierEnTroc(id)) {
     showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc avant de le marquer traité.', 'error');
     await loadDossiers();
@@ -67,12 +66,12 @@ function dvolOuvrirFormulaire(dossierId) {
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;';
 
   const docsHtml = [
-    { key:'questionnaire_vol',  label:'Questionnaire VOL', icon:'📋' },
-    { key:'certificat_cession', label:'Certificat de cession / carte grise', icon:'📄' },
-    { key:'non_gage',           label:'Non-gage (ANTS)', icon:'📄' },
-    { key:'controle_technique', label:'Contrôle technique', icon:'🔧' },
-    { key:'facture_achat',      label:'Facture d\'achat du véhicule', icon:'🧾' },
-    { key:'facture_entretien',  label:'Facture(s) d\'entretien', icon:'🧾' }
+    { key:'questionnaire_vol',  label:'Questionnaire VOL',                    icon:'📋' },
+    { key:'certificat_cession', label:'Certificat de cession / carte grise',  icon:'📄' },
+    { key:'non_gage',           label:'Non-gage (ANTS)',                       icon:'📄' },
+    { key:'controle_technique', label:'Contrôle technique',                    icon:'🔧' },
+    { key:'facture_achat',      label:'Facture d\'achat du véhicule',          icon:'🧾' },
+    { key:'facture_entretien',  label:'Facture(s) d\'entretien',               icon:'🧾' }
   ].map(doc => `
     <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
       <input type="checkbox" name="dvol_doc" value="${doc.key}" style="width:16px;height:16px;accent-color:var(--rose);flex-shrink:0;">
@@ -90,7 +89,6 @@ function dvolOuvrirFormulaire(dossierId) {
       <button onclick="document.getElementById('dvol-envoi-modal').remove()" style="background:rgba(255,255,255,.15);border:none;color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;">×</button>
     </div>
     <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px;">
-
       <div>
         <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">📅 Date de déclaration du vol *</label>
         <input type="date" id="dvol-date-declaration"
@@ -98,12 +96,10 @@ function dvolOuvrirFormulaire(dossierId) {
           max="${new Date().toISOString().split('T')[0]}"
           style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:14px;box-sizing:border-box;">
       </div>
-
       <div>
         <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📎 Documents déjà en votre possession</div>
         <div style="display:flex;flex-direction:column;gap:6px;">${docsHtml}</div>
       </div>
-
       <div style="display:flex;gap:8px;padding-top:4px;">
         <button onclick="document.getElementById('dvol-envoi-modal').remove()" class="btn btn-secondary" style="flex:1;">Annuler</button>
         <button onclick="dvolValiderEnvoi('${d.id}')" class="btn btn-primary" style="flex:2;">🚗 Valider l'envoi vers DVOL</button>
@@ -136,20 +132,21 @@ async function dvolValiderEnvoi(dossierId) {
   const numeroVol = 'VOL-' + new Date().getFullYear() + '-' + String(d.id).padStart(5,'0');
 
   // 3. Créer le dossier dans dvol_dossiers
+  // ✅ FIX : dispatch_dossier_id (bigint) remplace ref_sinistre_dispatch qui n'existait pas
   const { data: dvolRow, error: errDvol } = await db.from('dvol_dossiers').insert({
-    numero_dossier:          numeroVol,
-    ref_sinistre_dispatch:   d.ref_sinistre,
-    assure_nom:              d.assure_nom || d.ref_sinistre,
-    compagnie:               d.portefeuille,
-    compagnie_mere:          d.portefeuille,
-    date_declaration:        dateDecl,
-    statut:                  'en_attente_documents',
-    gestionnaire_id:         gestionnaireId,
-    documents_recus_liste:   docsChecked,
-    documents_recus:         docsChecked.length === 6,
+    numero_dossier:           numeroVol,
+    dispatch_dossier_id:      d.id,
+    assure_nom:               d.assure_nom || d.ref_sinistre,
+    compagnie:                d.portefeuille,
+    compagnie_mere:           d.portefeuille,
+    date_declaration:         dateDecl,
+    statut:                   'en_attente_documents',
+    gestionnaire_id:          gestionnaireId,
+    documents_recus_liste:    docsChecked,
+    documents_recus:          docsChecked.length === 6,
     date_reception_documents: docsChecked.length === 6 ? new Date().toISOString().split('T')[0] : null,
-    created_at:              new Date().toISOString(),
-    updated_at:              new Date().toISOString()
+    created_at:               new Date().toISOString(),
+    updated_at:               new Date().toISOString()
   }).select().single();
 
   if (errDvol) { showNotif('Erreur création dossier DVOL : ' + errDvol.message, 'error'); return; }
@@ -170,12 +167,12 @@ async function dvolValiderEnvoi(dossierId) {
       const datePrevue = new Date(debut);
       datePrevue.setDate(datePrevue.getDate() + (e.delai_jours || 0));
       return {
-        dossier_id:   dvolRow.id,
-        etape_id:     e.id,
-        statut:       'en_attente',
-        date_prevue:  datePrevue.toISOString().split('T')[0],
-        created_at:   new Date().toISOString(),
-        updated_at:   new Date().toISOString()
+        dossier_id:  dvolRow.id,
+        etape_id:    e.id,
+        statut:      'en_attente',
+        date_prevue: datePrevue.toISOString().split('T')[0],
+        created_at:  new Date().toISOString(),
+        updated_at:  new Date().toISOString()
       };
     });
     await db.from('dvol_suivi_etapes').insert(etapesAInserer);
@@ -274,7 +271,7 @@ async function renderMesDossiers() {
           + '<h2 style="color:#e67e22">Dossier(s) relancé(s)</h2>'
           + '<p style="color:#666;font-size:13px;margin:8px 0 16px">Le manager a importé une nouvelle remontée.<br>Les dossiers suivants nécessitent votre attention :</p>'
           + '<ul style="text-align:left;margin:0 0 16px 16px;padding:0">' + notifHtml + '</ul>'
-          + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(\'relance-notif-modal\')">✅ J\'ai compris</button>'
+          + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(\'relance-notif-modal\')">J\'ai compris</button>'
           + '</div>';
         document.body.appendChild(relanceModal);
         safeSession.setItem('relances_notif', JSON.stringify(
