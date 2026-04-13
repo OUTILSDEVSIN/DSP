@@ -56,12 +56,144 @@ async function recupererDossier(dossierId) {
 }
 // ===== FIN RÉCUPÉRER DOSSIER =====
 
+// ===== ENVOYER VERS DVOL =====
+function dvolOuvrirFormulaire(dossierId) {
+  const d = (allDossiers || []).find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+
+  document.getElementById('dvol-envoi-modal')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'dvol-envoi-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  const docsHtml = [
+    { key:'questionnaire_vol',  label:'Questionnaire VOL', icon:'📋' },
+    { key:'certificat_cession', label:'Certificat de cession / carte grise', icon:'📄' },
+    { key:'non_gage',           label:'Non-gage (ANTS)', icon:'📄' },
+    { key:'controle_technique', label:'Contrôle technique', icon:'🔧' },
+    { key:'facture_achat',      label:'Facture d\'achat du véhicule', icon:'🧾' },
+    { key:'facture_entretien',  label:'Facture(s) d\'entretien', icon:'🧾' }
+  ].map(doc => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
+      <input type="checkbox" name="dvol_doc" value="${doc.key}" style="width:16px;height:16px;accent-color:var(--rose);flex-shrink:0;">
+      <span style="font-size:13px;">${doc.icon} ${doc.label}</span>
+    </label>`
+  ).join('');
+
+  overlay.innerHTML = `
+  <div style="background:white;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.2);width:100%;max-width:520px;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,var(--navy,#1a2e4a),#2a4a6e);color:white;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:16px;font-weight:800;">🚗 Envoyer vers DVOL</div>
+        <div style="font-size:12px;opacity:.8;margin-top:2px;">Dossier ${d.ref_sinistre} · ${d.portefeuille||'—'}</div>
+      </div>
+      <button onclick="document.getElementById('dvol-envoi-modal').remove()" style="background:rgba(255,255,255,.15);border:none;color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;">×</button>
+    </div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px;">
+
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">📅 Date de déclaration du vol *</label>
+        <input type="date" id="dvol-date-declaration"
+          value="${new Date().toISOString().split('T')[0]}"
+          max="${new Date().toISOString().split('T')[0]}"
+          style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:14px;box-sizing:border-box;">
+      </div>
+
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📎 Documents déjà en votre possession</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">${docsHtml}</div>
+      </div>
+
+      <div style="display:flex;gap:8px;padding-top:4px;">
+        <button onclick="document.getElementById('dvol-envoi-modal').remove()" class="btn btn-secondary" style="flex:1;">Annuler</button>
+        <button onclick="dvolValiderEnvoi('${d.id}')" class="btn btn-primary" style="flex:2;">🚗 Valider l'envoi vers DVOL</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+async function dvolValiderEnvoi(dossierId) {
+  const d = (allDossiers || []).find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+
+  const dateDecl = document.getElementById('dvol-date-declaration')?.value;
+  if (!dateDecl) { showNotif('⚠️ Veuillez renseigner la date de déclaration.', 'error'); return; }
+
+  const docsChecked = [...document.querySelectorAll('input[name="dvol_doc"]:checked')].map(i => i.value);
+
+  // 1. Récupérer l'ID du gestionnaire connecté
+  const { data: userRow } = await db.from('utilisateurs')
+    .select('id')
+    .eq('prenom', currentUserData.prenom)
+    .eq('nom', currentUserData.nom)
+    .maybeSingle();
+  const gestionnaireId = userRow?.id || null;
+
+  // 2. Générer le numéro de dossier DVOL
+  const numeroVol = 'VOL-' + new Date().getFullYear() + '-' + String(d.id).padStart(5,'0');
+
+  // 3. Créer le dossier dans dvol_dossiers
+  const { data: dvolRow, error: errDvol } = await db.from('dvol_dossiers').insert({
+    numero_dossier:          numeroVol,
+    ref_sinistre_dispatch:   d.ref_sinistre,
+    assure_nom:              d.assure_nom || d.ref_sinistre,
+    compagnie:               d.portefeuille,
+    compagnie_mere:          d.portefeuille,
+    date_declaration:        dateDecl,
+    statut:                  'en_attente_documents',
+    gestionnaire_id:         gestionnaireId,
+    documents_recus_liste:   docsChecked,
+    documents_recus:         docsChecked.length === 6,
+    date_reception_documents: docsChecked.length === 6 ? new Date().toISOString().split('T')[0] : null,
+    created_at:              new Date().toISOString(),
+    updated_at:              new Date().toISOString()
+  }).select().single();
+
+  if (errDvol) { showNotif('Erreur création dossier DVOL : ' + errDvol.message, 'error'); return; }
+
+  // 4. Marquer is_dvol dans dossiers dispatch
+  await db.from('dossiers').update({
+    is_dvol: true,
+    date_passage_dvol: new Date().toISOString()
+  }).eq('id', dossierId);
+
+  // 5. Créer les 4 étapes de suivi (J+0, J+10, J+20, J+30)
+  const { data: etapesTemplate } = await db.from('dvol_etapes_template')
+    .select('*').eq('actif', true).order('ordre');
+
+  if (etapesTemplate && etapesTemplate.length > 0 && dvolRow?.id) {
+    const debut = new Date(dateDecl + 'T12:00:00');
+    const etapesAInserer = etapesTemplate.map(e => {
+      const datePrevue = new Date(debut);
+      datePrevue.setDate(datePrevue.getDate() + (e.delai_jours || 0));
+      return {
+        dossier_id:   dvolRow.id,
+        etape_id:     e.id,
+        statut:       'en_attente',
+        date_prevue:  datePrevue.toISOString().split('T')[0],
+        created_at:   new Date().toISOString(),
+        updated_at:   new Date().toISOString()
+      };
+    });
+    await db.from('dvol_suivi_etapes').insert(etapesAInserer);
+  }
+
+  // 6. Audit log
+  await auditLog('ENVOI_DVOL', 'Dossier ' + d.ref_sinistre + ' envoyé vers DVOL → ' + numeroVol);
+
+  document.getElementById('dvol-envoi-modal')?.remove();
+  showNotif('✅ Dossier envoyé vers DVOL (' + numeroVol + ')', 'success');
+
+  // 7. Basculer automatiquement sur l'outil DVOL
+  setTimeout(() => switchTool('dvol'), 800);
+}
+// ===== FIN ENVOYER VERS DVOL =====
+
 // ===== MES DOSSIERS =====
 async function renderMesDossiers() {
-  // 🔑 FIX : on est en train de re-rendre la page complète.
-  // Si trocModeActive est resté true d'un état précédent (ex: après actionTroc),
-  // setupTrocRowSelection() verrouille toutes les checkboxes traité.
-  // On force la remise à zéro ici avant tout rendu.
   if (trocModeActive) {
     trocModeActive = false;
     dossiersSelectionnes = [];
@@ -70,7 +202,6 @@ async function renderMesDossiers() {
   document.getElementById('main-content').innerHTML = '<div class="loading">Chargement...</div>';
   await loadDossiers();
   await loadAllUsers();
-  // Charger les trocs actifs pour badge
   if (typeof loadTrocsActifsDetails === 'function') await loadTrocsActifsDetails();
   var resHistoMD = await db.from('historique_sinistres').select('ref_sinistre, gestionnaire, date_traitement');
   window._historiqueMap = {};
@@ -79,9 +210,6 @@ async function renderMesDossiers() {
   const monNom = currentUserData.prenom + ' ' + currentUserData.nom;
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
-  // Bouton troc : visible pour gestionnaire et admin
-  // 🔑 FIX badge dupliqué : on NE MET PLUS le <span> badge ici.
-  // C'est rafraichirBadgeTroc() (appelé en fin de rendu) qui gère seul le badge numérique.
   const canTroc = ['gestionnaire', 'manager', 'admin'].includes(currentUserData.role);
   const btnTroc = canTroc
     ? `<button class="btn btn-secondary" id="btn-troc" onclick="onBtnTrocClick()" title="Trocs"
@@ -115,10 +243,11 @@ async function renderMesDossiers() {
     <table><thead><tr>
       <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
       <th>Réf. Sinistre</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
+      <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th><th>VOL</th>
     </tr></thead><tbody>`;
+
   if (!mesDossiers.length) {
-    html += '<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
+    html += '<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
   } else {
     const monNomMD = currentUserData.prenom + ' ' + currentUserData.nom;
     const histoMapMD = window._historiqueMap || {};
@@ -161,14 +290,19 @@ async function renderMesDossiers() {
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
-      // Badge troc en cours
       const enTroc = typeof isDossierEnTroc === 'function' && isDossierEnTroc(d.id);
-      // 🔑 FIX dark-mode : on utilise des classes CSS à la place de styles inline
-      // Les couleurs sont gérées dans components.css (.row-troc, .row-relance, .row-deja-traite)
       let rowClass = '';
       if (enTroc)                rowClass = 'row-troc';
       else if (isRelance)        rowClass = 'row-relance';
       else if (dejaTraiteParMoi) rowClass = 'row-deja-traite';
+
+      // Bouton DVOL : badge si déjà envoyé, sinon bouton
+      const dvolCell = d.is_dvol
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;color:#16a34a;">✅ Dans DVOL</span>`
+        : `<button onclick="dvolOuvrirFormulaire('${d.id}')" title="Envoyer ce dossier vers DVOL"
+            style="background:none;border:1.5px solid #2563eb;color:#2563eb;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;padding:4px 10px;white-space:nowrap;transition:all .15s;"
+            onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='none'">🚗 DVOL</button>`;
+
       html += `<tr
         data-dossier-id="${d.id}"
         data-dossier-nom="${d.ref_sinistre}"
@@ -200,13 +334,12 @@ async function renderMesDossiers() {
                 onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">`
           }
         </td>
+        <td style="text-align:center;">${dvolCell}</td>
       </tr>`;
     });
   }
   html += '</tbody></table></div>';
   document.getElementById('main-content').innerHTML = html;
-  // Réinitialiser le badge troc après rendu (seul responsable du badge numérique)
   if (typeof rafraichirBadgeTroc === 'function') rafraichirBadgeTroc();
-  // Activer la sélection de lignes pour le mode troc (trocModeActive est false ici → pas de verrouillage)
   if (typeof setupTrocRowSelection === 'function') setupTrocRowSelection();
 }
