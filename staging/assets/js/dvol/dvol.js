@@ -117,11 +117,10 @@ function dvolBarreDocs(dossier) {
   </div>`;
 }
 
-// Priorité 1 : ref_sinistre stockée directement dans dvol_dossiers (colonne ajoutée étape 1)
+// Priorité 1 : ref_sinistre stockée directement dans dvol_dossiers
 // Priorité 2 : chercher dans allDossiers dispatch par dispatch_dossier_id
 // Fallback   : afficher 'ID:xxx' si rien trouvé
 function dvolGetRefSinistre(dispatchDossierIdOrObj) {
-  // Appelé avec l'objet dvol_dossier complet (cas tableau et alertes)
   if (dispatchDossierIdOrObj && typeof dispatchDossierIdOrObj === 'object') {
     if (dispatchDossierIdOrObj.ref_sinistre) return dispatchDossierIdOrObj.ref_sinistre;
     const id = dispatchDossierIdOrObj.dispatch_dossier_id;
@@ -129,23 +128,19 @@ function dvolGetRefSinistre(dispatchDossierIdOrObj) {
     const d = (allDossiers || []).find(x => String(x.id) === String(id));
     return d ? d.ref_sinistre : ('ID:' + id);
   }
-  // Appelé avec un simple ID (rétrocompatibilité)
   if (!dispatchDossierIdOrObj) return '—';
-  // Chercher d'abord dans dvolDossiers si la ref est déjà stockée
   const dv = (dvolDossiers || []).find(x => String(x.dispatch_dossier_id) === String(dispatchDossierIdOrObj));
   if (dv && dv.ref_sinistre) return dv.ref_sinistre;
-  // Fallback : chercher dans allDossiers dispatch
   const d = (allDossiers || []).find(x => String(x.id) === String(dispatchDossierIdOrObj));
   return d ? d.ref_sinistre : ('ID:' + dispatchDossierIdOrObj);
 }
 
-// Calcule les dates prévisionnelles en tenant compte des jours ouvrés pour les notifications
+// Calcule les dates prévisionnelles
 function dvolCalcDatesPrev(dateDeclaration, decalageJours = 0) {
   if (!dateDeclaration) return {};
   const dates = {};
   for (const e of DVOL_ETAPES_DEF) {
     const dateCalc = dvolAddDays(dateDeclaration, e.delai + decalageJours);
-    // Les notifications sont décalées au lundi si elles tombent sam/dim
     dates[e.slug] = dvolDecalerOuvre(dateCalc);
   }
   return dates;
@@ -173,8 +168,7 @@ function dvolGetRole() {
 }
 
 // ────────────────────────────────────────────────────────────
-// RÈGLE J+30 — Le règlement est interdit avant J+30 calendaires
-// depuis la date de déclaration, sans exception.
+// RÈGLE J+30
 // ────────────────────────────────────────────────────────────
 function dvolPeutRegler(dateDeclaration) {
   const jours = dvolJours(dateDeclaration);
@@ -182,8 +176,7 @@ function dvolPeutRegler(dateDeclaration) {
 }
 
 // ────────────────────────────────────────────────────────────
-// ALERTES — 1 entrée par dossier, même si plusieurs anomalies
-// Le gestionnaire consulte le détail en ouvrant le dossier.
+// ALERTES
 // ────────────────────────────────────────────────────────────
 
 function dvolGetAlertes(dossiers) {
@@ -196,14 +189,12 @@ function dvolGetAlertes(dossiers) {
     const jours = dvolJours(d.date_declaration);
     if (jours === null) continue;
 
-    // On passe l'objet complet pour profiter de la ref_sinistre stockée
     const ref = dvolGetRefSinistre(d);
     const recusList = dvolGetDocsRecus(d);
     const docsObligManquants = DVOL_DOCS_OBLIGATOIRES.filter(doc => !recusList.includes(doc.key)).length;
     const decalage = d.decalage_jours || 0;
     const etapes = dvolGetEtapes(d._etapes || [], d.date_declaration, decalage);
 
-    // Collecter toutes les anomalies de ce dossier
     const anomalies = [];
     let urgenceMax = 'normale';
 
@@ -241,7 +232,6 @@ function dvolGetAlertes(dossiers) {
       }
     }
 
-    // Une seule ligne par dossier, même si plusieurs anomalies détectées
     if (anomalies.length > 0) {
       const messageResume = anomalies.length === 1
         ? `J+${jours} — ${anomalies[0].label}`
@@ -251,7 +241,7 @@ function dvolGetAlertes(dossiers) {
         message: messageResume,
         detail: `${ref} · ${d.compagnie_mere || d.compagnie}`,
         urgence: urgenceMax,
-        anomalies // disponible pour affichage dans la fiche dossier
+        anomalies
       });
     }
   }
@@ -279,7 +269,6 @@ function dvolRenderAlertes(alertes) {
   badge.textContent = alertes.length;
   liste.innerHTML = alertes.map(a => {
     const s = DVOL_URGENCE_STYLES[a.urgence] || DVOL_URGENCE_STYLES.normale;
-    // Sous-détail : liste des anomalies si plusieurs
     const sousDetail = a.anomalies.length > 1
       ? `<div style="font-size:10px;color:#9ca3af;margin-top:3px;">${a.anomalies.map(x => x.label).join(' · ')}</div>`
       : '';
@@ -330,7 +319,6 @@ function dvolRenderTableau(dossiers) {
     const dateVol = d.date_declaration ? new Date(d.date_declaration+'T12:00:00').toLocaleDateString('fr-FR') : '—';
     const gest    = d.gestionnaire_id ? (allUsers||[]).find(u => u.id === d.gestionnaire_id) : null;
     const gestNom = gest ? gest.prenom+' '+gest.nom : '<span style="color:#9ca3af;">—</span>';
-    // On passe l'objet complet pour lire ref_sinistre directement
     const refSin  = dvolGetRefSinistre(d);
     return `<tr style="border-bottom:1px solid #f3f4f6;${rowBg}transition:background .1s;cursor:pointer;"
       onclick="dvolOuvrirDossier('${d.id}')"
@@ -353,34 +341,59 @@ function dvolRenderTableau(dossiers) {
 }
 
 // ────────────────────────────────────────────────────────────
-// FILE D'ARIANE — Style chevrons (cases fléchées)
+// FILE D'ARIANE — Chevrons, fond neutre, contour coloré
+//
+// Technique : clip-path ne supporte pas border CSS.
+// Solution  : deux divs superposés avec position:absolute.
+//   - Div CONTOUR (fond = couleur) légèrement plus grand
+//   - Div FOND NEUTRE (fond = blanc) par-dessus, inséré de 2px
+// Cela donne l'illusion d'un contour coloré sur la forme.
 // ────────────────────────────────────────────────────────────
 
 function dvolRenderFilAriane(etapes, estCloture) {
   const today = new Date(); today.setHours(0,0,0,0);
   const nbEtapes = etapes.length;
+  // Épaisseur du « contour » simulé en px
+  const BORDER = 2;
 
-  return `<div style="display:flex;align-items:stretch;width:100%;margin-bottom:20px;overflow-x:auto;">
+  return `<div style="display:flex;align-items:stretch;width:100%;margin-bottom:20px;overflow-x:auto;gap:0;">
     ${etapes.map((e, i) => {
       const fait    = e.statut === 'realise';
       const annule  = e.statut === 'annule';
       const enCours = !fait && !annule && i > 0 && etapes[i-1].statut === 'realise';
       const retard  = !fait && !annule && e.date_prevue && new Date(e.date_prevue+'T12:00:00') < today;
+      const isFirst = i === 0;
       const isLast  = i === nbEtapes - 1;
 
-      let bg, textColor, borderColor;
-      if (annule) {
-        bg = '#e5e7eb'; textColor = '#9ca3af'; borderColor = '#d1d5db';
-      } else if (fait) {
-        bg = '#16a34a'; textColor = '#ffffff'; borderColor = '#15803d';
-      } else if (enCours) {
-        bg = '#1e3a5f'; textColor = '#ffffff'; borderColor = '#1e3a5f';
-      } else if (retard) {
-        bg = '#fef2f2'; textColor = '#dc2626'; borderColor = '#fca5a5';
-      } else {
-        // En attente — gris neutre (anciennement vert clair)
-        bg = '#f3f4f6'; textColor = '#9ca3af'; borderColor = '#e5e7eb';
-      }
+      // Couleur du contour et du texte selon l'état
+      let couleur;
+      if (annule)        { couleur = '#d1d5db'; }
+      else if (fait)     { couleur = '#16a34a'; }
+      else if (enCours)  { couleur = '#1e3a5f'; }
+      else if (retard)   { couleur = '#dc2626'; }
+      else               { couleur = '#d1d5db'; } // en attente
+
+      const textColor = annule ? '#9ca3af' : couleur;
+      // Fond intérieur toujours neutre blanc/gris très clair
+      const bgInner = annule ? '#f9fafb' : '#ffffff';
+
+      // clip-path pour la COUCHE CONTOUR (pleine taille)
+      const shapeOuter = isFirst
+        ? (isLast ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)'
+                  : 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%)')
+        : (isLast ? 'polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 0% 50%)'
+                  : 'polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%)');
+
+      // clip-path pour la COUCHE FOND (insérée de BORDER px sur chaque bord)
+      // On insère le fond de BORDER px sur tous les côtés pour simuler le contour
+      const b = BORDER;
+      const shapeInner = isFirst
+        ? (isLast
+            ? `polygon(${b}px ${b}px, calc(100% - ${b}px) ${b}px, calc(100% - ${b}px) calc(100% - ${b}px), ${b}px calc(100% - ${b}px))`
+            : `polygon(${b}px ${b}px, calc(100% - 12px - ${b}px) ${b}px, calc(100% - ${b}px) 50%, calc(100% - 12px - ${b}px) calc(100% - ${b}px), ${b}px calc(100% - ${b}px))`)
+        : (isLast
+            ? `polygon(${12+b}px ${b}px, calc(100% - ${b}px) ${b}px, calc(100% - ${b}px) calc(100% - ${b}px), ${12+b}px calc(100% - ${b}px), ${b}px 50%)`
+            : `polygon(${12+b}px ${b}px, calc(100% - 12px - ${b}px) ${b}px, calc(100% - ${b}px) 50%, calc(100% - 12px - ${b}px) calc(100% - ${b}px), ${12+b}px calc(100% - ${b}px), ${b}px 50%)`);
 
       let dateLbl = '';
       if (annule) {
@@ -393,37 +406,43 @@ function dvolRenderFilAriane(etapes, estCloture) {
         dateLbl = `<span style="font-size:9px;color:${retard?'#dc2626':'#9ca3af'};">${dvolFmtDate(e.date_prevue)}</span>`;
       }
 
-      const clipPathFirst = isLast
-        ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)'
-        : 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%)';
-      const clipPathMiddle = isLast
-        ? 'polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 0% 50%)'
-        : 'polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%)';
+      const marginLeft = isFirst ? '0' : '-10px';
+      const zIndex     = nbEtapes - i;
 
-      const shape = i === 0 ? clipPathFirst : clipPathMiddle;
-      const marginLeft = i === 0 ? '0' : '-10px';
-
-      return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;z-index:${nbEtapes - i};">
-        <div style="
-          width:100%;
-          clip-path:${shape};
-          background:${bg};
-          border:none;
-          margin-left:${marginLeft};
-          padding:10px 18px 10px ${i===0?'14px':'22px'};
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          box-sizing:border-box;
-          min-height:56px;
-          position:relative;
-          ${annule?'text-decoration:line-through;opacity:.6;':''}
-        ">
-          <span style="font-size:11px;font-weight:700;color:${textColor};text-align:center;line-height:1.3;white-space:normal;word-break:break-word;overflow-wrap:anywhere;">
-            ${fait ? '✓ ' : enCours ? '● ' : ''}${e.label}
-          </span>
+      return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;z-index:${zIndex};">
+        <!-- Conteneur position:relative pour superposer les deux couches -->
+        <div style="position:relative;width:100%;min-height:52px;margin-left:${marginLeft};${annule?'opacity:.55;':''}"
+             title="${e.label}">
+          <!-- Couche 1 : contour (fond = couleur, forme pleine) -->
+          <div style="
+            position:absolute;inset:0;
+            clip-path:${shapeOuter};
+            background:${couleur};
+          "></div>
+          <!-- Couche 2 : fond neutre (blanc) inséré de ${b}px, donne l'illusion du contour -->
+          <div style="
+            position:absolute;inset:0;
+            clip-path:${shapeInner};
+            background:${bgInner};
+          "></div>
+          <!-- Texte au-dessus des deux couches -->
+          <div style="
+            position:relative;
+            z-index:1;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-height:52px;
+            padding:10px ${isLast?'14px':'20px'} 10px ${isFirst?'14px':'22px'};
+            box-sizing:border-box;
+            ${annule?'text-decoration:line-through;':''}
+          ">
+            <span style="font-size:11px;font-weight:700;color:${textColor};text-align:center;line-height:1.3;white-space:normal;word-break:break-word;overflow-wrap:anywhere;">
+              ${fait ? '✓ ' : enCours ? '● ' : ''}${e.label}
+            </span>
+          </div>
         </div>
-        <div style="margin-top:4px;text-align:center;padding:0 4px;">${dateLbl}</div>
+        <div style="margin-top:5px;text-align:center;padding:0 4px;">${dateLbl}</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -526,7 +545,6 @@ async function dvolOuvrirDossier(id) {
   const etapes = dvolGetEtapes(d._etapes, d.date_declaration, d.decalage_jours || 0);
   const jours  = dvolJours(d.date_declaration);
   const gest   = d.gestionnaire_id ? (allUsers||[]).find(u => u.id === d.gestionnaire_id) : null;
-  // On passe l'objet complet pour lire ref_sinistre directement
   const refSin = dvolGetRefSinistre(d);
 
   document.getElementById('dvol-detail-modal')?.remove();
