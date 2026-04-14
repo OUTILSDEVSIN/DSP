@@ -147,6 +147,7 @@ async function dvolValiderEnvoi(dossierId) {
   const { data: dvolRow, error: errDvol } = await db.from('dvol_dossiers').insert({
     numero_dossier:           numeroVol,
     dispatch_dossier_id:      d.id,
+    ref_sinistre:             d.ref_sinistre,
     compagnie:                d.portefeuille,
     compagnie_mere:           compagnieMere,
     date_declaration:         dateDecl,
