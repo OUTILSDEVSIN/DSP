@@ -166,54 +166,79 @@ function dvolPeutRegler(dateDeclaration) {
 }
 
 // ────────────────────────────────────────────────────────────
-// ALERTES
+// ALERTES — 1 entrée par dossier, même si plusieurs anomalies
+// Le gestionnaire consulte le détail en ouvrant le dossier.
 // ────────────────────────────────────────────────────────────
 
 function dvolGetAlertes(dossiers) {
   const alertes = [];
   const today = new Date(); today.setHours(0,0,0,0);
+  const ordreUrgence = { haute: 2, moyenne: 1, normale: 0 };
 
   for (const d of dossiers) {
     if (['clos','refuse','labtaf','vehicule_retrouve'].includes(d.statut)) continue;
     const jours = dvolJours(d.date_declaration);
     if (jours === null) continue;
+
     const ref = dvolGetRefSinistre(d.dispatch_dossier_id);
     const recusList = dvolGetDocsRecus(d);
     const docsObligManquants = DVOL_DOCS_OBLIGATOIRES.filter(doc => !recusList.includes(doc.key)).length;
     const decalage = d.decalage_jours || 0;
     const etapes = dvolGetEtapes(d._etapes || [], d.date_declaration, decalage);
 
+    // Collecter toutes les anomalies de ce dossier
+    const anomalies = [];
+    let urgenceMax = 'normale';
+
     for (const etape of etapes) {
       if (etape.statut === 'realise' || etape.statut === 'annule') continue;
       if (!etape.date_prevue) continue;
-      // La date de notification est décalée si elle tombe sam/dim
       const dateNotif = dvolDecalerOuvre(etape.date_report || etape.date_prevue);
       const dateL = new Date(dateNotif + 'T12:00:00');
       if (dateL > today) continue;
       const joursRetard = Math.floor((today - dateL) / 86400000);
 
-      let message = '', type = '', urgence = 'normale';
+      let label = '', urgence = 'normale';
       if (etape.slug === 'validation_docs') {
         if (docsObligManquants > 0) {
-          message = `J+${jours} — Valider les documents (${docsObligManquants} manquant${docsObligManquants>1?'s':''})`;
-          type = 'docs_manquants'; urgence = joursRetard >= 5 ? 'haute' : 'normale';
+          label = `Documents manquants (${docsObligManquants})`;
+          urgence = joursRetard >= 5 ? 'haute' : 'normale';
         } else {
-          message = `J+${jours} — Documents reçus, validation à confirmer`;
-          type = 'docs_a_valider'; urgence = 'normale';
+          label = 'Documents à valider';
+          urgence = 'normale';
         }
       } else if (etape.slug === 'lancement_expertise') {
-        message = `J+${jours} — Lancement expertise à confirmer`;
-        type = 'expertise_a_lancer'; urgence = joursRetard >= 3 ? 'haute' : 'moyenne';
+        label = 'Expertise à lancer';
+        urgence = joursRetard >= 3 ? 'haute' : 'moyenne';
       } else if (etape.slug === 'reception_rapport') {
-        message = `J+${jours} — Réception rapport expertise attendue`;
-        type = 'rapport_manquant'; urgence = joursRetard >= 5 ? 'haute' : 'normale';
+        label = 'Rapport attendu';
+        urgence = joursRetard >= 5 ? 'haute' : 'normale';
       } else if (etape.slug === 'reglement') {
-        message = `J+${jours} — Règlement à initier`;
-        type = 'reglement'; urgence = 'haute';
+        label = 'Règlement à initier';
+        urgence = 'haute';
       }
-      if (message) alertes.push({ dossier: d, type, message, detail: `${ref} · ${d.compagnie_mere || d.compagnie}`, urgence });
+
+      if (label) {
+        anomalies.push({ label, urgence });
+        if (ordreUrgence[urgence] > ordreUrgence[urgenceMax]) urgenceMax = urgence;
+      }
+    }
+
+    // Une seule ligne par dossier, même si plusieurs anomalies détectées
+    if (anomalies.length > 0) {
+      const messageResume = anomalies.length === 1
+        ? `J+${jours} — ${anomalies[0].label}`
+        : `J+${jours} — ${anomalies.length} actions requises`;
+      alertes.push({
+        dossier: d,
+        message: messageResume,
+        detail: `${ref} · ${d.compagnie_mere || d.compagnie}`,
+        urgence: urgenceMax,
+        anomalies // disponible pour affichage dans la fiche dossier
+      });
     }
   }
+
   const ordre = { haute: 0, moyenne: 1, normale: 2 };
   alertes.sort((a, b) => (ordre[a.urgence]??3) - (ordre[b.urgence]??3));
   return alertes;
@@ -221,11 +246,10 @@ function dvolGetAlertes(dossiers) {
 
 function dvolGetAlertesForMatin() { return dvolGetAlertes(dvolDossiers); }
 
-const DVOL_ALERTE_ICONS = { docs_manquants:'📄', docs_a_valider:'✅', expertise_a_lancer:'🔍', rapport_manquant:'📋', reglement:'💰' };
 const DVOL_URGENCE_STYLES = {
-  haute:   { border:'#dc2626', bg:'#fef2f2', color:'#dc2626' },
-  moyenne: { border:'#d97706', bg:'#fffbeb', color:'#d97706' },
-  normale: { border:'#e5e7eb', bg:'#f9fafb', color:'#374151' }
+  haute:   { border:'#dc2626', bg:'#fef2f2', color:'#dc2626', icon:'🔴' },
+  moyenne: { border:'#d97706', bg:'#fffbeb', color:'#d97706', icon:'⚠️' },
+  normale: { border:'#e5e7eb', bg:'#f9fafb', color:'#374151', icon:'📋' }
 };
 
 function dvolRenderAlertes(alertes) {
@@ -238,11 +262,16 @@ function dvolRenderAlertes(alertes) {
   badge.textContent = alertes.length;
   liste.innerHTML = alertes.map(a => {
     const s = DVOL_URGENCE_STYLES[a.urgence] || DVOL_URGENCE_STYLES.normale;
+    // Sous-détail : liste des anomalies si plusieurs
+    const sousDetail = a.anomalies.length > 1
+      ? `<div style="font-size:10px;color:#9ca3af;margin-top:3px;">${a.anomalies.map(x => x.label).join(' · ')}</div>`
+      : '';
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;background:${s.bg};border:1.5px solid ${s.border};">
-      <span style="font-size:18px;flex-shrink:0;">${DVOL_ALERTE_ICONS[a.type]||'⚠️'}</span>
+      <span style="font-size:18px;flex-shrink:0;">${s.icon}</span>
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:700;color:${s.color};">${a.message}</div>
         <div style="font-size:11px;color:#6b7280;margin-top:2px;">${a.detail}</div>
+        ${sousDetail}
       </div>
       <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap;" onclick="dvolOuvrirDossier('${a.dossier.id}')">Voir →</button>
     </div>`;
@@ -321,7 +350,6 @@ function dvolRenderFilAriane(etapes, estCloture) {
       const retard  = !fait && !annule && e.date_prevue && new Date(e.date_prevue+'T12:00:00') < today;
       const isLast  = i === nbEtapes - 1;
 
-      // Couleurs selon état
       let bg, textColor, borderColor;
       if (annule) {
         bg = '#e5e7eb'; textColor = '#9ca3af'; borderColor = '#d1d5db';
@@ -335,7 +363,6 @@ function dvolRenderFilAriane(etapes, estCloture) {
         bg = '#d1fae5'; textColor = '#065f46'; borderColor = '#6ee7b7';
       }
 
-      // Label de date sous la case
       let dateLbl = '';
       if (annule) {
         dateLbl = '<span style="font-size:9px;color:#9ca3af;font-style:italic;">Annulée</span>';
@@ -347,12 +374,6 @@ function dvolRenderFilAriane(etapes, estCloture) {
         dateLbl = `<span style="font-size:9px;color:${retard?'#dc2626':'#6b7280'};">${dvolFmtDate(e.date_prevue)}</span>`;
       }
 
-      // Forme chevron via clip-path (sauf dernière case)
-      const clipPath = isLast
-        ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%)'
-        : 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%, 0% 0%)';
-
-      // La 1ère case a un début carré, les suivantes ont une entaille à gauche
       const clipPathFirst = isLast
         ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)'
         : 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%)';
@@ -447,7 +468,6 @@ function dvolConfirmer({ titre, message, labelOk = 'Confirmer', dangereux = fals
   document.getElementById('dvol-confirm-modal')?.remove();
   const m = document.createElement('div');
   m.id = 'dvol-confirm-modal';
-  // Modale centrée verticalement ET horizontalement
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:6000;display:flex;align-items:center;justify-content:center;padding:16px;';
   const btnColor = dangereux ? '#dc2626' : '#2563eb';
   const btnBg    = dangereux ? '#fef2f2' : '#eff6ff';
@@ -492,7 +512,6 @@ async function dvolOuvrirDossier(id) {
   document.getElementById('dvol-detail-modal')?.remove();
   const overlay = document.createElement('div');
   overlay.id = 'dvol-detail-modal';
-  // ✅ Modale centrée verticalement ET horizontalement
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:4000;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:24px 16px;';
 
   const statutHtml = isAdmin
@@ -521,7 +540,6 @@ async function dvolOuvrirDossier(id) {
     ? `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">✅</span><div><div style="font-weight:700;color:#16a34a;font-size:13px;">Dossier clôturé</div><div style="font-size:12px;color:#6b7280;">Plus aucune action requise sur ce dossier.</div></div></div>`
     : '';
 
-  // ── Bouton procédure expertise (visible uniquement si compagnie reconnue)
   const compagnieNorm = (d.compagnie_mere || d.compagnie || '').toUpperCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z]/g,'');
   const compagniesAvecProc = ['CMAM','ALLIANZ','EQUITE'];
@@ -636,11 +654,9 @@ function dvolRenderEtapesActions(etapes, dossierId, dossier) {
   const etapeCourante = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
   if (!etapeCourante) return `<div style="text-align:center;padding:8px;color:#16a34a;font-size:13px;font-weight:700;">✅ Toutes les étapes sont complétées !</div>`;
 
-  // ── Vérification : l'échéance est-elle atteinte ?
   const dateLimite = etapeCourante.date_report || etapeCourante.date_prevue;
   const echeanceAtteinte = dateLimite ? new Date(dateLimite + 'T12:00:00') <= today : true;
 
-  // Si l'échéance n'est pas encore atteinte → on n'affiche PAS le bouton, juste la date prévue
   if (!echeanceAtteinte) {
     return `<div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
       <span style="font-size:22px;">🕐</span>
@@ -651,7 +667,6 @@ function dvolRenderEtapesActions(etapes, dossierId, dossier) {
     </div>`;
   }
 
-  // ── Blocage règlement avant J+30 (règle absolue)
   if (etapeCourante.slug === 'reglement' && dossier && !dvolPeutRegler(dossier.date_declaration)) {
     const joursRestants = 30 - (dvolJours(dossier.date_declaration) || 0);
     return `<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
@@ -663,7 +678,6 @@ function dvolRenderEtapesActions(etapes, dossierId, dossier) {
     </div>`;
   }
 
-  // ── Blocage expertise si docs obligatoires manquants
   if (etapeCourante.slug === 'lancement_expertise' && dossier) {
     const recusList = dvolGetDocsRecus(dossier);
     const manquants = DVOL_DOCS_OBLIGATOIRES.filter(d => !recusList.includes(d.key));
@@ -683,7 +697,6 @@ function dvolRenderEtapesActions(etapes, dossierId, dossier) {
     }
   }
 
-  // ── Affichage normal des actions selon l'étape
   let html = `<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 16px;">`;
   html += `<div style="font-size:12px;font-weight:700;color:#2563eb;margin-bottom:10px;">📍 Étape en cours : ${etapeCourante.label}</div>`;
 
@@ -711,7 +724,6 @@ async function dvolValiderEtape(dossierId, slug, commentaire) {
   const d = dvolDossiers.find(x => x.id === dossierId);
   if (!d) return;
 
-  // Sécurité règle J+30 côté serveur également
   if (slug === 'reglement' && !dvolPeutRegler(d.date_declaration)) {
     showNotif('🔒 Règlement impossible — J+30 non atteint', 'error');
     return;
