@@ -492,7 +492,7 @@ async function dvolOuvrirDossier(id) {
   document.getElementById('dvol-detail-modal')?.remove();
   const overlay = document.createElement('div');
   overlay.id = 'dvol-detail-modal';
-  // ✅ Modale centrée verticalement ET horizontalement (point 6)
+  // ✅ Modale centrée verticalement ET horizontalement
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:4000;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:24px 16px;';
 
   const statutHtml = isAdmin
@@ -521,6 +521,22 @@ async function dvolOuvrirDossier(id) {
     ? `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">✅</span><div><div style="font-weight:700;color:#16a34a;font-size:13px;">Dossier clôturé</div><div style="font-size:12px;color:#6b7280;">Plus aucune action requise sur ce dossier.</div></div></div>`
     : '';
 
+  // ── Bouton procédure expertise (visible uniquement si compagnie reconnue)
+  const compagnieNorm = (d.compagnie_mere || d.compagnie || '').toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z]/g,'');
+  const compagniesAvecProc = ['CMAM','ALLIANZ','EQUITE'];
+  const btnProcedure = compagniesAvecProc.includes(compagnieNorm)
+    ? `<div style="display:flex;justify-content:flex-end;margin-top:4px;">
+        <button
+          onclick="dvolOuvrirProcedure('${d.compagnie_mere||d.compagnie}')"
+          style="display:inline-flex;align-items:center;gap:6px;background:#6366f1;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:background .2s;"
+          onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#6366f1'"
+          title="Consulter la procédure d'expertise pour ${d.compagnie_mere||d.compagnie}">
+          📋 Procédure expertise
+        </button>
+      </div>`
+    : '';
+
   overlay.innerHTML = `
   <div style="background:white;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.2);width:100%;max-width:780px;overflow:hidden;max-height:calc(100vh - 48px);display:flex;flex-direction:column;">
     <div style="background:linear-gradient(135deg,var(--navy,#1a2e4a),#2a4a6e);color:white;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;">
@@ -538,6 +554,7 @@ async function dvolOuvrirDossier(id) {
         <div style="background:#f9fafb;border-radius:10px;padding:12px;"><div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Date déclaration</div><span style="font-size:13px;font-weight:600;">${d.date_declaration ? new Date(d.date_declaration+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : '—'}</span></div>
         <div style="background:#f9fafb;border-radius:10px;padding:12px;"><div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Véhicule retrouvé ?</div>${retrouveHtml}</div>
       </div>
+      ${btnProcedure}
       <div>
         <h3 style="font-size:14px;font-weight:800;color:var(--navy);margin:0 0 12px;">🗺️ Avancement du dossier</h3>
         ${dvolRenderFilAriane(etapes, estCloture)}
@@ -675,9 +692,9 @@ function dvolRenderEtapesActions(etapes, dossierId, dossier) {
   } else if (etapeCourante.slug === 'validation_docs') {
     html += `<div style="display:flex;gap:8px;flex-wrap:wrap;"><button onclick="dvolDemanderConfirmEtape('${dossierId}','validation_docs','Documents confirmés','Confirmer la réception et validation de tous les documents ?')" class="btn btn-primary" style="font-size:12px;padding:7px 16px;">✅ Confirmer docs reçus</button><button onclick="dvolDemanderRelance('${dossierId}')" class="btn" style="font-size:12px;padding:7px 16px;background:#fef3c7;border:1.5px solid #d97706;color:#92400e;">🔄 Relancer (+X jours)</button></div>`;
   } else if (etapeCourante.slug === 'lancement_expertise') {
-    html += `<button onclick="dvolDemanderConfirmEtape('${dossierId}','lancement_expertise','Expertise lancée','Confirmer le lancement de l\\'expertise ?')" class="btn btn-primary" style="font-size:12px;padding:7px 16px;">🔍 Confirmer lancement expertise</button>`;
+    html += `<button onclick="dvolDemanderConfirmEtape('${dossierId}','lancement_expertise','Expertise lancée','Confirmer le lancement de l\'expertise ?')" class="btn btn-primary" style="font-size:12px;padding:7px 16px;">🔍 Confirmer lancement expertise</button>`;
   } else if (etapeCourante.slug === 'reception_rapport') {
-    html += `<button onclick="dvolDemanderConfirmEtape('${dossierId}','reception_rapport','Rapport reçu','Confirmer la réception du rapport d\\'expertise ?')" class="btn btn-primary" style="font-size:12px;padding:7px 16px;">📋 Confirmer réception rapport</button>`;
+    html += `<button onclick="dvolDemanderConfirmEtape('${dossierId}','reception_rapport','Rapport reçu','Confirmer la réception du rapport d\'expertise ?')" class="btn btn-primary" style="font-size:12px;padding:7px 16px;">📋 Confirmer réception rapport</button>`;
   } else if (etapeCourante.slug === 'reglement') {
     html += `<div style="display:flex;gap:8px;flex-wrap:wrap;"><button onclick="dvolDemanderConfirmEtape('${dossierId}','reglement','Règlement effectué','Confirmer que le règlement a bien été effectué ? Cette action clôturera le dossier.')" class="btn btn-primary" style="font-size:12px;padding:7px 16px;">💰 Confirmer règlement effectué</button><button onclick="dvolDemanderReport('${dossierId}','reglement')" class="btn" style="font-size:12px;padding:7px 16px;background:#f5f3ff;border:1.5px solid #7c3aed;color:#5b21b6;">📅 Reporter le règlement</button></div>`;
   }
