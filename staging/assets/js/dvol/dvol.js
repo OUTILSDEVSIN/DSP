@@ -375,11 +375,11 @@ function dvolRenderFilAriane(etapes, estCloture) {
           align-items:center;
           justify-content:center;
           box-sizing:border-box;
-          min-height:48px;
+          min-height:56px;
           position:relative;
           ${annule?'text-decoration:line-through;opacity:.6;':''}
         ">
-          <span style="font-size:11px;font-weight:700;color:${textColor};text-align:center;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          <span style="font-size:11px;font-weight:700;color:${textColor};text-align:center;line-height:1.3;white-space:normal;word-break:break-word;overflow-wrap:anywhere;">
             ${fait ? '✓ ' : enCours ? '● ' : ''}${e.label}
           </span>
         </div>
@@ -413,7 +413,7 @@ function dvolRenderDocs(dossier, canEdit) {
     <div style="border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:8px;">
       <button onclick="dvolToggleSection('dvol-docs-oblig-${id}',this)" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f9fafb;border:none;cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">
         <span>📎 Obligatoires <span style="font-size:11px;font-weight:600;color:${tousObligRecus?'#16a34a':'#d97706'};">(${DVOL_DOCS_OBLIGATOIRES.filter(d=>recusList.includes(d.key)).length}/${DVOL_DOCS_OBLIGATOIRES.length})</span></span>
-        <span class="dvol-chevron" style="font-size:12px;transition:transform .2s;">▼</span>
+        <span class="dvol-chevron" style="font-size:12px;transition:transform .2s;">${tousObligRecus?'▶':'▼'}</span>
       </button>
       <div id="dvol-docs-oblig-${id}" style="display:${tousObligRecus?'none':'flex'};flex-direction:column;gap:6px;padding:10px;">
         ${DVOL_DOCS_OBLIGATOIRES.map(docRow).join('')}
