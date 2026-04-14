@@ -18,11 +18,29 @@ const DVOL_PROCEDURES = {
     ]
   },
   ALLIANZ: {
-    expert: 'Expert ALLIANZ',
+    expert: 'Expert ALLIANZ (selon référence)',
     courrier: 'Éditer via ADn un courrier <strong>« mission sans PEC »</strong> en mentionnant : <em>« avis sur pièce suite vol de véhicule non retrouvé »</em>.',
     envoi: 'Envoyer les éléments <strong>avec la mission</strong> directement à l\'expert ALLIANZ.',
     reglement: 'Sur la base du rapport de l\'expert ALLIANZ, avec déduction de la franchise.',
-    alerte: '⚠️ L\'expert dépend du <strong>dernier chiffre de la référence compagnie</strong>. Vérifier la liste des experts ALLIANZ avant d\'envoyer la mission.',
+    alerte: '⚠️ L\'expert dépend du <strong>dernier chiffre de la référence compagnie</strong>. Consulter le tableau ci-dessous avant d\'envoyer la mission.',
+    expertsVVNR: [
+      {
+        tranche: 'De 0 à 4',
+        nom: 'EXPERTISE ET CONCEPT VOL',
+        code: '30399228',
+        email: 'vvnr.allianz@expertiseconcept.fr',
+        tel: '05 61 61 62 00',
+        horaires: '8h - 19h'
+      },
+      {
+        tranche: 'De 5 à 9',
+        nom: 'IDEA VOL',
+        code: '30399227',
+        email: 'vol@idea-expertises.com',
+        tel: '04 22 13 23 32',
+        horaires: '8h30-12h / 14h-18h'
+      }
+    ],
     contact: null,
     retrouve: [
       'Le client doit fournir le <strong>PV de découverte + PV de restitution</strong>.',
@@ -72,6 +90,43 @@ function dvolOuvrirProcedure(compagnie) {
     ? `<div style="background:#fef9c3;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:8px;font-size:13px;color:#92400e;margin-bottom:4px;">${proc.alerte}</div>`
     : '';
 
+  // Tableau experts VVNR (Allianz uniquement)
+  const expertsHTML = proc.expertsVVNR ? `
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6366f1;margin-bottom:8px;">👥 Experts VVNR selon dernier chiffre N° Sinistre</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#1e3a5f;color:white;">
+            <th style="padding:7px 10px;text-align:left;border-radius:6px 0 0 0;">Dernier chiffre</th>
+            ${proc.expertsVVNR.map(e => `<th style="padding:7px 10px;text-align:left;">${e.tranche}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#f0f4ff;">
+            <td style="padding:7px 10px;font-weight:700;color:#1e3a5f;">Expert VVNR</td>
+            ${proc.expertsVVNR.map(e => `<td style="padding:7px 10px;font-weight:700;color:#1e3a5f;">${e.nom}</td>`).join('')}
+          </tr>
+          <tr style="background:white;">
+            <td style="padding:7px 10px;font-weight:600;color:#374151;">Code expert</td>
+            ${proc.expertsVVNR.map(e => `<td style="padding:7px 10px;color:#374151;">${e.code}</td>`).join('')}
+          </tr>
+          <tr style="background:#f0f4ff;">
+            <td style="padding:7px 10px;font-weight:600;color:#374151;">Adresse mail</td>
+            ${proc.expertsVVNR.map(e => `<td style="padding:7px 10px;"><a href="mailto:${e.email}" style="color:#0284c7;">${e.email}</a></td>`).join('')}
+          </tr>
+          <tr style="background:white;">
+            <td style="padding:7px 10px;font-weight:600;color:#374151;">N° tél</td>
+            ${proc.expertsVVNR.map(e => `<td style="padding:7px 10px;color:#374151;">${e.tel}</td>`).join('')}
+          </tr>
+          <tr style="background:#f0f4ff;">
+            <td style="padding:7px 10px;font-weight:600;color:#374151;">Horaires</td>
+            ${proc.expertsVVNR.map(e => `<td style="padding:7px 10px;color:#374151;">${e.horaires}</td>`).join('')}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  ` : '';
+
   const contactHTML = proc.contact
     ? `<div style="background:#f0f9ff;border-left:4px solid #38bdf8;padding:10px 14px;border-radius:8px;font-size:13px;color:#0c4a6e;line-height:1.8;">
         <strong>📬 Contact expert :</strong><br>
@@ -95,6 +150,8 @@ function dvolOuvrirProcedure(compagnie) {
       </div>
 
       ${alerteHTML}
+
+      ${expertsHTML}
 
       <div>
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6366f1;margin-bottom:4px;">📄 Courrier à éditer (via ADn)</div>
@@ -128,7 +185,7 @@ function dvolOuvrirProcedure(compagnie) {
     modale.id = 'dvol-proc-modale';
     modale.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;display:none;align-items:center;justify-content:center;padding:16px;';
     modale.innerHTML = `
-      <div style="background:white;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.25);width:100%;max-width:500px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div style="background:white;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.25);width:100%;max-width:540px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
         <div style="background:linear-gradient(135deg,#4338ca,#6366f1);color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
           <h3 id="dvol-proc-titre" style="margin:0;font-size:15px;font-weight:800;"></h3>
           <button onclick="document.getElementById('dvol-proc-modale').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">×</button>
