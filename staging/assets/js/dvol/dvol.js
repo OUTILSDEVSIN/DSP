@@ -117,10 +117,26 @@ function dvolBarreDocs(dossier) {
   </div>`;
 }
 
-function dvolGetRefSinistre(dispatchDossierId) {
-  if (!dispatchDossierId) return '—';
-  const d = (allDossiers || []).find(x => String(x.id) === String(dispatchDossierId));
-  return d ? d.ref_sinistre : ('ID:' + dispatchDossierId);
+// Priorité 1 : ref_sinistre stockée directement dans dvol_dossiers (colonne ajoutée étape 1)
+// Priorité 2 : chercher dans allDossiers dispatch par dispatch_dossier_id
+// Fallback   : afficher 'ID:xxx' si rien trouvé
+function dvolGetRefSinistre(dispatchDossierIdOrObj) {
+  // Appelé avec l'objet dvol_dossier complet (cas tableau et alertes)
+  if (dispatchDossierIdOrObj && typeof dispatchDossierIdOrObj === 'object') {
+    if (dispatchDossierIdOrObj.ref_sinistre) return dispatchDossierIdOrObj.ref_sinistre;
+    const id = dispatchDossierIdOrObj.dispatch_dossier_id;
+    if (!id) return '—';
+    const d = (allDossiers || []).find(x => String(x.id) === String(id));
+    return d ? d.ref_sinistre : ('ID:' + id);
+  }
+  // Appelé avec un simple ID (rétrocompatibilité)
+  if (!dispatchDossierIdOrObj) return '—';
+  // Chercher d'abord dans dvolDossiers si la ref est déjà stockée
+  const dv = (dvolDossiers || []).find(x => String(x.dispatch_dossier_id) === String(dispatchDossierIdOrObj));
+  if (dv && dv.ref_sinistre) return dv.ref_sinistre;
+  // Fallback : chercher dans allDossiers dispatch
+  const d = (allDossiers || []).find(x => String(x.id) === String(dispatchDossierIdOrObj));
+  return d ? d.ref_sinistre : ('ID:' + dispatchDossierIdOrObj);
 }
 
 // Calcule les dates prévisionnelles en tenant compte des jours ouvrés pour les notifications
@@ -180,7 +196,8 @@ function dvolGetAlertes(dossiers) {
     const jours = dvolJours(d.date_declaration);
     if (jours === null) continue;
 
-    const ref = dvolGetRefSinistre(d.dispatch_dossier_id);
+    // On passe l'objet complet pour profiter de la ref_sinistre stockée
+    const ref = dvolGetRefSinistre(d);
     const recusList = dvolGetDocsRecus(d);
     const docsObligManquants = DVOL_DOCS_OBLIGATOIRES.filter(doc => !recusList.includes(doc.key)).length;
     const decalage = d.decalage_jours || 0;
@@ -313,7 +330,8 @@ function dvolRenderTableau(dossiers) {
     const dateVol = d.date_declaration ? new Date(d.date_declaration+'T12:00:00').toLocaleDateString('fr-FR') : '—';
     const gest    = d.gestionnaire_id ? (allUsers||[]).find(u => u.id === d.gestionnaire_id) : null;
     const gestNom = gest ? gest.prenom+' '+gest.nom : '<span style="color:#9ca3af;">—</span>';
-    const refSin  = dvolGetRefSinistre(d.dispatch_dossier_id);
+    // On passe l'objet complet pour lire ref_sinistre directement
+    const refSin  = dvolGetRefSinistre(d);
     return `<tr style="border-bottom:1px solid #f3f4f6;${rowBg}transition:background .1s;cursor:pointer;"
       onclick="dvolOuvrirDossier('${d.id}')"
       onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='${i%2===0?'':'#f9fafb'}'">
@@ -508,7 +526,8 @@ async function dvolOuvrirDossier(id) {
   const etapes = dvolGetEtapes(d._etapes, d.date_declaration, d.decalage_jours || 0);
   const jours  = dvolJours(d.date_declaration);
   const gest   = d.gestionnaire_id ? (allUsers||[]).find(u => u.id === d.gestionnaire_id) : null;
-  const refSin = dvolGetRefSinistre(d.dispatch_dossier_id);
+  // On passe l'objet complet pour lire ref_sinistre directement
+  const refSin = dvolGetRefSinistre(d);
 
   document.getElementById('dvol-detail-modal')?.remove();
   const overlay = document.createElement('div');
