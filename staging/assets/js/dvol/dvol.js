@@ -341,111 +341,122 @@ function dvolRenderTableau(dossiers) {
 }
 
 // ────────────────────────────────────────────────────────────
-// FILE D'ARIANE — Chevrons, fond neutre, contour coloré
+// FILE D'ARIANE — Chevrons collés, une seule ligne horizontale
 //
-// Technique : clip-path ne supporte pas border CSS.
-// Solution  : deux divs superposés avec position:absolute.
-//   - Div CONTOUR (fond = couleur) légèrement plus grand
-//   - Div FOND NEUTRE (fond = blanc) par-dessus, inséré de 2px
-// Cela donne l'illusion d'un contour coloré sur la forme.
+// Technique :
+//   - Conteneur flex en ligne unique, overflow-x:auto, flex-wrap:nowrap
+//   - Chaque case a un margin-left négatif pour s'emboîter
+//   - Deux divs superposés (position:absolute) simulent le contour coloré
+//   - La date est affichée DANS la case, sous le label
+//   - Toutes les flèches pointent vers la DROITE (gauche→droite)
 // ────────────────────────────────────────────────────────────
 
 function dvolRenderFilAriane(etapes, estCloture) {
   const today = new Date(); today.setHours(0,0,0,0);
   const nbEtapes = etapes.length;
-  // Épaisseur du « contour » simulé en px
-  const BORDER = 2;
+  const BORDER = 2;   // épaisseur contour simulé en px
+  const ARROW  = 14;  // largeur de la pointe de flèche en px
+  const H      = 58;  // hauteur fixe de chaque case en px
 
-  return `<div style="display:flex;align-items:stretch;width:100%;margin-bottom:20px;overflow-x:auto;gap:0;">
-    ${etapes.map((e, i) => {
-      const fait    = e.statut === 'realise';
-      const annule  = e.statut === 'annule';
-      const enCours = !fait && !annule && i > 0 && etapes[i-1].statut === 'realise';
-      const retard  = !fait && !annule && e.date_prevue && new Date(e.date_prevue+'T12:00:00') < today;
-      const isFirst = i === 0;
-      const isLast  = i === nbEtapes - 1;
+  const cases = etapes.map((e, i) => {
+    const fait    = e.statut === 'realise';
+    const annule  = e.statut === 'annule';
+    const enCours = !fait && !annule && i > 0 && etapes[i-1].statut === 'realise';
+    const retard  = !fait && !annule && e.date_prevue && new Date(e.date_prevue+'T12:00:00') < today;
+    const isFirst = i === 0;
+    const isLast  = i === nbEtapes - 1;
 
-      // Couleur du contour et du texte selon l'état
-      let couleur;
-      if (annule)        { couleur = '#d1d5db'; }
-      else if (fait)     { couleur = '#16a34a'; }
-      else if (enCours)  { couleur = '#1e3a5f'; }
-      else if (retard)   { couleur = '#dc2626'; }
-      else               { couleur = '#d1d5db'; } // en attente
+    // Couleur du contour selon état
+    let couleur;
+    if (annule)       couleur = '#d1d5db';
+    else if (fait)    couleur = '#16a34a';
+    else if (enCours) couleur = '#1e3a5f';
+    else if (retard)  couleur = '#dc2626';
+    else              couleur = '#d1d5db'; // en attente
 
-      const textColor = annule ? '#9ca3af' : couleur;
-      // Fond intérieur toujours neutre blanc/gris très clair
-      const bgInner = annule ? '#f9fafb' : '#ffffff';
+    const textColor = annule ? '#9ca3af' : couleur;
+    const bgInner   = annule ? '#f9fafb' : '#ffffff';
 
-      // clip-path pour la COUCHE CONTOUR (pleine taille)
-      const shapeOuter = isFirst
-        ? (isLast ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)'
-                  : 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%)')
-        : (isLast ? 'polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 0% 50%)'
-                  : 'polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%)');
+    // clip-path couche CONTOUR (pleine taille)
+    // Toutes les cases : entrée coupée à gauche (sauf première), sortie en flèche à droite (sauf dernière)
+    const shapeOuter = isFirst
+      ? (isLast
+          ? `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)`
+          : `polygon(0% 0%, calc(100% - ${ARROW}px) 0%, 100% 50%, calc(100% - ${ARROW}px) 100%, 0% 100%)`)
+      : (isLast
+          ? `polygon(${ARROW}px 0%, 100% 0%, 100% 100%, ${ARROW}px 100%, 0% 50%)`
+          : `polygon(${ARROW}px 0%, calc(100% - ${ARROW}px) 0%, 100% 50%, calc(100% - ${ARROW}px) 100%, ${ARROW}px 100%, 0% 50%)`);
 
-      // clip-path pour la COUCHE FOND (insérée de BORDER px sur chaque bord)
-      // On insère le fond de BORDER px sur tous les côtés pour simuler le contour
-      const b = BORDER;
-      const shapeInner = isFirst
-        ? (isLast
-            ? `polygon(${b}px ${b}px, calc(100% - ${b}px) ${b}px, calc(100% - ${b}px) calc(100% - ${b}px), ${b}px calc(100% - ${b}px))`
-            : `polygon(${b}px ${b}px, calc(100% - 12px - ${b}px) ${b}px, calc(100% - ${b}px) 50%, calc(100% - 12px - ${b}px) calc(100% - ${b}px), ${b}px calc(100% - ${b}px))`)
-        : (isLast
-            ? `polygon(${12+b}px ${b}px, calc(100% - ${b}px) ${b}px, calc(100% - ${b}px) calc(100% - ${b}px), ${12+b}px calc(100% - ${b}px), ${b}px 50%)`
-            : `polygon(${12+b}px ${b}px, calc(100% - 12px - ${b}px) ${b}px, calc(100% - ${b}px) 50%, calc(100% - 12px - ${b}px) calc(100% - ${b}px), ${12+b}px calc(100% - ${b}px), ${b}px 50%)`);
+    // clip-path couche FOND (insérée de BORDER px pour simuler le contour)
+    const b = BORDER;
+    const a = ARROW;
+    const shapeInner = isFirst
+      ? (isLast
+          ? `polygon(${b}px ${b}px, calc(100% - ${b}px) ${b}px, calc(100% - ${b}px) calc(100% - ${b}px), ${b}px calc(100% - ${b}px))`
+          : `polygon(${b}px ${b}px, calc(100% - ${a+b}px) ${b}px, calc(100% - ${b}px) 50%, calc(100% - ${a+b}px) calc(100% - ${b}px), ${b}px calc(100% - ${b}px))`)
+      : (isLast
+          ? `polygon(${a+b}px ${b}px, calc(100% - ${b}px) ${b}px, calc(100% - ${b}px) calc(100% - ${b}px), ${a+b}px calc(100% - ${b}px), ${b}px 50%)`
+          : `polygon(${a+b}px ${b}px, calc(100% - ${a+b}px) ${b}px, calc(100% - ${b}px) 50%, calc(100% - ${a+b}px) calc(100% - ${b}px), ${a+b}px calc(100% - ${b}px), ${b}px 50%)`);
 
-      let dateLbl = '';
-      if (annule) {
-        dateLbl = '<span style="font-size:9px;color:#9ca3af;font-style:italic;">Annulée</span>';
-      } else if (fait) {
-        dateLbl = `<span style="font-size:9px;color:#16a34a;">✅ ${dvolFmtDate(e.date_realisee||e.date_prevue)}</span>`;
-      } else if (e.date_report) {
-        dateLbl = `<span style="font-size:9px;color:#d97706;">📅 ${dvolFmtDate(e.date_report)}</span>`;
-      } else {
-        dateLbl = `<span style="font-size:9px;color:${retard?'#dc2626':'#9ca3af'};">${dvolFmtDate(e.date_prevue)}</span>`;
-      }
+    // Date à afficher sous le label
+    let dateLbl = '';
+    if (annule) {
+      dateLbl = `<span style="font-size:9px;color:#9ca3af;font-style:italic;">Annulée</span>`;
+    } else if (fait) {
+      dateLbl = `<span style="font-size:9px;color:#16a34a;">✅ ${dvolFmtDate(e.date_realisee||e.date_prevue)}</span>`;
+    } else if (e.date_report) {
+      dateLbl = `<span style="font-size:9px;color:#d97706;">📅 ${dvolFmtDate(e.date_report)}</span>`;
+    } else {
+      dateLbl = `<span style="font-size:9px;color:${retard?'#dc2626':'#9ca3af'};">${dvolFmtDate(e.date_prevue)}</span>`;
+    }
 
-      const marginLeft = isFirst ? '0' : '-10px';
-      const zIndex     = nbEtapes - i;
+    // margin-left négatif pour coller les cases (sauf première)
+    const marginLeft = isFirst ? '0' : `-${ARROW}px`;
+    const zIndex     = nbEtapes - i;
+    const padL       = isFirst ? '12px' : `${ARROW + 8}px`;
+    const padR       = isLast  ? '12px' : `${ARROW + 8}px`;
 
-      return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;z-index:${zIndex};">
-        <!-- Conteneur position:relative pour superposer les deux couches -->
-        <div style="position:relative;width:100%;min-height:52px;margin-left:${marginLeft};${annule?'opacity:.55;':''}"
-             title="${e.label}">
-          <!-- Couche 1 : contour (fond = couleur, forme pleine) -->
-          <div style="
-            position:absolute;inset:0;
-            clip-path:${shapeOuter};
-            background:${couleur};
-          "></div>
-          <!-- Couche 2 : fond neutre (blanc) inséré de ${b}px, donne l'illusion du contour -->
-          <div style="
-            position:absolute;inset:0;
-            clip-path:${shapeInner};
-            background:${bgInner};
-          "></div>
-          <!-- Texte au-dessus des deux couches -->
-          <div style="
-            position:relative;
-            z-index:1;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            min-height:52px;
-            padding:10px ${isLast?'14px':'20px'} 10px ${isFirst?'14px':'22px'};
-            box-sizing:border-box;
-            ${annule?'text-decoration:line-through;':''}
-          ">
-            <span style="font-size:11px;font-weight:700;color:${textColor};text-align:center;line-height:1.3;white-space:normal;word-break:break-word;overflow-wrap:anywhere;">
-              ${fait ? '✓ ' : enCours ? '● ' : ''}${e.label}
-            </span>
-          </div>
-        </div>
-        <div style="margin-top:5px;text-align:center;padding:0 4px;">${dateLbl}</div>
-      </div>`;
-    }).join('')}
-  </div>`;
+    return `<div style="
+        position:relative;
+        flex:1;
+        min-width:80px;
+        height:${H}px;
+        margin-left:${marginLeft};
+        z-index:${zIndex};
+        ${annule ? 'opacity:.55;' : ''}
+        cursor:default;
+      " title="${e.label}">
+      <!-- Couche 1 : contour coloré -->
+      <div style="position:absolute;inset:0;clip-path:${shapeOuter};background:${couleur};"></div>
+      <!-- Couche 2 : fond blanc inséré -->
+      <div style="position:absolute;inset:0;clip-path:${shapeInner};background:${bgInner};"></div>
+      <!-- Texte : label + date empilés, centrés -->
+      <div style="
+        position:absolute;inset:0;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        padding:4px ${padR} 4px ${padL};
+        box-sizing:border-box;
+        gap:2px;
+        ${annule ? 'text-decoration:line-through;' : ''}
+      ">
+        <span style="font-size:11px;font-weight:700;color:${textColor};text-align:center;line-height:1.2;white-space:normal;word-break:break-word;overflow-wrap:anywhere;">
+          ${fait ? '✓ ' : enCours ? '● ' : ''}${e.label}
+        </span>
+        <span style="font-size:9px;text-align:center;line-height:1.2;">${dateLbl}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div style="
+    display:flex;
+    flex-direction:row;
+    flex-wrap:nowrap;
+    align-items:stretch;
+    width:100%;
+    overflow-x:auto;
+    margin-bottom:20px;
+    height:${H}px;
+  ">${cases}</div>`;
 }
 
 // ────────────────────────────────────────────────────────────
