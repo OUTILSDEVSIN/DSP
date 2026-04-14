@@ -360,7 +360,8 @@ function dvolRenderFilAriane(etapes, estCloture) {
       } else if (retard) {
         bg = '#fef2f2'; textColor = '#dc2626'; borderColor = '#fca5a5';
       } else {
-        bg = '#d1fae5'; textColor = '#065f46'; borderColor = '#6ee7b7';
+        // En attente — gris neutre (anciennement vert clair)
+        bg = '#f3f4f6'; textColor = '#9ca3af'; borderColor = '#e5e7eb';
       }
 
       let dateLbl = '';
@@ -371,7 +372,7 @@ function dvolRenderFilAriane(etapes, estCloture) {
       } else if (e.date_report) {
         dateLbl = `<span style="font-size:9px;color:#d97706;">📅 ${dvolFmtDate(e.date_report)}</span>`;
       } else {
-        dateLbl = `<span style="font-size:9px;color:${retard?'#dc2626':'#6b7280'};">${dvolFmtDate(e.date_prevue)}</span>`;
+        dateLbl = `<span style="font-size:9px;color:${retard?'#dc2626':'#9ca3af'};">${dvolFmtDate(e.date_prevue)}</span>`;
       }
 
       const clipPathFirst = isLast
