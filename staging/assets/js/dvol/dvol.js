@@ -595,3 +595,31 @@ async function dvolCreerDossier() {
   closeModal();
   dvolOuvrirDossier(data.id);
 }
+
+// ────────────────────────────────────────────────────────────
+// CONFIRM DIALOG — modale de confirmation générique
+// ────────────────────────────────────────────────────────────
+
+function openConfirm({ message, onConfirm, labelConfirm = 'Confirmer', labelCancel = 'Annuler' }) {
+  const html = `
+    <div style="font-family:inherit;padding:8px 0">
+      <p style="font-size:1em;color:#374151;line-height:1.5">${message}</p>
+    </div>`;
+
+  openModal({
+    title: 'Confirmation',
+    content: html,
+    size: 'small',
+    actions: [
+      { label: labelCancel,  style: 'secondary', onClick: closeModal },
+      {
+        label: labelConfirm,
+        style: 'primary',
+        onClick: () => {
+          closeModal();
+          if (typeof onConfirm === 'function') onConfirm();
+        }
+      }
+    ]
+  });
+}
