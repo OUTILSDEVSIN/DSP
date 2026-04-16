@@ -124,18 +124,29 @@ function dvolBarreDocs(dossier) {
 
 async function dvolCharger() {
   if (typeof db === 'undefined') return;
+
+  // Charger les dossiers DVOL
   const { data, error } = await db
     .from('dvol_dossiers')
-    .select(`
-      *,
-      dvol_etapes (*)
-    `)
+    .select('*, dvol_etapes(*)')
     .order('created_at', { ascending: false });
-  if (error) { console.error('dvol load error', error); return; }
-  dvolDossiers = (data || []).map(d => ({
-    ...d,
-    _etapes: d.dvol_etapes || []
-  }));
+
+  if (error) {
+    console.warn('[DVOL] Erreur chargement dvol_dossiers:', error.message);
+    // Fallback sans join si dvol_etapes absent
+    const { data: data2, error: error2 } = await db
+      .from('dvol_dossiers')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error2) { console.error('[DVOL] Erreur fallback:', error2.message); return; }
+    dvolDossiers = (data2 || []).map(d => ({ ...d, _etapes: [] }));
+  } else {
+    dvolDossiers = (data || []).map(d => ({
+      ...d,
+      _etapes: d.dvol_etapes || []
+    }));
+  }
+
   dvolRendreTableau();
 }
 
@@ -211,12 +222,12 @@ function dvolRendreTableau() {
           return `<div style="background:white;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #fecaca;">
             <div>
               <span style="font-weight:700;color:var(--navy);">${d.compagnie || '?'}</span>
-              <span style="color:#6b7280;font-size:12px;margin-left:8px">${d.cie_ref || ''}</span><br>
+              <span style="color:#6b7280;font-size:12px;margin-left:8px">${d.numero_dossier || d.cie_ref || ''}</span><br>
               <span style="font-size:12px;color:#dc2626">Étape en retard : <b>${enCours?.label || '?'}</b></span>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               ${dvolBadgeJours(jours)}
-              <button onclick="dvolOuvrirDossier(${d.id})" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">Ouvrir →</button>
+              <button onclick="dvolOuvrirDossier('${d.id}')" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">Ouvrir →</button>
             </div>
           </div>`;
         }).join('');
@@ -240,8 +251,8 @@ function dvolRendreTableau() {
     return `<tr style="cursor:pointer;background:${rowBg};border-bottom:1px solid #f3f4f6;"
               onmouseover="this.style.background='#f0f9ff'"
               onmouseout="this.style.background='${rowBg}'"
-              onclick="dvolOuvrirDossier(${d.id})">
-      <td style="padding:10px 14px;font-weight:700;color:var(--navy);white-space:nowrap;">${d.cie_ref || ('ID:' + d.id)}</td>
+              onclick="dvolOuvrirDossier('${d.id}')">
+      <td style="padding:10px 14px;font-weight:700;color:var(--navy);white-space:nowrap;">${d.numero_dossier || d.cie_ref || ('ID:' + d.id.substring(0,8))}</td>
       <td style="padding:10px 14px;white-space:nowrap;">${d.assure_nom || d.compagnie || '—'}</td>
       <td style="padding:10px 14px;white-space:nowrap;">${d.compagnie || '—'}</td>
       <td style="padding:10px 14px;white-space:nowrap;">${dvolFmtDate(d.date_declaration)}</td>
@@ -250,7 +261,7 @@ function dvolRendreTableau() {
       <td style="padding:10px 14px;font-size:13px;color:#374151;">${gestNom}</td>
       <td style="padding:10px 14px;">${dvolBarreDocs(d)}</td>
       <td style="padding:10px 14px;text-align:center;">
-        <button onclick="event.stopPropagation();dvolOuvrirDossier(${d.id})"
+        <button onclick="event.stopPropagation();dvolOuvrirDossier('${d.id}')"
           style="background:#1e40af;color:#fff;border:none;border-radius:6px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;">
           Ouvrir →
         </button>
@@ -331,7 +342,7 @@ function dvolOuvrirDossier(id) {
     const ok = recusList.includes(doc.key);
     return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer">
       <input type="checkbox" ${ok ? 'checked' : ''}
-        onchange="dvolToggleDoc(${d.id}, '${doc.key}', this.checked)"
+        onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
         style="width:16px;height:16px">
       <span>${doc.icon} ${doc.label}</span>
       ${ok ? '<span style="color:#16a34a;font-size:0.8em">✓ Reçu</span>' : ''}
@@ -342,7 +353,7 @@ function dvolOuvrirDossier(id) {
     const ok = recusList.includes(doc.key);
     return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer">
       <input type="checkbox" ${ok ? 'checked' : ''}
-        onchange="dvolToggleDoc(${d.id}, '${doc.key}', this.checked)"
+        onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
         style="width:16px;height:16px">
       <span>${doc.icon} ${doc.label}</span>
     </label>`;
@@ -370,14 +381,14 @@ function dvolOuvrirDossier(id) {
         <div style="font-size:0.78em;color:#6b7280;margin-bottom:4px">GESTIONNAIRE</div>
         <div style="display:flex;align-items:center;gap:6px" id="dvol-gest-display-${d.id}">
           <span style="font-weight:600">${gestNom}</span>
-          <button onclick="dvolToggleGestEdit(${d.id})" style="background:none;border:none;cursor:pointer;color:#3b82f6;font-size:0.85em">✏️</button>
+          <button onclick="dvolToggleGestEdit('${d.id}')" style="background:none;border:none;cursor:pointer;color:#3b82f6;font-size:0.85em">✏️</button>
         </div>
         <div id="dvol-gest-edit-${d.id}" style="display:none">
           <select id="dvol-gest-sel-${d.id}" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em">
             <option value="">— Non assigné —</option>
             ${(allUsers||[]).map(u => `<option value="${u.id}" ${d.gestionnaire_id === u.id ? 'selected' : ''}>${u.full_name || u.email}</option>`).join('')}
           </select>
-          <button onclick="dvolSauvegarderGestionnaire(${d.id}, document.getElementById('dvol-gest-sel-${d.id}').value)" style="margin-top:4px;background:#1e40af;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.82em">Sauvegarder</button>
+          <button onclick="dvolSauvegarderGestionnaire('${d.id}', document.getElementById('dvol-gest-sel-${d.id}').value)" style="margin-top:4px;background:#1e40af;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.82em">Sauvegarder</button>
         </div>
       </div>
       <div>
@@ -388,7 +399,7 @@ function dvolOuvrirDossier(id) {
         <div style="font-size:0.78em;color:#6b7280;margin-bottom:4px">VÉHICULE RETROUVÉ ?</div>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
           <input type="checkbox" id="dvol-retrouve-${d.id}" ${d.vehicule_retrouve ? 'checked' : ''}
-            onchange="dvolOnRetrouve(${d.id}, this)"
+            onchange="dvolOnRetrouve('${d.id}', this)"
             style="width:15px;height:15px">
           <span>${d.vehicule_retrouve ? 'Oui' : 'Non'}</span>
         </label>
