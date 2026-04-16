@@ -62,14 +62,14 @@ function switchTool(tool) {
     if (tabsContainer) tabsContainer.style.display = 'none';
     if (mainContent)   mainContent.style.display   = 'none';
     var dplaneScreen = document.getElementById('dplane-screen');
-    if (dplaneScreen) dplaneScreen.style.display = '';
+    if (dplaneScreen) dplaneScreen.style.display = 'block';
     if (typeof dplaneInit === 'function') dplaneInit();
 
   } else if (tool === 'dvol') {
     if (tabsContainer) tabsContainer.style.display = 'none';
     if (mainContent)   mainContent.style.display   = 'none';
     var dvolScreen = document.getElementById('dvol-screen');
-    if (dvolScreen) dvolScreen.style.display = '';
+    if (dvolScreen)  dvolScreen.style.display  = 'block';
     if (typeof dvolCharger === 'function') dvolCharger();
   }
 }
