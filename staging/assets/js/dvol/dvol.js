@@ -171,14 +171,26 @@ function dvolEtapesEnrichies(dossier) {
 // ────────────────────────────────────────────────────────────
 
 function dvolRendreTableau() {
-  const container = document.getElementById('dvol-container');
-  if (!container) return;
+  // ── Éléments HTML cibles (structure index.html actuelle) ──
+  const tbody           = document.getElementById('dvol-tbody');
+  const compteur        = document.getElementById('dvol-compteur');
+  const encartAlertes   = document.getElementById('dvol-encart-alertes');
+  const badgeAlertes    = document.getElementById('dvol-badge-alertes');
+  const listeAlertes    = document.getElementById('dvol-liste-alertes');
 
-  const actifs = dvolDossiers.filter(d => d.statut !== 'clos' && d.statut !== 'refuse');
-  const clos   = dvolDossiers.filter(d => d.statut === 'clos' || d.statut === 'refuse');
+  if (!tbody) return; // écran DVOL non chargé
 
-  // --- Alertes actions requises ---
-  const alertes = dvolDossiers.filter(d => {
+  const tous   = dvolDossiers;
+  const actifs = tous.filter(d => d.statut !== 'clos' && d.statut !== 'refuse');
+  const clos   = tous.filter(d => d.statut === 'clos' || d.statut === 'refuse');
+
+  // ── Compteur ──
+  if (compteur) {
+    compteur.textContent = `${actifs.length} dossier${actifs.length > 1 ? 's' : ''} actif${actifs.length > 1 ? 's' : ''}`;
+  }
+
+  // ── Encart alertes ──
+  const alertes = tous.filter(d => {
     if (d.statut === 'clos' || d.statut === 'refuse') return false;
     const etapes = dvolEtapesEnrichies(d);
     const enCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
@@ -187,63 +199,84 @@ function dvolRendreTableau() {
     return new Date(enCours.datePrevue + 'T12:00:00') <= today;
   });
 
-  let alerteHtml = '';
-  if (alertes.length) {
-    const items = alertes.map(d => {
-      const etapes = dvolEtapesEnrichies(d);
-      const enCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
-      return `<li style="padding:4px 0;border-bottom:1px solid #fde68a"><b>ID:${d.id}</b> — ${d.compagnie || '?'} · Étape en retard : <b>${enCours?.label || '?'}</b></li>`;
-    }).join('');
-    alerteHtml = `<div class="alerte-bloc" style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:14px">
-      <b>⚠️ Actions requises (${alertes.length})</b>
-      <ul style="margin:8px 0 0 0;padding-left:18px;font-size:0.93em">${items}</ul>
-    </div>`;
+  if (encartAlertes) {
+    if (alertes.length > 0) {
+      encartAlertes.style.display = 'block';
+      if (badgeAlertes) badgeAlertes.textContent = alertes.length;
+      if (listeAlertes) {
+        listeAlertes.innerHTML = alertes.map(d => {
+          const etapes = dvolEtapesEnrichies(d);
+          const enCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
+          const jours = dvolJours(d.date_declaration);
+          return `<div style="background:white;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #fecaca;">
+            <div>
+              <span style="font-weight:700;color:var(--navy);">${d.compagnie || '?'}</span>
+              <span style="color:#6b7280;font-size:12px;margin-left:8px">${d.cie_ref || ''}</span><br>
+              <span style="font-size:12px;color:#dc2626">Étape en retard : <b>${enCours?.label || '?'}</b></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${dvolBadgeJours(jours)}
+              <button onclick="dvolOuvrirDossier(${d.id})" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">Ouvrir →</button>
+            </div>
+          </div>`;
+        }).join('');
+      }
+    } else {
+      encartAlertes.style.display = 'none';
+    }
   }
 
-  // --- Tableau actifs ---
-  function ligneTableau(d) {
+  // ── Lignes du tableau ──
+  function ligneTr(d) {
     const jours = dvolJours(d.date_declaration);
     const etapes = dvolEtapesEnrichies(d);
     const etapeEnCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
-    const docsOk = dvolGetDocsRecus(d).filter(k => DVOL_DOCS_OBLIGATOIRES.find(o => o.key === k)).length;
+    const recusList = dvolGetDocsRecus(d);
+    const docsOk    = recusList.filter(k => DVOL_DOCS_OBLIGATOIRES.find(o => o.key === k)).length;
     const docsTotal = DVOL_DOCS_OBLIGATOIRES.length;
-    return `<tr style="cursor:pointer" onclick="dvolOuvrirDossier(${d.id})">
-      <td style="padding:8px 12px;font-weight:700">ID:${d.id}</td>
-      <td style="padding:8px 12px">${d.compagnie || '—'}<br><span style="font-size:0.8em;color:#6b7280">${d.cie_ref || ''}</span></td>
-      <td style="padding:8px 12px">${dvolBadgeStatut(d.statut)}</td>
-      <td style="padding:8px 12px">${dvolBadgeJours(jours)}</td>
-      <td style="padding:8px 12px">${etapeEnCours ? etapeEnCours.label : '✅ Terminé'}</td>
-      <td style="padding:8px 12px">${docsOk}/${docsTotal}</td>
-      <td style="padding:8px 12px">
-        <button onclick="event.stopPropagation();dvolOuvrirDossier(${d.id})" style="background:#1e40af;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:0.85em">Ouvrir →</button>
+    const gest = (typeof allUsers !== 'undefined' ? allUsers : []).find(u => u.id === d.gestionnaire_id);
+    const gestNom = gest ? (gest.full_name || gest.email || '—') : '—';
+    const rowBg = d.statut === 'clos' || d.statut === 'refuse' ? '#f9fafb' : 'white';
+    return `<tr style="cursor:pointer;background:${rowBg};border-bottom:1px solid #f3f4f6;"
+              onmouseover="this.style.background='#f0f9ff'"
+              onmouseout="this.style.background='${rowBg}'"
+              onclick="dvolOuvrirDossier(${d.id})">
+      <td style="padding:10px 14px;font-weight:700;color:var(--navy);white-space:nowrap;">${d.cie_ref || ('ID:' + d.id)}</td>
+      <td style="padding:10px 14px;white-space:nowrap;">${d.assure_nom || d.compagnie || '—'}</td>
+      <td style="padding:10px 14px;white-space:nowrap;">${d.compagnie || '—'}</td>
+      <td style="padding:10px 14px;white-space:nowrap;">${dvolFmtDate(d.date_declaration)}</td>
+      <td style="padding:10px 14px;text-align:center;">${dvolBadgeJours(jours)}</td>
+      <td style="padding:10px 14px;">${dvolBadgeStatut(d.statut)}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#374151;">${gestNom}</td>
+      <td style="padding:10px 14px;">${dvolBarreDocs(d)}</td>
+      <td style="padding:10px 14px;text-align:center;">
+        <button onclick="event.stopPropagation();dvolOuvrirDossier(${d.id})"
+          style="background:#1e40af;color:#fff;border:none;border-radius:6px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;">
+          Ouvrir →
+        </button>
       </td>
     </tr>`;
   }
 
-  const tableHtml = (liste) => liste.length === 0
-    ? `<p style="color:#9ca3af;padding:12px">Aucun dossier.</p>`
-    : `<table style="width:100%;border-collapse:collapse;font-size:0.92em">
-        <thead><tr style="background:#f3f4f6;text-align:left">
-          <th style="padding:8px 12px">Réf.</th>
-          <th style="padding:8px 12px">Compagnie</th>
-          <th style="padding:8px 12px">Statut</th>
-          <th style="padding:8px 12px">J+</th>
-          <th style="padding:8px 12px">Étape en cours</th>
-          <th style="padding:8px 12px">Docs</th>
-          <th style="padding:8px 12px"></th>
-        </tr></thead>
-        <tbody>${liste.map(ligneTableau).join('')}</tbody>
-      </table>`;
+  if (actifs.length === 0 && clos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">
+      <div style="font-size:24px;margin-bottom:8px;">📂</div>Aucun dossier VOL pour le moment.
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = actifs.map(ligneTr).join('')
+      + (clos.length ? clos.map(ligneTr).join('') : '');
+  }
 
-  container.innerHTML = `
-    ${alerteHtml}
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <b>${actifs.length} dossier${actifs.length>1?'s':''} actif${actifs.length>1?'s':''}</b>
-      <button onclick="dvolOuvrirCreation()" style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-weight:600">+ Nouveau dossier VOL</button>
-    </div>
-    ${tableHtml(actifs)}
-    ${clos.length ? `<details style="margin-top:18px"><summary style="cursor:pointer;font-weight:600;color:#6b7280">Archives (${clos.length})</summary>${tableHtml(clos)}</details>` : ''}
-  `;
+  // ── Bouton "Nouveau dossier" dans le header (si absent) ──
+  const headerZone = document.querySelector('#dvol-screen .content > div:first-child > div:last-child');
+  if (headerZone && !headerZone.querySelector('#dvol-btn-nouveau')) {
+    const btn = document.createElement('button');
+    btn.id = 'dvol-btn-nouveau';
+    btn.className = 'btn btn-primary';
+    btn.textContent = '+ Nouveau dossier VOL';
+    btn.onclick = dvolOuvrirCreation;
+    headerZone.appendChild(btn);
+  }
 }
 
 // ────────────────────────────────────────────────────────────
@@ -622,4 +655,54 @@ function openConfirm({ message, onConfirm, labelConfirm = 'Confirmer', labelCanc
       }
     ]
   });
+}
+
+// ────────────────────────────────────────────────────────────
+// MODAL SYSTEM — openModal / closeModal (auto-contenu DVOL)
+// ────────────────────────────────────────────────────────────
+
+function openModal({ title = '', content = '', size = 'medium', actions = [] } = {}) {
+  // Supprimer une éventuelle modale existante
+  const existing = document.getElementById('dvol-modal-overlay');
+  if (existing) existing.remove();
+
+  const widths = { small: '420px', medium: '620px', large: '800px' };
+  const maxW = widths[size] || widths.medium;
+
+  const actionsHtml = actions.map((a, i) => {
+    const bg = a.style === 'primary' ? '#1e40af' : '#f3f4f6';
+    const fg = a.style === 'primary' ? '#ffffff' : '#374151';
+    return `<button id="dvol-modal-action-${i}"
+      style="padding:9px 22px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;background:${bg};color:${fg};">
+      ${a.label}
+    </button>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'dvol-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.25);width:100%;max-width:${maxW};max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+      ${title ? `<div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <h3 style="margin:0;font-size:15px;font-weight:800;">${title}</h3>
+        <button onclick="closeModal()" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;">×</button>
+      </div>` : ''}
+      <div style="padding:20px;overflow-y:auto;flex:1;">${content}</div>
+      ${actions.length ? `<div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;">${actionsHtml}</div>` : ''}
+    </div>`;
+
+  // Clic en dehors = fermer
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  document.body.appendChild(overlay);
+
+  // Attacher les callbacks des boutons
+  actions.forEach((a, i) => {
+    const btn = document.getElementById(`dvol-modal-action-${i}`);
+    if (btn && typeof a.onClick === 'function') btn.onclick = a.onClick;
+  });
+}
+
+function closeModal() {
+  const el = document.getElementById('dvol-modal-overlay');
+  if (el) el.remove();
 }
