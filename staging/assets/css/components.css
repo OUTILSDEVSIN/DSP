@@ -186,7 +186,8 @@
   .tool-btn.active { background:var(--rose);color:white; }
   .tool-btn .d-letter { color:var(--rose); }
   .tool-btn.active .d-letter { color:white; }
-  #dplane-screen { display:none; }
+  /* #dplane-screen géré par switchTool() via inline style */
   .dplane-grid { background:var(--white);border-radius:var(--radius-md);border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);overflow:auto;margin-bottom:14px; }
   /* ── Grille Dplane v5 — design compact et lisible ── */
   .dplane-grid { overflow-x:auto; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+
