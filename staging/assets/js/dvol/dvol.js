@@ -54,7 +54,6 @@ function dvolAddDays(dateStr, n) {
   return d.toISOString().split('T')[0];
 }
 
-// Ajoute n jours ouvrés (lun-ven) à partir d'une date ISO
 function dvolAddJoursOuvres(dateStr, n) {
   const d = new Date(dateStr + 'T12:00:00');
   let added = 0;
@@ -66,13 +65,12 @@ function dvolAddJoursOuvres(dateStr, n) {
   return d.toISOString().split('T')[0];
 }
 
-// Décale une date au prochain lundi si elle tombe sam/dim
 function dvolDecalerOuvre(dateStr) {
   if (!dateStr) return dateStr;
   const d = new Date(dateStr + 'T12:00:00');
   const dow = d.getDay();
-  if (dow === 6) d.setDate(d.getDate() + 2); // sam → lun
-  if (dow === 0) d.setDate(d.getDate() + 1); // dim → lun
+  if (dow === 6) d.setDate(d.getDate() + 2);
+  if (dow === 0) d.setDate(d.getDate() + 1);
   return d.toISOString().split('T')[0];
 }
 
@@ -117,9 +115,6 @@ function dvolBarreDocs(dossier) {
   </div>`;
 }
 
-// Priorité 1 : ref_sinistre stockée directement dans dvol_dossiers
-// Priorité 2 : chercher dans allDossiers dispatch par dispatch_dossier_id
-// Fallback   : afficher 'ID:xxx' si rien trouvé
 function dvolGetRefSinistre(dispatchDossierIdOrObj) {
   if (dispatchDossierIdOrObj && typeof dispatchDossierIdOrObj === 'object') {
     if (dispatchDossierIdOrObj.ref_sinistre) return dispatchDossierIdOrObj.ref_sinistre;
@@ -135,7 +130,6 @@ function dvolGetRefSinistre(dispatchDossierIdOrObj) {
   return d ? d.ref_sinistre : ('ID:' + dispatchDossierIdOrObj);
 }
 
-// Calcule les dates prévisionnelles
 function dvolCalcDatesPrev(dateDeclaration, decalageJours = 0) {
   if (!dateDeclaration) return {};
   const dates = {};
@@ -341,22 +335,15 @@ function dvolRenderTableau(dossiers) {
 }
 
 // ────────────────────────────────────────────────────────────
-// FILE D'ARIANE — Chevrons collés, une seule ligne horizontale
-//
-// Technique :
-//   - Conteneur flex en ligne unique, overflow-x:auto, flex-wrap:nowrap
-//   - Chaque case a un margin-left négatif pour s'emboîter
-//   - Deux divs superposés (position:absolute) simulent le contour coloré
-//   - La date est affichée DANS la case, sous le label
-//   - Toutes les flèches pointent vers la DROITE (gauche→droite)
+// FIL D'ARIANE
 // ────────────────────────────────────────────────────────────
 
 function dvolRenderFilAriane(etapes, estCloture) {
   const today = new Date(); today.setHours(0,0,0,0);
   const nbEtapes = etapes.length;
-  const BORDER = 2;   // épaisseur contour simulé en px
-  const ARROW  = 14;  // largeur de la pointe de flèche en px
-  const H      = 58;  // hauteur fixe de chaque case en px
+  const BORDER = 2;
+  const ARROW  = 14;
+  const H      = 58;
 
   const cases = etapes.map((e, i) => {
     const fait    = e.statut === 'realise';
@@ -366,19 +353,16 @@ function dvolRenderFilAriane(etapes, estCloture) {
     const isFirst = i === 0;
     const isLast  = i === nbEtapes - 1;
 
-    // Couleur du contour selon état
     let couleur;
     if (annule)       couleur = '#d1d5db';
     else if (fait)    couleur = '#16a34a';
     else if (enCours) couleur = '#1e3a5f';
     else if (retard)  couleur = '#dc2626';
-    else              couleur = '#d1d5db'; // en attente
+    else              couleur = '#d1d5db';
 
     const textColor = annule ? '#9ca3af' : couleur;
     const bgInner   = annule ? '#f9fafb' : '#ffffff';
 
-    // clip-path couche CONTOUR (pleine taille)
-    // Toutes les cases : entrée coupée à gauche (sauf première), sortie en flèche à droite (sauf dernière)
     const shapeOuter = isFirst
       ? (isLast
           ? `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)`
@@ -387,7 +371,6 @@ function dvolRenderFilAriane(etapes, estCloture) {
           ? `polygon(${ARROW}px 0%, 100% 0%, 100% 100%, ${ARROW}px 100%, 0% 50%)`
           : `polygon(${ARROW}px 0%, calc(100% - ${ARROW}px) 0%, 100% 50%, calc(100% - ${ARROW}px) 100%, ${ARROW}px 100%, 0% 50%)`);
 
-    // clip-path couche FOND (insérée de BORDER px pour simuler le contour)
     const b = BORDER;
     const a = ARROW;
     const shapeInner = isFirst
@@ -398,7 +381,6 @@ function dvolRenderFilAriane(etapes, estCloture) {
           ? `polygon(${a+b}px ${b}px, calc(100% - ${b}px) ${b}px, calc(100% - ${b}px) calc(100% - ${b}px), ${a+b}px calc(100% - ${b}px), ${b}px 50%)`
           : `polygon(${a+b}px ${b}px, calc(100% - ${a+b}px) ${b}px, calc(100% - ${b}px) 50%, calc(100% - ${a+b}px) calc(100% - ${b}px), ${a+b}px calc(100% - ${b}px), ${b}px 50%)`);
 
-    // Date à afficher sous le label
     let dateLbl = '';
     if (annule) {
       dateLbl = `<span style="font-size:9px;color:#9ca3af;font-style:italic;">Annulée</span>`;
@@ -410,7 +392,6 @@ function dvolRenderFilAriane(etapes, estCloture) {
       dateLbl = `<span style="font-size:9px;color:${retard?'#dc2626':'#9ca3af'};">${dvolFmtDate(e.date_prevue)}</span>`;
     }
 
-    // margin-left négatif pour coller les cases (sauf première)
     const marginLeft = isFirst ? '0' : `-${ARROW}px`;
     const zIndex     = nbEtapes - i;
     const padL       = isFirst ? '12px' : `${ARROW + 8}px`;
@@ -426,11 +407,8 @@ function dvolRenderFilAriane(etapes, estCloture) {
         ${annule ? 'opacity:.55;' : ''}
         cursor:default;
       " title="${e.label}">
-      <!-- Couche 1 : contour coloré -->
       <div style="position:absolute;inset:0;clip-path:${shapeOuter};background:${couleur};"></div>
-      <!-- Couche 2 : fond blanc inséré -->
       <div style="position:absolute;inset:0;clip-path:${shapeInner};background:${bgInner};"></div>
-      <!-- Texte : label + date empilés, centrés -->
       <div style="
         position:absolute;inset:0;
         display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -536,7 +514,7 @@ function dvolConfirmer({ titre, message, labelOk = 'Confirmer', dangereux = fals
 }
 
 // ────────────────────────────────────────────────────────────
-// MODALE DÉTAIL DOSSIER — centrée
+// MODALE DÉTAIL DOSSIER
 // ────────────────────────────────────────────────────────────
 
 async function dvolOuvrirDossier(id) {
@@ -593,9 +571,299 @@ async function dvolOuvrirDossier(id) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z]/g,'');
   const compagniesAvecProc = ['CMAM','ALLIANZ','EQUITE'];
   const btnProcedure = compagniesAvecProc.includes(compagnieNorm)
-    ? `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-secondary" onclick="window.open('https://outilsdevsin.github.io/DSP/staging/procedures/DVOL/${compagnieNorm}.pdf','_blank')">📄 Procédure expertise</button></div>`
+    ? `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-secondary" onclick="dvolOuvrirProcedure('${compagnieNorm}')">📄 Procédure expertise</button></div>`
     : '';
 
-  overlay.innerHTML = `...TRONQUE...`;
+  // ── Boutons d'action étapes ──
+  // CORRECTION BUG : on utilise data-attributes pour éviter les apostrophes dans les onclick
+  function btnEtape(etape) {
+    if (estCloture) return '';
+    if (etape.statut === 'realise') return `<span style="color:#16a34a;font-size:12px;font-weight:600;">✓ Réalisé le ${dvolFmtDate(etape.date_realisee)}</span>`;
+    if (etape.statut === 'annule') return `<span style="color:#9ca3af;font-size:12px;">Annulée</span>`;
+
+    const prevEtape = etapes.find(e => e.ordre === etape.ordre - 1);
+    if (prevEtape && prevEtape.statut !== 'realise') return '';
+
+    return `<button
+      class="btn btn-primary dvol-btn-etape"
+      data-dossier-id="${id}"
+      data-slug="${etape.slug}"
+      data-label="${etape.label}"
+      style="font-size:12px;padding:6px 14px;">
+      ● Confirmer ${etape.label.toLowerCase()}
+    </button>`;
+  }
+
+  const etapeEnCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
+
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.25);width:100%;max-width:680px;overflow:hidden;position:relative;">
+
+      <!-- EN-TÊTE -->
+      <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:20px 24px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:-.3px;">ID:${refSin}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
+            <span style="font-size:13px;opacity:.85;">${d.compagnie_mere||d.compagnie||'—'}</span>
+            ${dvolBadgeJours(jours)!=='' ? `<span style="font-size:13px;opacity:.85;">·</span>${dvolBadgeJours(jours)}` : ''}
+          </div>
+        </div>
+        <button onclick="document.getElementById('dvol-detail-modal').remove()" style="background:rgba(255,255,255,.15);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
+      </div>
+
+      <!-- CORPS -->
+      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:18px;max-height:75vh;overflow-y:auto;">
+
+        <!-- Bandeau clôture -->
+        ${bandeauCloture}
+
+        <!-- Infos principales -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:4px;">Statut</div>
+            ${statutHtml}
+          </div>
+          <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:4px;">Gestionnaire</div>
+            ${gestHtml}
+          </div>
+          <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:4px;">Date déclaration</div>
+            <div style="font-size:13px;font-weight:600;color:var(--navy);">${dvolFmtDate(d.date_declaration)}</div>
+          </div>
+        </div>
+
+        <!-- Véhicule retrouvé -->
+        <div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;align-items:center;gap:16px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;min-width:120px;">Véhicule retrouvé ?</div>
+          ${retrouveHtml}
+        </div>
+
+        <!-- Bouton procédure -->
+        ${btnProcedure}
+
+        <!-- Fil d'Ariane -->
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">📍 Avancement du dossier</div>
+          ${dvolRenderFilAriane(etapes, estCloture)}
+        </div>
+
+        <!-- Action étape en cours -->
+        ${etapeEnCours && !estCloture ? `
+        <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">🔵 Étape en cours : ${etapeEnCours.label}</div>
+          ${btnEtape(etapeEnCours)}
+        </div>` : ''}
+
+        <!-- Documents -->
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">📎 Documents</div>
+          ${dvolRenderDocs(d, canEdit)}
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;">📝 Notes</div>
+          <textarea id="dvol-edit-notes" rows="3" style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:10px;font-size:13px;resize:vertical;font-family:inherit;" placeholder="Ajouter une note...">${d.notes||''}</textarea>
+        </div>
+
+      </div>
+
+      <!-- PIED -->
+      <div style="padding:14px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;gap:10px;background:white;">
+        <button onclick="document.getElementById('dvol-detail-modal').remove()" class="btn btn-secondary" style="padding:9px 20px;">Fermer</button>
+        <button onclick="dvolEnregistrer('${id}')" class="btn btn-primary" style="padding:9px 20px;">💾 Enregistrer</button>
+      </div>
+    </div>`;
+
   document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  // Délégation d'événement pour les boutons d'étape (évite les apostrophes dans onclick)
+  overlay.querySelectorAll('.dvol-btn-etape').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dossierId = btn.dataset.dossierId;
+      const slug      = btn.dataset.slug;
+      const label     = btn.dataset.label;
+      dvolDemanderConfirmEtape(dossierId, slug, label);
+    });
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// CONFIRMER UNE ÉTAPE
+// ────────────────────────────────────────────────────────────
+
+function dvolDemanderConfirmEtape(dossierId, slug, label) {
+  dvolConfirmer({
+    titre: `Confirmer : ${label}`,
+    message: `Voulez-vous confirmer la réalisation de l'étape <strong>${label}</strong> à la date d'aujourd'hui ?`,
+    labelOk: 'Confirmer',
+    dangereux: false,
+    onConfirm: () => dvolValiderEtape(dossierId, slug)
+  });
+}
+
+async function dvolValiderEtape(dossierId, slug) {
+  const today = new Date().toISOString().split('T')[0];
+  const d = dvolDossiers.find(x => x.id === dossierId);
+  if (!d) return;
+
+  const etapeExistante = (d._etapes || []).find(e => e.slug === slug);
+
+  if (etapeExistante) {
+    const { error } = await db.from('dvol_suivi_etapes')
+      .update({ statut: 'realise', date_realisee: today })
+      .eq('id', etapeExistante.id);
+    if (error) { alert('Erreur lors de la mise à jour : ' + error.message); return; }
+  } else {
+    const { error } = await db.from('dvol_suivi_etapes')
+      .insert({ dossier_id: dossierId, slug, statut: 'realise', date_realisee: today });
+    if (error) { alert('Erreur lors de la création : ' + error.message); return; }
+  }
+
+  // Mise à jour du statut du dossier selon l'étape validée
+  let nouveauStatut = null;
+  if (slug === 'validation_docs')     nouveauStatut = 'expertise_necessaire';
+  if (slug === 'lancement_expertise') nouveauStatut = 'en_cours_expertise';
+  if (slug === 'reception_rapport')   nouveauStatut = 'en_attente_cloture';
+  if (slug === 'reglement')           nouveauStatut = 'clos';
+
+  if (nouveauStatut) {
+    await db.from('dvol_dossiers').update({ statut: nouveauStatut }).eq('id', dossierId);
+  }
+
+  await dvolLoad();
+  document.getElementById('dvol-detail-modal')?.remove();
+  dvolOuvrirDossier(dossierId);
+}
+
+// ────────────────────────────────────────────────────────────
+// TOGGLE DOCUMENT
+// ────────────────────────────────────────────────────────────
+
+async function dvolToggleDoc(dossierId, docKey, nouvelleValeur) {
+  const d = dvolDossiers.find(x => x.id === dossierId);
+  if (!d) return;
+  let liste = dvolGetDocsRecus(d);
+  if (nouvelleValeur) {
+    if (!liste.includes(docKey)) liste.push(docKey);
+  } else {
+    liste = liste.filter(k => k !== docKey);
+  }
+  const { error } = await db.from('dvol_dossiers')
+    .update({ documents_recus_liste: liste })
+    .eq('id', dossierId);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  d.documents_recus_liste = liste;
+  await dvolLoad();
+  document.getElementById('dvol-detail-modal')?.remove();
+  dvolOuvrirDossier(dossierId);
+}
+
+// ────────────────────────────────────────────────────────────
+// GESTIONNAIRE
+// ────────────────────────────────────────────────────────────
+
+function dvolToggleGestEdit(dossierId) {
+  const label = document.getElementById('dvol-gest-label');
+  const sel   = document.getElementById('dvol-edit-gestionnaire');
+  if (!label || !sel) return;
+  const visible = sel.style.display !== 'none';
+  sel.style.display   = visible ? 'none'  : 'block';
+  label.style.display = visible ? 'block' : 'none';
+}
+
+async function dvolSauvegarderGestionnaire(dossierId, gestId) {
+  const { error } = await db.from('dvol_dossiers')
+    .update({ gestionnaire_id: gestId || null })
+    .eq('id', dossierId);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  await dvolLoad();
+  document.getElementById('dvol-detail-modal')?.remove();
+  dvolOuvrirDossier(dossierId);
+}
+
+// ────────────────────────────────────────────────────────────
+// VÉHICULE RETROUVÉ
+// ────────────────────────────────────────────────────────────
+
+async function dvolOnRetrouve(dossierId, checkbox) {
+  const retrouve = checkbox.checked;
+  const updates = { vehicule_retrouve_confirme: retrouve };
+  if (retrouve) updates.statut = 'vehicule_retrouve';
+
+  const { error } = await db.from('dvol_dossiers').update(updates).eq('id', dossierId);
+  if (error) { alert('Erreur : ' + error.message); checkbox.checked = !retrouve; return; }
+
+  const labelEl = checkbox.parentElement?.querySelector('span');
+  if (labelEl) labelEl.textContent = retrouve ? 'Oui' : 'Non';
+
+  await dvolLoad();
+}
+
+// ────────────────────────────────────────────────────────────
+// ENREGISTRER (notes + statut admin)
+// ────────────────────────────────────────────────────────────
+
+async function dvolEnregistrer(dossierId) {
+  const notes       = document.getElementById('dvol-edit-notes')?.value ?? null;
+  const statutSel   = document.getElementById('dvol-edit-statut');
+  const nouveauStat = statutSel ? statutSel.value : null;
+
+  const updates = {};
+  if (notes !== null)       updates.notes  = notes;
+  if (nouveauStat !== null) updates.statut = nouveauStat;
+
+  if (Object.keys(updates).length === 0) {
+    document.getElementById('dvol-detail-modal')?.remove();
+    return;
+  }
+
+  const { error } = await db.from('dvol_dossiers').update(updates).eq('id', dossierId);
+  if (error) { alert('Erreur lors de la sauvegarde : ' + error.message); return; }
+
+  await dvolLoad();
+  document.getElementById('dvol-detail-modal')?.remove();
+}
+
+// ────────────────────────────────────────────────────────────
+// CHARGEMENT DONNÉES
+// ────────────────────────────────────────────────────────────
+
+async function dvolLoad() {
+  const { data, error } = await db
+    .from('dvol_dossiers')
+    .select('*')
+    .order('date_declaration', { ascending: false });
+
+  if (error) { console.error('dvolLoad error:', error); return; }
+
+  // Charger les étapes pour chaque dossier
+  const ids = (data || []).map(d => d.id);
+  let etapesMap = {};
+  if (ids.length > 0) {
+    const { data: etapesData } = await db
+      .from('dvol_suivi_etapes')
+      .select('*')
+      .in('dossier_id', ids);
+    (etapesData || []).forEach(e => {
+      if (!etapesMap[e.dossier_id]) etapesMap[e.dossier_id] = [];
+      etapesMap[e.dossier_id].push(e);
+    });
+  }
+
+  dvolDossiers = (data || []).map(d => ({ ...d, _etapes: etapesMap[d.id] || [] }));
+
+  const alertes = dvolGetAlertes(dvolDossiers);
+  dvolRenderAlertes(alertes);
+  dvolRenderTableau(dvolDossiers);
+}
+
+// ────────────────────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────────────────────
+
+async function dvolInit() {
+  await dvolLoad();
 }
