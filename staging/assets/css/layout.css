@@ -86,14 +86,14 @@
   .content { padding: 20px 28px; }
 
   /* ===== TOOL SCREENS (Dplane / Dvol) ===== */
-  /* Ces écrans sont enfants directs de #app-screen (flex column).        */
-  /* Sans ces règles, ils s'affichent hors viewport sous #main-content.   */
+  /* Ces écrans sont enfants directs de #app-screen.                     */
+  /* min-height:100vh garantit la visibilité même hors contexte flex.    */
   #dplane-screen,
   #dvol-screen {
     flex: 1;
     overflow-y: auto;
     background: var(--gray-100);
-    min-height: 0;
+    min-height: 100vh;
   }
 
   /* ===== STAT CARDS ===== */
