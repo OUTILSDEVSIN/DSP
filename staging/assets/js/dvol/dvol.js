@@ -1,12 +1,22 @@
 // ============================================================
-// DVOL v3.3 — Gestion des dossiers vol de véhicule
-// Fix v3.3 :
-//   - openModal/closeModal/openConfirm → dvolOpenModal/dvolCloseModal/dvolOpenConfirm
-//     (évite le conflit avec auth.js closeModal(id))
-//   - full_name → prenom + ' ' + nom (cohérent avec table utilisateurs)
-//   - Simplification gestionnaire : select direct au lieu de toggle display
-//   - Bouton procédure expertise branché sur dvolOuvrirProcedure()
-//   - auditLog() appelé sur création
+// DVOL v3.9 — Gestion des dossiers vol de véhicule
+//
+// Historique :
+// v3.3 — openModal/closeModal renommés dvol*, fix full_name, auditLog
+// v3.4 — Déclaration auto-validée, colonne Assuré supprimée, bouton
+//         procédure dans header, véhicule retrouvé 2 appels séparés
+// v3.5 — Suppression th Assuré via JS, procédure au-dessus frise,
+//         dvolOuvrirProcedureParDessus (z-index)
+// v3.6 — vehicule_retrouve piloté via statut (colonne inexistante),
+//         payload création nettoyé
+// v3.7 — Bouton véhicule retrouvé → flow confirmation + clôture dossier
+//         + verrouillage étapes, dossiers clôturés visibles jusqu'au reset
+// v3.8 — Règle J+10 expertise, J+30 règlement, blocage docs obligatoires,
+//         planning glissant (baseDate), statut select → badge, docs
+//         verrouillés après validation_docs
+// v3.9 — Bouton Refusé, procédure LABTAF complète (confirmation,
+//         relance, reprendre gestion), statut badge lecture seule,
+//         bannière LABTAF, étapes bloquées en LABTAF
 // ============================================================
 
 let dvolDossiers = [];
