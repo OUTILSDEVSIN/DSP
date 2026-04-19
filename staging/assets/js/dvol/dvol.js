@@ -335,9 +335,9 @@ function dvolOuvrirDossier(id) {
     </div>${i < etapes.length - 1 ? '<div style="display:flex;align-items:center;padding:0 2px;color:#9ca3af">›</div>' : ''}`;
   }).join('');
 
-  // Action étape en cours (masquée si dossier clôturé)
+  // Action étape en cours (masquée si dossier clôturé ou en LABTAF)
   let actionHtml = '';
-  if (etapeEnCours && !dossierClos && d.statut !== 'vehicule_retrouve') {
+  if (etapeEnCours && !dossierClos && d.statut !== 'vehicule_retrouve' && d.statut !== 'labtaf') {
     actionHtml = `
     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:16px">
       <div style="font-weight:700;color:#1e40af;margin-bottom:10px">● Étape en cours : ${etapeEnCours.label}</div>
@@ -351,31 +351,30 @@ function dvolOuvrirDossier(id) {
 
   // Documents
   const recusList    = dvolGetDocsRecus(d);
+  // Docs verrouillés une fois validation_docs confirmée
+  const etapeValidDocs = etapes.find(e => e.slug === 'validation_docs');
+  const docsVerrouilles = dossierClos || (etapeValidDocs && etapeValidDocs.statut === 'realise');
+
   const docsObligHtml = DVOL_DOCS_OBLIGATOIRES.map(doc => {
     const ok = recusList.includes(doc.key);
-    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:${dossierClos ? 'default' : 'pointer'}">
-      <input type="checkbox" ${ok ? 'checked' : ''} ${dossierClos ? 'disabled' : ''}
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:${docsVerrouilles ? 'default' : 'pointer'}">
+      <input type="checkbox" ${ok ? 'checked' : ''} ${docsVerrouilles ? 'disabled' : ''}
         onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
         style="width:16px;height:16px">
-      <span style="${dossierClos ? 'color:#9ca3af' : ''}">${doc.icon} ${doc.label}</span>
+      <span style="${docsVerrouilles ? 'color:#9ca3af' : ''}">${doc.icon} ${doc.label}</span>
       ${ok ? '<span style="color:#16a34a;font-size:0.8em;margin-left:auto">✓ Reçu</span>' : ''}
     </label>`;
   }).join('');
 
   const docsOptHtml = DVOL_DOCS_OPTIONNELS.map(doc => {
     const ok = recusList.includes(doc.key);
-    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:${dossierClos ? 'default' : 'pointer'}">
-      <input type="checkbox" ${ok ? 'checked' : ''} ${dossierClos ? 'disabled' : ''}
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:${docsVerrouilles ? 'default' : 'pointer'}">
+      <input type="checkbox" ${ok ? 'checked' : ''} ${docsVerrouilles ? 'disabled' : ''}
         onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
         style="width:16px;height:16px">
-      <span style="${dossierClos ? 'color:#9ca3af' : ''}">${doc.icon} ${doc.label}</span>
+      <span style="${docsVerrouilles ? 'color:#9ca3af' : ''}">${doc.icon} ${doc.label}</span>
     </label>`;
   }).join('');
-
-  // Statut
-  const statutOpts = Object.entries(DVOL_STATUTS)
-    .map(([k, v]) => `<option value="${k}" ${d.statut === k ? 'selected' : ''}>${v.label}</option>`)
-    .join('');
 
   // Gestionnaire
   const gestOpts = `<option value="">— Non assigné —</option>` +
@@ -386,14 +385,11 @@ function dvolOuvrirDossier(id) {
   const html = `
   <div style="font-family:inherit">
 
-    <!-- Infos principales -->
+    <!-- Infos principales — Statut remplacé par badge (non modifiable manuellement) -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       <div>
         <div style="font-size:0.78em;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Statut</div>
-        <select id="dvol-statut-${d.id}"
-          style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em">
-          ${statutOpts}
-        </select>
+        <div style="padding-top:5px">${dvolBadgeStatut(d.statut)}</div>
       </div>
       <div>
         <div style="font-size:0.78em;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Gestionnaire</div>
@@ -413,16 +409,40 @@ function dvolOuvrirDossier(id) {
       </div>
     </div>
 
-    <!-- Véhicule retrouvé -->
-    <div style="margin-bottom:16px">
+    <!-- Bannière LABTAF active -->
+    ${d.statut === 'labtaf' ? `
+    <div style="background:#ecfeff;border:2px solid #06b6d4;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:800;color:#0e7490;font-size:1em;margin-bottom:4px">🔒 Dossier en attente LABTAF</div>
+          ${d.date_cloture_prevue ? `<div style="font-size:0.85em;color:#0891b2">Échéance relance : <strong>${dvolFmtDate(d.date_cloture_prevue)}</strong></div>` : ''}
+        </div>
+        <button onclick="dvolReprendreGestionLabtaf('${d.id}')"
+          style="background:#0891b2;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:0.9em;white-space:nowrap">
+          ↩️ Reprendre la gestion
+        </button>
+      </div>
+    </div>` : ''}
+
+    <!-- Actions dossier : Véhicule retrouvé / Refusé / LABTAF -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
       ${dossierClos || d.statut === 'vehicule_retrouve'
         ? `<div style="display:inline-flex;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:8px 14px;">
-             <span style="font-weight:700;color:#166534">🚗 Véhicule retrouvé — Dossier clôturé 🔒</span>
+             <span style="font-weight:700;color:#166534">🚗 Véhicule retrouvé — Clôturé 🔒</span>
            </div>`
-        : `<button onclick="dvolDemanderRetrouve('${d.id}')"
-             style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 14px;font-size:1em;font-weight:600;color:#166534;">
-             🚗 Marquer comme véhicule retrouvé
-           </button>`
+        : d.statut !== 'labtaf' && d.statut !== 'refuse' ? `
+           <button onclick="dvolDemanderRetrouve('${d.id}')"
+             style="background:#15803d;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:0.88em;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(0,0,0,.2)">
+             🚗 Véhicule retrouvé
+           </button>
+           <button onclick="dvolDemanderRefus('${d.id}')"
+             style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:0.88em;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(0,0,0,.2)">
+             ❌ Refusé
+           </button>
+           <button onclick="dvolDemanderLabtaf('${d.id}')"
+             style="background:#0891b2;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:0.88em;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(0,0,0,.2)">
+             🔄 Procédure LABTAF
+           </button>` : ''
       }
     </div>
 
@@ -445,8 +465,10 @@ function dvolOuvrirDossier(id) {
 
     <!-- Documents -->
     <div style="margin-bottom:16px">
-      <div style="font-weight:700;margin-bottom:8px;color:#374151">📎 Documents</div>
-      <details open style="border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:6px">
+      <div style="font-weight:700;margin-bottom:8px;color:#374151">📎 Documents
+        ${docsVerrouilles ? '<span style="font-size:0.75em;color:#16a34a;font-weight:400;margin-left:8px">✓ Validés et verrouillés</span>' : ''}
+      </div>
+      <details ${docsVerrouilles ? '' : 'open'} style="border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:6px">
         <summary style="cursor:pointer;font-weight:600;color:#374151;list-style:none">
           📋 Obligatoires
           (${recusList.filter(k => DVOL_DOCS_OBLIGATOIRES.find(o => o.key === k)).length}/${DVOL_DOCS_OBLIGATOIRES.length})
@@ -500,6 +522,31 @@ async function dvolValiderEtape(dossierId, slug) {
   const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
   if (!d) return;
   const today = new Date().toISOString().split('T')[0];
+
+  // ── Règle J+10 : expertise impossible avant J+10 ─────────────────────────
+  if (slug === 'lancement_expertise') {
+    const jours = dvolJours(d.date_declaration);
+    if (jours !== null && jours < 10) {
+      const reste = 10 - jours;
+      dvolOpenModal({
+        title: '⛔ Expertise prématurée',
+        content: `<div style="padding:8px 0">
+          <p style="color:#374151;margin-bottom:12px">
+            Le lancement de l'expertise ne peut être confirmé qu'à partir de <strong>J+10</strong>.
+          </p>
+          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:1.4em;font-weight:800;color:#92400e">J+${jours} / J+10</div>
+            <div style="color:#92400e;font-size:0.9em;margin-top:4px">
+              Encore <strong>${reste} jour${reste > 1 ? 's' : ''}</strong> à patienter
+            </div>
+          </div>
+        </div>`,
+        size: 'small',
+        actions: [{ label: 'Compris', style: 'primary', onClick: dvolCloseModal }]
+      });
+      return;
+    }
+  }
 
   // ── Règle 1 : documents obligatoires requis avant validation_docs ──────────
   if (slug === 'validation_docs') {
@@ -673,12 +720,173 @@ async function dvolCloturerRetrouve(dossierId) {
   dvolOuvrirDossier(dossierId);
 }
 
+// ────────────────────────────────────────────────────────────
+// REFUS DU DOSSIER
+// ────────────────────────────────────────────────────────────
+
+function dvolDemanderRefus(dossierId) {
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  dvolOpenModal({
+    title: '❌ Refus du dossier — Confirmation',
+    content: `<div style="padding:8px 0">
+      <p style="color:#374151;line-height:1.6;margin-bottom:16px">
+        Confirmer le refus du dossier <strong>${d.ref_sinistre || d.numero_dossier || ''}</strong> ?
+      </p>
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;font-size:0.9em;color:#991b1b;line-height:1.5">
+        ⚠️ Action <strong>irréversible</strong> :<br>
+        • Le dossier sera clôturé avec statut <strong>Refusé</strong><br>
+        • Toutes les étapes non effectuées seront verrouillées<br>
+        • Le dossier disparaîtra au prochain reset du soir
+      </div>
+    </div>`,
+    size: 'small',
+    actions: [
+      { label: 'Annuler', style: 'secondary', onClick: dvolCloseModal },
+      { label: '❌ Confirmer le refus', style: 'primary', onClick: () => dvolCloturerRefus(dossierId) }
+    ]
+  });
+}
+
+async function dvolCloturerRefus(dossierId) {
+  dvolCloseModal();
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  const { error } = await db.from('dvol_dossiers').update({ statut: 'refuse' }).eq('id', dossierId);
+  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+  // Verrouiller toutes les étapes non réalisées
+  for (const def of DVOL_ETAPES_DEF) {
+    const etapeExistante = (d._etapes || []).find(e => e.slug === def.slug);
+    if (etapeExistante) {
+      if (etapeExistante.statut !== 'realise') await db.from('dvol_etapes').update({ statut: 'annule' }).eq('id', etapeExistante.id);
+    } else {
+      await db.from('dvol_etapes').insert({ dossier_id: dossierId, slug: def.slug, statut: 'annule' });
+    }
+  }
+  showNotif('❌ Dossier refusé et clôturé', 'success');
+  await dvolCharger();
+  dvolCloseModal();
+}
+
+// ────────────────────────────────────────────────────────────
+// PROCÉDURE LABTAF
+// ────────────────────────────────────────────────────────────
+
+function dvolDemanderLabtaf(dossierId) {
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  const dateDefaut = dvolAddJoursOuvres(new Date().toISOString().split('T')[0], 30);
+
+  dvolOpenModal({
+    title: '🔄 Procédure LABTAF',
+    content: `<div style="padding:8px 0">
+      <p style="color:#374151;line-height:1.6;margin-bottom:16px">
+        Passage en <strong>procédure LABTAF</strong> pour le dossier
+        <strong>${d.ref_sinistre || d.numero_dossier || ''}</strong>.
+      </p>
+      <div style="margin-bottom:14px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px">
+          <input type="checkbox" id="labtaf-conserve-gestion" checked style="width:16px;height:16px">
+          <span style="font-weight:600;color:#0369a1">Le gestionnaire conserve la gestion du dossier</span>
+        </label>
+      </div>
+      <div>
+        <label style="font-size:0.85em;color:#6b7280;display:block;margin-bottom:6px">
+          📅 Date d'échéance pour relance <span style="color:#6b7280;font-weight:400">(défaut : J+30 ouvrés)</span>
+        </label>
+        <input type="date" id="labtaf-date-echeance" value="${dateDefaut}"
+          style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:0.95em;box-sizing:border-box">
+        <div style="font-size:0.8em;color:#6b7280;margin-top:6px">
+          À cette date, le gestionnaire recevra une relance pour indiquer si la compagnie a répondu.
+        </div>
+      </div>
+      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-top:14px;font-size:0.85em;color:#92400e">
+        ⚠️ Les étapes du dossier seront <strong>bloquées</strong> jusqu'à la reprise de gestion.
+      </div>
+    </div>`,
+    size: 'medium',
+    actions: [
+      { label: 'Annuler', style: 'secondary', onClick: dvolCloseModal },
+      { label: '🔄 Confirmer LABTAF', style: 'primary', onClick: () => dvolConfirmerLabtaf(dossierId) }
+    ]
+  });
+}
+
+async function dvolConfirmerLabtaf(dossierId) {
+  const dateEcheance = document.getElementById('labtaf-date-echeance')?.value;
+  const conserveGestion = document.getElementById('labtaf-conserve-gestion')?.checked;
+  dvolCloseModal();
+
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+
+  const updates = { statut: 'labtaf', date_cloture_prevue: dateEcheance || null };
+  const { error } = await db.from('dvol_dossiers').update(updates).eq('id', dossierId);
+  if (error) { showNotif('Erreur LABTAF : ' + error.message, 'error'); return; }
+
+  // Insérer une notification de relance à l'échéance
+  if (d.gestionnaire_id && dateEcheance) {
+    await db.from('dvol_notifications').insert({
+      dossier_id:            dossierId,
+      gestionnaire_id:       d.gestionnaire_id,
+      message:               `📋 Relance LABTAF — Dossier ${d.ref_sinistre || d.numero_dossier || ''} : avez-vous un retour de la compagnie ?`,
+      type_alerte:           'labtaf',
+      date_prochaine_relance: dateEcheance
+    });
+  }
+
+  showNotif('🔄 Dossier passé en procédure LABTAF', 'success');
+  await dvolCharger();
+  dvolOuvrirDossier(dossierId);
+}
+
+function dvolReprendreGestionLabtaf(dossierId) {
+  dvolOpenModal({
+    title: '↩️ Reprendre la gestion — LABTAF',
+    content: `<div style="padding:8px 0">
+      <p style="color:#374151;margin-bottom:16px;line-height:1.6">
+        Quel est le résultat du retour de la compagnie ?
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="dvolLabtafValide('${dossierId}')"
+          style="background:#16a34a;color:#fff;border:none;border-radius:10px;padding:14px 20px;cursor:pointer;font-weight:700;font-size:1em;text-align:left">
+          ✅ Validé par la compagnie — Reprendre la gestion classique
+        </button>
+        <button onclick="dvolLabtafRefuse('${dossierId}')"
+          style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:14px 20px;cursor:pointer;font-weight:700;font-size:1em;text-align:left">
+          ❌ Refusé par la compagnie — Clôturer le dossier
+        </button>
+      </div>
+    </div>`,
+    size: 'small',
+    actions: [{ label: 'Annuler', style: 'secondary', onClick: dvolCloseModal }]
+  });
+}
+
+async function dvolLabtafValide(dossierId) {
+  dvolCloseModal();
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  // Reprendre au statut correspondant à la dernière étape réalisée
+  const etapes = dvolEtapesEnrichies(d);
+  const mapStatut = { declaration:'en_attente_documents', validation_docs:'expertise_necessaire', lancement_expertise:'en_cours_expertise', reception_rapport:'en_attente_cloture' };
+  const derniereRealisee = [...etapes].reverse().find(e => e.statut === 'realise');
+  const statutReprise = (derniereRealisee && mapStatut[derniereRealisee.slug]) || 'en_attente_documents';
+  await db.from('dvol_dossiers').update({ statut: statutReprise, date_cloture_prevue: null }).eq('id', dossierId);
+  showNotif('✅ Gestion reprise — Retour au flux normal', 'success');
+  await dvolCharger();
+  dvolOuvrirDossier(dossierId);
+}
+
+async function dvolLabtafRefuse(dossierId) {
+  dvolCloseModal();
+  await dvolCloturerRefus(dossierId);
+}
+
 async function dvolEnregistrer(dossierId) {
-  const statutEl = document.getElementById('dvol-statut-' + dossierId);
-  const notesEl  = document.getElementById('dvol-notes-'  + dossierId);
-  const updates  = {};
-  if (statutEl) updates.statut = statutEl.value;
-  if (notesEl)  updates.notes  = notesEl.value;
+  const notesEl = document.getElementById('dvol-notes-' + dossierId);
+  const updates = {};
+  if (notesEl) updates.notes = notesEl.value;
   if (!Object.keys(updates).length) { dvolCloseModal(); return; }
 
   const { error } = await db.from('dvol_dossiers').update(updates).eq('id', dossierId);
