@@ -394,7 +394,7 @@ function dvolOuvrirDossier(id) {
     <!-- Véhicule retrouvé -->
     <div style="margin-bottom:16px">
       <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 14px;">
-        <input type="checkbox" id="dvol-retrouve-${d.id}" ${d.vehicule_retrouve ? 'checked' : ''}
+        <input type="checkbox" id="dvol-retrouve-${d.id}" ${d.statut === 'vehicule_retrouve' ? 'checked' : ''}
           onchange="dvolOnRetrouve('${d.id}', this)"
           style="width:16px;height:16px">
         <span style="font-weight:600;color:#166534">🚗 Véhicule retrouvé</span>
@@ -403,7 +403,7 @@ function dvolOuvrirDossier(id) {
 
     <!-- Bouton procédure expertise — juste au-dessus de la frise -->
     <div style="margin-bottom:12px;display:flex;justify-content:flex-end;">
-      <button onclick="dvolCloseModal(); dvolOuvrirProcedure('${d.compagnie_mere || d.compagnie || ''}')"
+      <button onclick="dvolOuvrirProcedureParDessus('${d.compagnie_mere || d.compagnie || ''}')"
         style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:0.88em;font-weight:600;white-space:nowrap;">
         📋 Procédure ${d.compagnie_mere || d.compagnie || ''}
       </button>
@@ -529,29 +529,18 @@ async function dvolSauvegarderGestionnaire(dossierId, gestId) {
 
 async function dvolOnRetrouve(dossierId, checkbox) {
   const val = checkbox.checked;
-
-  // Étape 1 : mettre à jour vehicule_retrouve seul (évite le conflit de PATCH groupé)
-  const { error: e1 } = await db.from('dvol_dossiers')
-    .update({ vehicule_retrouve: val })
+  // La colonne vehicule_retrouve n'existe pas dans dvol_dossiers.
+  // On pilote uniquement via le champ statut.
+  const nouveauStatut = val ? 'vehicule_retrouve' : 'en_attente_cloture';
+  const { error } = await db.from('dvol_dossiers')
+    .update({ statut: nouveauStatut })
     .eq('id', dossierId);
-
-  if (e1) {
+  if (error) {
     checkbox.checked = !val;
-    console.error('[DVOL] vehicule_retrouve update error:', e1);
-    showNotif('Erreur lors de la mise à jour du véhicule retrouvé : ' + e1.message, 'error');
+    console.error('[DVOL] dvolOnRetrouve error:', error);
+    showNotif('Erreur mise à jour véhicule retrouvé : ' + error.message, 'error');
     return;
   }
-
-  // Étape 2 : mettre à jour le statut séparément si coché
-  if (val) {
-    const { error: e2 } = await db.from('dvol_dossiers')
-      .update({ statut: 'vehicule_retrouve' })
-      .eq('id', dossierId);
-    if (e2) {
-      console.warn('[DVOL] statut vehicule_retrouve non appliqué:', e2.message);
-    }
-  }
-
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
 }
@@ -656,7 +645,6 @@ async function dvolCreerDossier() {
     statut:            'declare',
     gestionnaire_id:   gestId,
     notes:             notes || null,
-    vehicule_retrouve: false,
     created_at:        new Date().toISOString(),
     updated_at:        new Date().toISOString()
   };
@@ -776,4 +764,45 @@ function dvolOpenConfirm({ message, onConfirm, labelConfirm = 'Confirmer', label
       }
     ]
   });
+}
+
+// ────────────────────────────────────────────────────────────
+// PROCÉDURE EXPERTISE — ouverture par-dessus le modal dossier
+// ────────────────────────────────────────────────────────────
+
+function dvolOuvrirProcedureParDessus(compagnie) {
+  // Snapshot des overlays existants AVANT l'ouverture de la procédure
+  const avantOuverture = new Set(
+    Array.from(document.querySelectorAll('body > div[style*="z-index"], body > div[style*="position:fixed"], body > div[class*="modal"], body > div[class*="overlay"]'))
+      .map(el => el)
+  );
+
+  // Ouvrir la fenêtre procédure (fonction définie ailleurs dans l'app)
+  if (typeof dvolOuvrirProcedure === 'function') {
+    dvolOuvrirProcedure(compagnie);
+  } else {
+    console.warn('[DVOL] dvolOuvrirProcedure non définie');
+    return;
+  }
+
+  // Après rendu, monter le z-index de tout nouvel overlay apparu au-dessus de dvol-modal-overlay (9000)
+  setTimeout(() => {
+    const Z_DESSUS = 9500;
+    document.querySelectorAll('body > div').forEach(el => {
+      if (el.id === 'dvol-modal-overlay') return; // ne pas toucher notre propre modal
+      if (avantOuverture.has(el))         return; // existait déjà avant
+      // Monter le z-index de cet élément et de tous ses enfants qui en ont un
+      el.style.zIndex = Z_DESSUS;
+      el.querySelectorAll('[style*="z-index"]').forEach(child => {
+        const z = parseInt(child.style.zIndex || '0', 10);
+        if (z > 0) child.style.zIndex = Z_DESSUS + 1;
+      });
+    });
+    // Filet de sécurité : chercher aussi par classe générique
+    document.querySelectorAll('[class*="modal"],[class*="overlay"],[class*="backdrop"]').forEach(el => {
+      if (el.id === 'dvol-modal-overlay') return;
+      if (avantOuverture.has(el))         return;
+      el.style.zIndex = Z_DESSUS;
+    });
+  }, 80);
 }
