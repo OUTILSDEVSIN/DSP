@@ -165,15 +165,34 @@ async function dvolCharger() {
 
 function dvolEtapesEnrichies(dossier) {
   const dateDecl = dossier.date_declaration;
-  return DVOL_ETAPES_DEF.map(def => {
+  if (!dateDecl) return DVOL_ETAPES_DEF.map(def => ({ ...def, statut: 'attente', dateRealisee: null, datePrevue: null, row: null }));
+
+  // Règle 3 — Allongement automatique :
+  // La date prévue de chaque étape est calculée depuis la date de réalisation
+  // RÉELLE de l'étape précédente (et non depuis date_declaration fixe).
+  // Si l'étape précédente est en retard, toutes les suivantes se décalent.
+  let baseDate  = dateDecl;   // point de départ glissant
+  let baseDelai = 0;          // délai accumulé de l'étape précédente
+
+  return DVOL_ETAPES_DEF.map((def, idx) => {
     const row = (dossier._etapes || []).find(e => e.slug === def.slug);
     let statut = 'attente', dateRealisee = null, datePrevue = null;
     if (row) { statut = row.statut; dateRealisee = row.date_realisee; }
-    if (dateDecl && def.delai > 0) {
-      datePrevue = dvolDecalerOuvre(dvolAddJoursOuvres(dateDecl, def.delai));
-    } else if (dateDecl && def.delai === 0) {
+
+    // Calcul de la date prévue
+    if (def.delai === 0) {
       datePrevue = dateDecl;
+    } else {
+      const delaiRelatif = def.delai - baseDelai; // jours ouvrés depuis l'étape précédente
+      datePrevue = dvolDecalerOuvre(dvolAddJoursOuvres(baseDate, delaiRelatif));
     }
+
+    // Mise à jour de la base pour l'étape suivante :
+    // - Si réalisée → on part de la date réelle (même si en retard)
+    // - Sinon       → on part de la date prévue calculée
+    baseDate  = (statut === 'realise' && dateRealisee) ? dateRealisee : datePrevue;
+    baseDelai = def.delai;
+
     return { ...def, statut, dateRealisee, datePrevue, row };
   });
 }
@@ -481,8 +500,59 @@ async function dvolValiderEtape(dossierId, slug) {
   const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
   if (!d) return;
   const today = new Date().toISOString().split('T')[0];
-  const etapeExistante = (d._etapes || []).find(e => e.slug === slug);
 
+  // ── Règle 1 : documents obligatoires requis avant validation_docs ──────────
+  if (slug === 'validation_docs') {
+    const recusList = dvolGetDocsRecus(d);
+    const manquants = DVOL_DOCS_OBLIGATOIRES.filter(doc => !recusList.includes(doc.key));
+    if (manquants.length > 0) {
+      dvolOpenModal({
+        title: '⛔ Documents manquants',
+        content: `<div style="padding:8px 0">
+          <p style="color:#374151;margin-bottom:12px">
+            Impossible de passer à l'expertise : <strong>${manquants.length} document(s) obligatoire(s)</strong> non reçu(s) :
+          </p>
+          <ul style="margin:0;padding-left:20px;color:#dc2626;line-height:2">
+            ${manquants.map(m => `<li>${m.icon} ${m.label}</li>`).join('')}
+          </ul>
+          <p style="color:#6b7280;font-size:0.85em;margin-top:12px">
+            Cochez les documents reçus dans la section "Documents" avant de valider cette étape.
+          </p>
+        </div>`,
+        size: 'small',
+        actions: [{ label: 'Compris', style: 'primary', onClick: dvolCloseModal }]
+      });
+      return;
+    }
+  }
+
+  // ── Règle 2 : règlement impossible avant J+30 ─────────────────────────────
+  if (slug === 'reglement') {
+    const jours = dvolJours(d.date_declaration);
+    if (jours !== null && jours < 30) {
+      const reste = 30 - jours;
+      dvolOpenModal({
+        title: '⛔ Règlement prématuré',
+        content: `<div style="padding:8px 0">
+          <p style="color:#374151;margin-bottom:12px">
+            Le règlement ne peut être confirmé qu'à partir de <strong>J+30</strong> depuis la date de déclaration.
+          </p>
+          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:1.4em;font-weight:800;color:#92400e">J+${jours} / J+30</div>
+            <div style="color:#92400e;font-size:0.9em;margin-top:4px">
+              Encore <strong>${reste} jour${reste > 1 ? 's' : ''}</strong> à patienter
+            </div>
+          </div>
+        </div>`,
+        size: 'small',
+        actions: [{ label: 'Compris', style: 'primary', onClick: dvolCloseModal }]
+      });
+      return;
+    }
+  }
+
+  // ── Validation en base ────────────────────────────────────────────────────
+  const etapeExistante = (d._etapes || []).find(e => e.slug === slug);
   if (etapeExistante) {
     await db.from('dvol_etapes')
       .update({ statut: 'realise', date_realisee: today })
