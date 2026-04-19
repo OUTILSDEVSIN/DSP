@@ -267,6 +267,7 @@ function dvolRendreTableau() {
       <div style="font-size:24px;margin-bottom:8px;">📂</div>Aucun dossier VOL pour le moment.
     </td></tr>`;
   } else {
+    // Les dossiers clôturés restent visibles (grisés) jusqu'au reset SQL du soir (22h59)
     tbody.innerHTML = actifs.map(ligneTr).join('') + clos.map(ligneTr).join('');
   }
 
@@ -302,20 +303,22 @@ function dvolOuvrirDossier(id) {
   const etapeEnCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
 
   // Timeline
+  const dossierClos = d.statut === 'clos' || d.statut === 'refuse';
   const timelineHtml = etapes.map((e, i) => {
-    let bg = '#e5e7eb', color = '#6b7280', icon = '';
-    if (e.statut === 'realise')  { bg = '#dcfce7'; color = '#166534'; icon = '✓ '; }
-    else if (e === etapeEnCours) { bg = '#dbeafe'; color = '#1e40af'; icon = '● '; }
+    let bg = '#e5e7eb', color = '#6b7280', icon = '', border = '1px solid #e5e7eb';
+    if (e.statut === 'realise')      { bg = '#dcfce7'; color = '#166534'; icon = '✓ '; }
+    else if (e.statut === 'annule')  { bg = '#f3f4f6'; color = '#9ca3af'; icon = '✗ '; border = '1px dashed #d1d5db'; }
+    else if (e === etapeEnCours)     { bg = '#dbeafe'; color = '#1e40af'; icon = '● '; border = '2px solid #3b82f6'; }
     const dateAff = e.statut === 'realise' ? dvolFmtDate(e.dateRealisee) : dvolFmtDate(e.datePrevue);
-    return `<div style="flex:1;text-align:center;padding:8px 4px;background:${bg};border-radius:8px;border:${e === etapeEnCours ? '2px solid #3b82f6' : '1px solid #e5e7eb'};font-size:0.8em">
+    return `<div style="flex:1;text-align:center;padding:8px 4px;background:${bg};border-radius:8px;border:${border};font-size:0.8em${e.statut === 'annule' ? ';opacity:0.6' : ''}">
       <div style="font-weight:700;color:${color}">${icon}${e.label}</div>
       <div style="color:#6b7280;margin-top:2px">${dateAff}</div>
     </div>${i < etapes.length - 1 ? '<div style="display:flex;align-items:center;padding:0 2px;color:#9ca3af">›</div>' : ''}`;
   }).join('');
 
-  // Action étape en cours
+  // Action étape en cours (masquée si dossier clôturé)
   let actionHtml = '';
-  if (etapeEnCours && d.statut !== 'clos' && d.statut !== 'refuse') {
+  if (etapeEnCours && !dossierClos && d.statut !== 'vehicule_retrouve') {
     actionHtml = `
     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:16px">
       <div style="font-weight:700;color:#1e40af;margin-bottom:10px">● Étape en cours : ${etapeEnCours.label}</div>
@@ -331,22 +334,22 @@ function dvolOuvrirDossier(id) {
   const recusList    = dvolGetDocsRecus(d);
   const docsObligHtml = DVOL_DOCS_OBLIGATOIRES.map(doc => {
     const ok = recusList.includes(doc.key);
-    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer">
-      <input type="checkbox" ${ok ? 'checked' : ''}
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:${dossierClos ? 'default' : 'pointer'}">
+      <input type="checkbox" ${ok ? 'checked' : ''} ${dossierClos ? 'disabled' : ''}
         onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
         style="width:16px;height:16px">
-      <span>${doc.icon} ${doc.label}</span>
+      <span style="${dossierClos ? 'color:#9ca3af' : ''}">${doc.icon} ${doc.label}</span>
       ${ok ? '<span style="color:#16a34a;font-size:0.8em;margin-left:auto">✓ Reçu</span>' : ''}
     </label>`;
   }).join('');
 
   const docsOptHtml = DVOL_DOCS_OPTIONNELS.map(doc => {
     const ok = recusList.includes(doc.key);
-    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer">
-      <input type="checkbox" ${ok ? 'checked' : ''}
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:${dossierClos ? 'default' : 'pointer'}">
+      <input type="checkbox" ${ok ? 'checked' : ''} ${dossierClos ? 'disabled' : ''}
         onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
         style="width:16px;height:16px">
-      <span>${doc.icon} ${doc.label}</span>
+      <span style="${dossierClos ? 'color:#9ca3af' : ''}">${doc.icon} ${doc.label}</span>
     </label>`;
   }).join('');
 
@@ -393,12 +396,15 @@ function dvolOuvrirDossier(id) {
 
     <!-- Véhicule retrouvé -->
     <div style="margin-bottom:16px">
-      <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 14px;">
-        <input type="checkbox" id="dvol-retrouve-${d.id}" ${d.statut === 'vehicule_retrouve' ? 'checked' : ''}
-          onchange="dvolOnRetrouve('${d.id}', this)"
-          style="width:16px;height:16px">
-        <span style="font-weight:600;color:#166534">🚗 Véhicule retrouvé</span>
-      </label>
+      ${dossierClos || d.statut === 'vehicule_retrouve'
+        ? `<div style="display:inline-flex;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:8px 14px;">
+             <span style="font-weight:700;color:#166534">🚗 Véhicule retrouvé — Dossier clôturé 🔒</span>
+           </div>`
+        : `<button onclick="dvolDemanderRetrouve('${d.id}')"
+             style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 14px;font-size:1em;font-weight:600;color:#166534;">
+             🚗 Marquer comme véhicule retrouvé
+           </button>`
+      }
     </div>
 
     <!-- Bouton procédure expertise — juste au-dessus de la frise -->
@@ -527,20 +533,72 @@ async function dvolSauvegarderGestionnaire(dossierId, gestId) {
   dvolOuvrirDossier(dossierId);
 }
 
-async function dvolOnRetrouve(dossierId, checkbox) {
-  const val = checkbox.checked;
-  // La colonne vehicule_retrouve n'existe pas dans dvol_dossiers.
-  // On pilote uniquement via le champ statut.
-  const nouveauStatut = val ? 'vehicule_retrouve' : 'en_attente_cloture';
-  const { error } = await db.from('dvol_dossiers')
-    .update({ statut: nouveauStatut })
+function dvolDemanderRetrouve(dossierId) {
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  const compagnie = d.compagnie_mere || d.compagnie || '';
+
+  dvolOpenModal({
+    title: '🚗 Véhicule retrouvé — Confirmation',
+    content: `
+      <div style="padding:8px 0">
+        <p style="font-size:1em;color:#374151;line-height:1.6;margin-bottom:16px">
+          Confirmer la découverte du véhicule pour le dossier
+          <strong>${d.ref_sinistre || d.numero_dossier || dossierId}</strong>
+          (${compagnie}) ?
+        </p>
+        <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;font-size:0.9em;color:#92400e;line-height:1.5">
+          ⚠️ Cette action est <strong>irréversible</strong> :<br>
+          • Le dossier sera <strong>clôturé</strong><br>
+          • Toutes les étapes non effectuées seront <strong>verrouillées</strong><br>
+          • Le dossier disparaîtra du tableau au prochain reset
+        </div>
+      </div>`,
+    size: 'small',
+    actions: [
+      { label: 'Annuler',             style: 'secondary', onClick: dvolCloseModal },
+      { label: '✅ Confirmer la clôture', style: 'primary', onClick: () => dvolCloturerRetrouve(dossierId) }
+    ]
+  });
+}
+
+async function dvolCloturerRetrouve(dossierId) {
+  dvolCloseModal();
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  const today = new Date().toISOString().split('T')[0];
+
+  // 1. Clôturer le dossier
+  const { error: eDossier } = await db.from('dvol_dossiers')
+    .update({ statut: 'clos' })
     .eq('id', dossierId);
-  if (error) {
-    checkbox.checked = !val;
-    console.error('[DVOL] dvolOnRetrouve error:', error);
-    showNotif('Erreur mise à jour véhicule retrouvé : ' + error.message, 'error');
+  if (eDossier) {
+    showNotif('Erreur clôture dossier : ' + eDossier.message, 'error');
     return;
   }
+
+  // 2. Verrouiller toutes les étapes non réalisées → statut 'annule'
+  const etapesExistantes = d._etapes || [];
+  for (const def of DVOL_ETAPES_DEF) {
+    const etapeExistante = etapesExistantes.find(e => e.slug === def.slug);
+    if (etapeExistante) {
+      if (etapeExistante.statut !== 'realise') {
+        await db.from('dvol_etapes')
+          .update({ statut: 'annule' })
+          .eq('id', etapeExistante.id);
+      }
+    } else {
+      // Étape jamais créée → on l'insère directement comme annulée
+      await db.from('dvol_etapes').insert({
+        dossier_id:   dossierId,
+        slug:         def.slug,
+        statut:       'annule',
+        date_realisee: null
+      });
+    }
+  }
+
+  showNotif('🚗 Véhicule retrouvé — Dossier clôturé et étapes verrouillées', 'success');
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
 }
