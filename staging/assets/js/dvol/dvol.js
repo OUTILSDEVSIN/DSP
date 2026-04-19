@@ -270,6 +270,13 @@ function dvolRendreTableau() {
     tbody.innerHTML = actifs.map(ligneTr).join('') + clos.map(ligneTr).join('');
   }
 
+  // Fix : supprimer le <th>Assuré</th> résiduel dans le HTML statique (index.html)
+  document.querySelectorAll('#dvol-screen th').forEach(th => {
+    if (th.textContent.trim().toUpperCase().replace(/[ÉE]/g, 'E').includes('ASSUR')) {
+      th.remove();
+    }
+  });
+
   // Bouton "Nouveau dossier" dans le header (ajout dynamique si absent)
   const headerZone = document.querySelector('#dvol-screen .content > div:first-child > div:last-child');
   if (headerZone && !headerZone.querySelector('#dvol-btn-nouveau')) {
@@ -394,6 +401,14 @@ function dvolOuvrirDossier(id) {
       </label>
     </div>
 
+    <!-- Bouton procédure expertise — juste au-dessus de la frise -->
+    <div style="margin-bottom:12px;display:flex;justify-content:flex-end;">
+      <button onclick="dvolCloseModal(); dvolOuvrirProcedure('${d.compagnie_mere || d.compagnie || ''}')"
+        style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:0.88em;font-weight:600;white-space:nowrap;">
+        📋 Procédure ${d.compagnie_mere || d.compagnie || ''}
+      </button>
+    </div>
+
     <!-- Timeline -->
     <div style="margin-bottom:16px">
       <div style="font-weight:700;margin-bottom:10px;color:#374151">📊 Avancement du dossier</div>
@@ -435,10 +450,6 @@ function dvolOuvrirDossier(id) {
     title: `Dossier VOL — ${d.ref_sinistre || d.numero_dossier || String(d.id).substring(0, 8)}`,
     content: html,
     size: 'large',
-    headerContent: `<button onclick="dvolOuvrirProcedure('${d.compagnie_mere || d.compagnie || ''}')"
-      style="background:rgba(124,58,237,.85);color:#fff;border:none;border-radius:7px;padding:5px 13px;cursor:pointer;font-size:0.82em;font-weight:600;white-space:nowrap;">
-      📋 Procédure ${d.compagnie_mere || d.compagnie || ''}
-    </button>`,
     actions: [
       { label: 'Fermer',         style: 'secondary', onClick: dvolCloseModal },
       { label: '💾 Enregistrer', style: 'primary',   onClick: () => dvolEnregistrer(d.id) }
