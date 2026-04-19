@@ -244,9 +244,9 @@ function dvolRendreTableau() {
               onmouseout="this.style.background='${rowBg}'"
               onclick="dvolOuvrirDossier('${d.id}')">
       <td style="padding:10px 14px;font-weight:700;color:var(--navy);white-space:nowrap;">
-        ${d.numero_dossier || d.ref_sinistre || ('ID:' + String(d.id).substring(0, 8))}
+        <div>${d.numero_dossier || ('ID:' + String(d.id).substring(0, 8))}</div>
+        ${d.ref_sinistre ? `<div style="font-size:0.8em;color:#6b7280;font-weight:400;margin-top:2px">${d.ref_sinistre}</div>` : ''}
       </td>
-      <td style="padding:10px 14px;white-space:nowrap;">${d.ref_sinistre || '—'}</td>
       <td style="padding:10px 14px;white-space:nowrap;">${d.compagnie_mere || d.compagnie || '—'}</td>
       <td style="padding:10px 14px;white-space:nowrap;">${dvolFmtDate(d.date_declaration)}</td>
       <td style="padding:10px 14px;text-align:center;">${dvolBadgeJours(jours)}</td>
@@ -263,7 +263,7 @@ function dvolRendreTableau() {
   }
 
   if (actifs.length === 0 && clos.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">
       <div style="font-size:24px;margin-bottom:8px;">📂</div>Aucun dossier VOL pour le moment.
     </td></tr>`;
   } else {
@@ -421,15 +421,6 @@ function dvolOuvrirDossier(id) {
       </details>
     </div>
 
-    <!-- Procédure expertise -->
-    <div style="margin-bottom:16px">
-      <div style="font-weight:700;margin-bottom:8px;color:#374151">📋 Procédure expertise</div>
-      <button onclick="dvolOuvrirProcedure('${d.compagnie_mere || d.compagnie || ''}')"
-        style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:0.88em;font-weight:600">
-        📋 Voir la procédure ${d.compagnie_mere || d.compagnie || ''}
-      </button>
-    </div>
-
     <!-- Notes -->
     <div style="margin-bottom:8px">
       <div style="font-weight:700;margin-bottom:6px;color:#374151">📝 Notes</div>
@@ -444,6 +435,10 @@ function dvolOuvrirDossier(id) {
     title: `Dossier VOL — ${d.ref_sinistre || d.numero_dossier || String(d.id).substring(0, 8)}`,
     content: html,
     size: 'large',
+    headerContent: `<button onclick="dvolOuvrirProcedure('${d.compagnie_mere || d.compagnie || ''}')"
+      style="background:rgba(124,58,237,.85);color:#fff;border:none;border-radius:7px;padding:5px 13px;cursor:pointer;font-size:0.82em;font-weight:600;white-space:nowrap;">
+      📋 Procédure ${d.compagnie_mere || d.compagnie || ''}
+    </button>`,
     actions: [
       { label: 'Fermer',         style: 'secondary', onClick: dvolCloseModal },
       { label: '💾 Enregistrer', style: 'primary',   onClick: () => dvolEnregistrer(d.id) }
@@ -523,14 +518,29 @@ async function dvolSauvegarderGestionnaire(dossierId, gestId) {
 
 async function dvolOnRetrouve(dossierId, checkbox) {
   const val = checkbox.checked;
-  const updates = { vehicule_retrouve: val };
-  if (val) updates.statut = 'vehicule_retrouve';
-  const { error } = await db.from('dvol_dossiers').update(updates).eq('id', dossierId);
-  if (error) {
+
+  // Étape 1 : mettre à jour vehicule_retrouve seul (évite le conflit de PATCH groupé)
+  const { error: e1 } = await db.from('dvol_dossiers')
+    .update({ vehicule_retrouve: val })
+    .eq('id', dossierId);
+
+  if (e1) {
     checkbox.checked = !val;
-    showNotif('Erreur lors de la mise à jour', 'error');
+    console.error('[DVOL] vehicule_retrouve update error:', e1);
+    showNotif('Erreur lors de la mise à jour du véhicule retrouvé : ' + e1.message, 'error');
     return;
   }
+
+  // Étape 2 : mettre à jour le statut séparément si coché
+  if (val) {
+    const { error: e2 } = await db.from('dvol_dossiers')
+      .update({ statut: 'vehicule_retrouve' })
+      .eq('id', dossierId);
+    if (e2) {
+      console.warn('[DVOL] statut vehicule_retrouve non appliqué:', e2.message);
+    }
+  }
+
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
 }
@@ -655,6 +665,11 @@ async function dvolCreerDossier() {
     date_realisee: dateDeclaration
   });
 
+  // Fix : mise à jour automatique du statut → déclaration déjà validée à la création
+  await db.from('dvol_dossiers')
+    .update({ statut: 'en_attente_documents' })
+    .eq('id', data.id);
+
   if (typeof auditLog === 'function') {
     await auditLog('CREATION_DVOL', 'Dossier VOL créé : ' + (refSinistre || data.id));
   }
@@ -671,7 +686,7 @@ async function dvolCreerDossier() {
 // pour éviter tout conflit avec closeModal(id) de auth.js
 // ────────────────────────────────────────────────────────────
 
-function dvolOpenModal({ title = '', content = '', size = 'medium', actions = [] } = {}) {
+function dvolOpenModal({ title = '', content = '', size = 'medium', actions = [], headerContent = '' } = {}) {
   // Supprimer une éventuelle modale existante
   const existing = document.getElementById('dvol-modal-overlay');
   if (existing) existing.remove();
@@ -703,10 +718,13 @@ function dvolOpenModal({ title = '', content = '', size = 'medium', actions = []
       ${title ? `
       <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
         <h3 style="margin:0;font-size:15px;font-weight:800;">${title}</h3>
-        <button onclick="dvolCloseModal()"
-          style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">
-          ×
-        </button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${headerContent}
+          <button onclick="dvolCloseModal()"
+            style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">
+            ×
+          </button>
+        </div>
       </div>` : ''}
       <div style="padding:20px;overflow-y:auto;flex:1;">${content}</div>
       ${actions.length ? `
