@@ -101,7 +101,21 @@ async function showPropositionModal() {
         var s = (d.statut||'').toLowerCase();
         return s === 'nonattribue' || s === '' || !d.gestionnaire || d.gestionnaire === '';
     }).sort(function(a, b) {
-        return _priScore(b) - _priScore(a);
+        var scoreDiff = _priScore(b) - _priScore(a);
+        if (scoreDiff !== 0) return scoreDiff; // priorité d'abord
+        // - Tri secondaire : plus ancienne date_etat en premier -
+        var parseDE = function(s) {
+            if (!s) return null;
+            var p = s.split('/');
+            if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+            return new Date(s);
+        };
+        var da = parseDE(a.date_etat);
+        var db = parseDE(b.date_etat);
+        if (!da && !db) return 0;
+        if (!da) return 1; // null va en dernier
+        if (!db) return -1;
+        return da - db;   // plus anciennes en premier
     });
 
     var modal = document.createElement('div');
