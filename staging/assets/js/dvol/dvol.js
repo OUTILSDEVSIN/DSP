@@ -1,5 +1,5 @@
 // ============================================================
-// DVOL v4.0 — Gestion des dossiers vol de véhicule
+// DVOL v4.1 — Gestion des dossiers vol de véhicule
 //
 // Historique :
 // v3.3 — openModal/closeModal renommés dvol*, fix full_name, auditLog
@@ -19,6 +19,8 @@
 //         bannière LABTAF, étapes bloquées en LABTAF
 // v4.0 — Nouveau design modal (maquette Bolt), section Événements
 //         remplace Notes, table dvol_evenements en base
+// v4.1 — Documents dépliables, formulaire événements toujours visible,
+//         auto-traçage des actions (étape, refus, retrouvé, LABTAF)
 // ============================================================
 
 let dvolDossiers = [];
@@ -527,6 +529,24 @@ async function dvolAjouterEvenement(dossierId) {
 // v4.0 — MODALE DOSSIER (nouveau design)
 // ────────────────────────────────────────────────────────────
 
+
+async function dvolLogEvenement(dossierId, description, typeAction) {
+  if (!dossierId) return;
+  const typeAct = typeAction || 'Système';
+  const nomUtilisateur = currentUserData
+    ? (currentUserData.prenom + ' ' + currentUserData.nom).trim()
+    : 'Système';
+  try {
+    await db.from('dvol_evenements').insert({
+      dossier_id:  dossierId,
+      user_id:     currentUser?.id || null,
+      user_nom:    nomUtilisateur,
+      type_action: typeAct,
+      description: description
+    });
+  } catch(e) { console.warn('[DVOL] Log événement:', e); }
+}
+
 async function dvolOuvrirDossier(id) {
   dvolInjecterStylesV4();
 
@@ -658,7 +678,7 @@ async function dvolOuvrirDossier(id) {
     ? ((currentUserData.prenom?.[0]||'') + (currentUserData.nom?.[0]||'U')).toUpperCase()
     : 'U';
 
-  const formulaireEv = dossierClos ? '' : `
+  const formulaireEv = `
     <div class="dvol4-compose">
       <div class="dvol4-compose-avatar">${initUser}</div>
       <input id="dvol-ev-texte-${d.id}" class="dvol4-compose-input"
@@ -750,34 +770,42 @@ async function dvolOuvrirDossier(id) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 10V7a6 6 0 0112 0v3"></path><rect x="4" y="10" width="16" height="11" rx="2"></rect></svg>
             Validés et verrouillés</span>` : ''}
         </div>
-        <div class="dvol4-doclist">
-          <div class="dvol4-docrow">
-            <div class="dvol4-docrow-left">
-              <div class="dvol4-docrow-icon">${SVG_DOC}</div>
-              <div>
-                <span class="dvol4-docrow-title">Obligatoires</span>
-                <span class="dvol4-docrow-sub">${DVOL_DOCS_OBLIGATOIRES.length} documents requis</span>
-              </div>
-            </div>
-            <div class="dvol4-docrow-meta">
-              <span>${nbOblig} / ${DVOL_DOCS_OBLIGATOIRES.length}</span>
-              <div class="dvol4-progress"><div class="dvol4-progress-bar" style="width:${pctOblig}%"></div></div>
-            </div>
+        <details style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:8px" ${!docsVerrouilles ? 'open' : ''}>
+          <summary style="padding:12px 14px;cursor:pointer;font-weight:600;font-size:13px;color:#1e293b;display:flex;align-items:center;gap:8px;list-style:none;background:#f8fafc;user-select:none">
+            📋 Obligatoires
+            <span style="background:#e3f5ec;color:#166b4a;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;margin-left:auto">${nbOblig} / ${DVOL_DOCS_OBLIGATOIRES.length}</span>
+          </summary>
+          <div style="padding:4px 14px 8px">
+            ${DVOL_DOCS_OBLIGATOIRES.map(doc => {
+              const ok = recusList.includes(doc.key);
+              return `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:${docsVerrouilles ? 'default' : 'pointer'};border-bottom:1px solid #f1f5f9">
+                <input type="checkbox" ${ok ? 'checked' : ''} ${docsVerrouilles ? 'disabled' : ''}
+                  onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
+                  style="width:16px;height:16px;accent-color:#1c8a5e;flex-shrink:0">
+                <span style="font-size:13px;${docsVerrouilles ? 'color:#9ca3af' : 'color:#1e293b'}">${doc.icon} ${doc.label}</span>
+                ${ok ? '<span style="color:#166b4a;font-size:12px;margin-left:auto;font-weight:600">✓ Reçu</span>' : ''}
+              </label>`;
+            }).join('')}
           </div>
-          <div class="dvol4-docrow">
-            <div class="dvol4-docrow-left">
-              <div class="dvol4-docrow-icon" style="background:var(--d4-ink-100);border-color:var(--d4-ink-200);color:var(--d4-ink-600)">${SVG_DOC}</div>
-              <div>
-                <span class="dvol4-docrow-title">Optionnels</span>
-                <span class="dvol4-docrow-sub">sans alerte si absent</span>
-              </div>
-            </div>
-            <div class="dvol4-docrow-meta">
-              <span style="color:var(--d4-ink-500)">0 / ${DVOL_DOCS_OPTIONNELS.length}</span>
-              <div class="dvol4-progress"><div class="dvol4-progress-bar" style="width:0%;background:var(--d4-ink-300)"></div></div>
-            </div>
+        </details>
+        <details style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+          <summary style="padding:12px 14px;cursor:pointer;font-weight:600;font-size:13px;color:#64748b;display:flex;align-items:center;gap:8px;list-style:none;background:#f8fafc;user-select:none">
+            📋 Optionnels
+            <span style="color:#94a3b8;font-size:12px;font-weight:400;margin-left:4px">(sans alerte si absent)</span>
+          </summary>
+          <div style="padding:4px 14px 8px">
+            ${DVOL_DOCS_OPTIONNELS.map(doc => {
+              const ok = recusList.includes(doc.key);
+              return `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:${docsVerrouilles ? 'default' : 'pointer'};border-bottom:1px solid #f1f5f9">
+                <input type="checkbox" ${ok ? 'checked' : ''} ${docsVerrouilles ? 'disabled' : ''}
+                  onchange="dvolToggleDoc('${d.id}', '${doc.key}', this.checked)"
+                  style="width:16px;height:16px;accent-color:#1c8a5e;flex-shrink:0">
+                <span style="font-size:13px;${docsVerrouilles ? 'color:#9ca3af' : 'color:#1e293b'}">${doc.icon} ${doc.label}</span>
+                ${ok ? '<span style="color:#166b4a;font-size:12px;margin-left:auto;font-weight:600">✓ Reçu</span>' : ''}
+              </label>`;
+            }).join('')}
           </div>
-        </div>
+        </details>
       </div>
 
       <div class="dvol4-section">
@@ -786,7 +814,7 @@ async function dvolOuvrirDossier(id) {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"></path></svg>
           </div>
           <h3 class="dvol4-section-title">Événements</h3>
-          <span class="dvol4-section-aside--muted">Journal · qui, quoi, quand</span>
+
         </div>
         <ol class="dvol4-timeline">${timelineEv}</ol>
         ${formulaireEv}
@@ -903,6 +931,8 @@ async function dvolValiderEtape(dossierId, slug) {
     await db.from('dvol_dossiers').update({ statut: nouveauStatut }).eq('id', dossierId);
   }
 
+  const labelEtape = DVOL_ETAPES_DEF.find(e => e.slug === slug)?.label || slug;
+  await dvolLogEvenement(dossierId, `A validé l'étape : ${labelEtape}`, 'Validation');
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
 }
@@ -967,6 +997,7 @@ async function dvolCloturerRetrouve(dossierId) {
       await db.from('dvol_etapes').insert({ dossier_id: dossierId, slug: def.slug, statut: 'annule', date_realisee: null });
     }
   }
+  await dvolLogEvenement(dossierId, 'A confirmé la découverte du véhicule — Dossier clôturé', 'Validation');
   showNotif('🚗 Véhicule retrouvé — Dossier clôturé', 'success');
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
@@ -1007,6 +1038,7 @@ async function dvolCloturerRefus(dossierId) {
       await db.from('dvol_etapes').insert({ dossier_id: dossierId, slug: def.slug, statut: 'annule' });
     }
   }
+  await dvolLogEvenement(dossierId, 'A clôturé le dossier avec statut Refusé', 'Validation');
   showNotif('❌ Dossier refusé et clôturé', 'success');
   await dvolCharger();
   dvolCloseModal();
@@ -1069,6 +1101,7 @@ async function dvolConfirmerLabtaf(dossierId) {
       date_prochaine_relance: dateEcheance
     });
   }
+  await dvolLogEvenement(dossierId, `A passé le dossier en procédure LABTAF — Échéance : ${dateEcheance || 'non définie'}`, 'Validation');
   showNotif('🔄 Dossier passé en procédure LABTAF', 'success');
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
@@ -1104,6 +1137,7 @@ async function dvolLabtafValide(dossierId) {
   const derniereRealisee = [...etapes].reverse().find(e => e.statut === 'realise');
   const statutReprise = (derniereRealisee && mapStatut[derniereRealisee.slug]) || 'en_attente_documents';
   await db.from('dvol_dossiers').update({ statut: statutReprise, date_cloture_prevue: null }).eq('id', dossierId);
+  await dvolLogEvenement(dossierId, 'A repris la gestion — Retour au flux normal (LABTAF validé)', 'Validation');
   showNotif('✅ Gestion reprise — Retour au flux normal', 'success');
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
