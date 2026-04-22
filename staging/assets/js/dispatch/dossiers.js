@@ -121,10 +121,10 @@ async function renderMesDossiers() {
         + '<div style="font-size:44px;margin-bottom:8px">📋</div>'
         + '<h2 style="color:var(--navy)">Bonjour ' + currentUserData.prenom + ' !</h2>'
         + (dossiersATraiter.length > 0
-            ? '<p style="color:#666;font-size:13px;margin:8px 0 4px">Tu as <strong>' + dossiersATraiter.length + ' dossier(s) à traiter</strong> aujourd'hui.</p>'
+            ? '<p style="color:#666;font-size:13px;margin:8px 0 4px">Tu as <strong>' + dossiersATraiter.length + ' dossier(s) à traiter</strong> aujourd\'hui.</p>'
             : '')
         + dvolAlertHtml
-        + '<button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="closeModal('popup-matin-modal')">C'est parti ! 💪</button>'
+        + '<button class="btn btn-primary" style="width:100%;margin-top:16px" onclick=\"closeModal(\'popup-matin-modal\')\">C\'est parti ! 💪</button>'
         + '</div>';
       document.body.appendChild(popupMatin);
     }, 600);
