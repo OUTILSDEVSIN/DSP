@@ -26,8 +26,14 @@
 // ============================================================
 
 let dvolDossiers = [];
-let dvolFiltreActif = "tous"; // tous | en_cours | attente | clos
+let dvolFiltreActif = "tous";
 let dvolRecherche = "";
+let dvolSortDateAsc = false;
+let dvolFiltreOuvert = false;
+let dvolFiltreCompagnies = [];
+let dvolFiltreGestionnaire = "";
+let dvolFiltreAnciennete = "";
+let dvolFiltreDocs = "";
 
 const DVOL_DOCS_OBLIGATOIRES = [
   { key: 'questionnaire_vol',  label: 'Questionnaire VOL',                    icon: '📋' },
@@ -223,135 +229,118 @@ function dvolInjecterStylesDashboard() {
   const s = document.createElement('style');
   s.id = 'dvol-styles-dashboard';
   s.textContent = `
-    #dvol-screen .content { padding: 0 !important }
-    .dvol-db { padding: 24px 28px 40px; max-width: 1400px; margin: 0 auto }
-    .dvol-db-head { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:20px }
-    .dvol-db-title { font-size:26px; font-weight:700; letter-spacing:-0.02em; color:#2f3d95; margin:0 }
+    #dvol-screen .content { padding:0!important }
+    .dvol-db { padding:24px 28px 48px }
+    .dvol-db-head { display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px }
+    .dvol-db-title { font-size:26px;font-weight:700;letter-spacing:-.02em;color:#2f3d95;margin:0 }
     .dvol-db-title .d-rose { color:var(--rose,#e5195e) }
-    .dvol-db-sub { font-size:13.5px; color:#64748b; margin-top:4px }
-    .dvol-db-actions { display:flex; gap:10px }
-    .dvol-db-btn {
-      display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 14px;
-      border-radius:9px; border:1px solid; font:inherit; font-size:13px; font-weight:500;
-      cursor:pointer; transition:transform .08s, background .15s;
-      white-space:nowrap;
-    }
+    .dvol-db-sub { font-size:13.5px;color:#64748b;margin-top:4px }
+    .dvol-db-actions { display:flex;gap:10px }
+    .dvol-db-btn { display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:9px;border:1px solid;font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:transform .08s,background .15s;white-space:nowrap }
     .dvol-db-btn:hover { transform:translateY(-1px) }
-    .dvol-db-btn svg { width:14px; height:14px; flex-shrink:0 }
-    .dvol-db-btn--ghost { background:#fff; border-color:#e2e8f0; color:#1e293b }
+    .dvol-db-btn svg { width:14px;height:14px;flex-shrink:0 }
+    .dvol-db-btn--ghost { background:#fff;border-color:#e2e8f0;color:#1e293b }
     .dvol-db-btn--ghost:hover { background:#f8fafc }
-    .dvol-db-btn--primary {
-      background:linear-gradient(180deg,#2b3a87 0%,#1f2a6d 100%);
-      color:#fff; border-color:rgba(15,23,42,.15);
-      box-shadow:0 1px 0 rgba(255,255,255,.15) inset, 0 1px 2px rgba(15,23,42,.2);
-    }
+    .dvol-db-btn--primary { background:linear-gradient(180deg,#2b3a87 0%,#1f2a6d 100%);color:#fff;border-color:rgba(15,23,42,.15);box-shadow:0 1px 0 rgba(255,255,255,.15) inset,0 1px 2px rgba(15,23,42,.2) }
     .dvol-db-btn--primary:hover { background:linear-gradient(180deg,#324296 0%,#24317b 100%) }
-    .dvol-card {
-      background:#fff; border:1px solid rgba(15,23,42,.06);
-      border-radius:18px; box-shadow:0 1px 2px rgba(15,23,42,.04),0 4px 12px -4px rgba(15,23,42,.08);
-      overflow:hidden;
-    }
-    .dvol-card-head {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:14px 20px; border-bottom:1px solid #e2e8f0;
-      background:linear-gradient(180deg,#fbfcfe 0%,#fff 100%);
-    }
-    .dvol-card-title {
-      display:flex; align-items:center; gap:10px;
-      font-size:14px; font-weight:600; color:#0f172a; margin:0;
-    }
-    .dvol-card-ico {
-      width:24px; height:24px; border-radius:7px;
-      background:#f3f5fb; color:#2f3d95;
-      display:grid; place-items:center; border:1px solid #e6eaf7;
-    }
-    .dvol-count-pill {
-      display:inline-flex; align-items:center; gap:6px;
-      font-size:12px; font-weight:500; padding:4px 10px;
-      border-radius:999px; background:#f1faf5; color:#166b4a; border:1px solid #e3f5ec;
-    }
-    .dvol-count-pill .dot { width:6px; height:6px; border-radius:50%; background:currentColor }
-    .dvol-filters {
-      display:flex; align-items:center; gap:10px;
-      padding:12px 20px; border-bottom:1px solid #e2e8f0;
-      background:#f8fafc; flex-wrap:wrap;
-    }
-    .dvol-search { flex:1; max-width:320px; position:relative }
-    .dvol-search input {
-      width:100%; height:34px; border:1px solid #e2e8f0; border-radius:8px;
-      background:#fff; padding:0 12px 0 34px;
-      font:inherit; font-size:13px; color:#1e293b; outline:none;
-    }
-    .dvol-search input:focus { border-color:#4f63d2; box-shadow:0 0 0 3px rgba(79,99,210,.15) }
-    .dvol-search svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#94a3b8; width:14px; height:14px }
-    .dvol-seg { display:flex; padding:3px; gap:2px; background:#fff; border:1px solid #e2e8f0; border-radius:8px }
-    .dvol-seg button {
-      border:0; background:transparent; padding:5px 10px;
-      font:inherit; font-size:12.5px; font-weight:500; color:#475569;
-      border-radius:6px; cursor:pointer; transition:background .12s;
-    }
-    .dvol-seg button.is-on { background:#f1f5f9; color:#0f172a; font-weight:600 }
+    .dvol-card { background:#fff;border:1px solid rgba(15,23,42,.06);border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 4px 12px -4px rgba(15,23,42,.08);overflow:hidden }
+    .dvol-card-head { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#fbfcfe 0%,#fff 100%) }
+    .dvol-card-title { display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#0f172a;margin:0 }
+    .dvol-card-ico { width:24px;height:24px;border-radius:7px;background:#f3f5fb;color:#2f3d95;display:grid;place-items:center;border:1px solid #e6eaf7 }
+    .dvol-count-pill { display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;background:#f1faf5;color:#166b4a;border:1px solid #e3f5ec }
+    .dvol-count-pill .dot { width:6px;height:6px;border-radius:50%;background:currentColor }
+    .dvol-filters { display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-wrap:wrap }
+    .dvol-search { flex:1;max-width:320px;position:relative }
+    .dvol-search input { width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:0 12px 0 34px;font:inherit;font-size:13px;color:#1e293b;outline:none }
+    .dvol-search input:focus { border-color:#4f63d2;box-shadow:0 0 0 3px rgba(79,99,210,.15) }
+    .dvol-search svg { position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;width:14px;height:14px }
+    .dvol-seg { display:flex;padding:3px;gap:2px;background:#fff;border:1px solid #e2e8f0;border-radius:8px }
+    .dvol-seg button { border:0;background:transparent;padding:5px 10px;font:inherit;font-size:12.5px;font-weight:500;color:#475569;border-radius:6px;cursor:pointer;transition:background .12s }
+    .dvol-seg button.is-on { background:#f1f5f9;color:#0f172a;font-weight:600 }
     .dvol-seg button:hover:not(.is-on) { background:#f8fafc }
-    .dvol-tbl { width:100%; border-collapse:collapse; font-size:13.5px }
-    .dvol-tbl thead th {
-      text-align:left; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
-      font-weight:600; color:#64748b; padding:12px 20px;
-      background:#fff; border-bottom:1px solid #e2e8f0; white-space:nowrap;
-    }
-    .dvol-tbl thead th .sorter { margin-left:4px; color:#94a3b8 }
-    .dvol-tbl tbody td { padding:14px 20px; border-bottom:1px solid #f1f5f9; vertical-align:middle; color:#1e293b }
-    .dvol-tbl tbody tr { cursor:pointer; transition:background .12s }
+
+    /* Panneau filtres */
+    .dvol-filtre-panel { padding:16px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px }
+    .dvol-filtre-group label.dvol-flabel { font-size:10.5px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px }
+    .dvol-filtre-checkboxes { display:flex;flex-direction:column;gap:6px }
+    .dvol-filtre-checkboxes label { display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;cursor:pointer }
+    .dvol-filtre-checkboxes input[type=checkbox] { accent-color:#4f63d2;width:14px;height:14px }
+    .dvol-filtre-select { width:100%;height:32px;border:1px solid #e2e8f0;border-radius:7px;padding:0 10px;font:inherit;font-size:13px;color:#334155;background:#fff;outline:none }
+    .dvol-filtre-select:focus { border-color:#4f63d2 }
+    .dvol-filtre-reset { margin-top:8px;font-size:12px;color:#4f63d2;background:none;border:0;cursor:pointer;padding:0;font:inherit }
+    .dvol-filtre-reset:hover { text-decoration:underline }
+
+    .dvol-tbl { width:100%;border-collapse:collapse;font-size:13.5px }
+    .dvol-tbl thead th { text-align:left;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:#64748b;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0;white-space:nowrap }
+    .dvol-tbl thead th .sorter { margin-left:4px;color:#94a3b8;cursor:pointer;user-select:none }
+    .dvol-tbl thead th .sorter:hover { color:#4f63d2 }
+    .dvol-tbl tbody td { padding:14px 20px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:#1e293b }
+    .dvol-tbl tbody tr { cursor:pointer;transition:background .12s }
     .dvol-tbl tbody tr:hover { background:#f3f5fb }
     .dvol-tbl tbody tr:last-child td { border-bottom:0 }
-    .dvol-ref-mono { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:13px; font-weight:600; color:#0f172a; letter-spacing:.01em }
-    .dvol-jxp { display:inline-flex; align-items:center; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11.5px; font-weight:600; padding:3px 8px; border-radius:6px; border:1px solid }
-    .dvol-jxp--low  { color:#166b4a; background:#f1faf5; border-color:#e3f5ec }
-    .dvol-jxp--mid  { color:#8a5a1c; background:#fdf8ed; border-color:#fbefd9 }
-    .dvol-jxp--high { color:#a1293a; background:#fdf4f5; border-color:#fbe7ea }
-    .dvol-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:500; border:1px solid; white-space:nowrap }
-    .dvol-pill .dot { width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.9 }
-    .dvol-pill--info    { color:#2f3d95; background:#f3f5fb; border-color:#e6eaf7 }
-    .dvol-pill--warn    { color:#8a5a1c; background:#fdf8ed; border-color:#fbefd9 }
-    .dvol-pill--alert   { color:#a1293a; background:#fdf4f5; border-color:#fbe7ea }
-    .dvol-pill--ok      { color:#166b4a; background:#f1faf5; border-color:#e3f5ec }
-    .dvol-pill--neutral { color:#475569; background:#f8fafc; border-color:#e2e8f0 }
-    .dvol-avatar { width:26px; height:26px; border-radius:50%; background:var(--av,#64748b); color:#fff; font-size:10px; font-weight:600; display:grid; place-items:center; letter-spacing:.02em }
-    .dvol-cell-gest { display:inline-flex; align-items:center; gap:8px }
-    .dvol-docs-bar { display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:#475569 }
-    .dvol-progress { width:80px; height:6px; background:#f1f5f9; border-radius:999px; overflow:hidden }
-    .dvol-progress-bar { height:100%; background:linear-gradient(90deg,#1c8a5e,#2ca976); border-radius:inherit }
-    .dvol-open-btn {
-      display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px;
-      background:linear-gradient(180deg,#2b3a87 0%,#1f2a6d 100%);
-      color:#fff; border:1px solid rgba(15,23,42,.15); border-radius:8px;
-      font:inherit; font-size:12.5px; font-weight:500; cursor:pointer;
-      box-shadow:0 1px 0 rgba(255,255,255,.12) inset, 0 1px 2px rgba(15,23,42,.18);
-      transition:transform .08s; white-space:nowrap;
-    }
+    .dvol-ref-mono { font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;font-weight:600;color:#0f172a;letter-spacing:.01em }
+    .dvol-jxp { display:inline-flex;align-items:center;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:6px;border:1px solid }
+    .dvol-jxp--low { color:#166b4a;background:#f1faf5;border-color:#e3f5ec }
+    .dvol-jxp--mid { color:#8a5a1c;background:#fdf8ed;border-color:#fbefd9 }
+    .dvol-jxp--high { color:#a1293a;background:#fdf4f5;border-color:#fbe7ea }
+    .dvol-pill { display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid;white-space:nowrap }
+    .dvol-pill .dot { width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.9 }
+    .dvol-pill--info { color:#2f3d95;background:#f3f5fb;border-color:#e6eaf7 }
+    .dvol-pill--warn { color:#8a5a1c;background:#fdf8ed;border-color:#fbefd9 }
+    .dvol-pill--alert { color:#a1293a;background:#fdf4f5;border-color:#fbe7ea }
+    .dvol-pill--ok { color:#166b4a;background:#f1faf5;border-color:#e3f5ec }
+    .dvol-pill--neutral { color:#475569;background:#f8fafc;border-color:#e2e8f0 }
+    .dvol-avatar { width:26px;height:26px;border-radius:50%;background:var(--av,#64748b);color:#fff;font-size:10px;font-weight:600;display:grid;place-items:center;letter-spacing:.02em }
+    .dvol-cell-gest { display:inline-flex;align-items:center;gap:8px }
+    .dvol-docs-bar { display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:#475569 }
+    .dvol-progress { width:96px;height:6px;background:#f1f5f9;border-radius:999px;overflow:hidden }
+    .dvol-progress-bar { height:100%;background:linear-gradient(90deg,#1c8a5e,#2ca976);border-radius:inherit }
+    .dvol-open-btn { display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;background:linear-gradient(180deg,#2b3a87 0%,#1f2a6d 100%);color:#fff;border:1px solid rgba(15,23,42,.15);border-radius:8px;font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 1px 2px rgba(15,23,42,.18);transition:transform .08s;white-space:nowrap }
     .dvol-open-btn:hover { transform:translateY(-1px) }
-    .dvol-open-btn svg { width:12px; height:12px }
-    .dvol-card-foot {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0;
-      font-size:12px; color:#64748b;
-    }
+    .dvol-open-btn svg { width:12px;height:12px }
+
+    /* Bannière Actions requises */
+    .dvol-alert-banner { margin:0;padding:0;background:linear-gradient(180deg,#fef1f3 0%,#fde7ea 100%);border-top:1px solid #f5c6cd;border-bottom:1px solid #f5c6cd }
+    .dvol-alert-head { display:flex;align-items:center;gap:10px;padding:14px 20px 8px;font-size:13.5px;font-weight:600;color:#a1293a }
+    .dvol-alert-head .bell { width:22px;height:22px;border-radius:6px;background:#fff;color:#be3a4c;display:grid;place-items:center;border:1px solid #f5c6cd }
+    .dvol-alert-count { display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#be3a4c;color:#fff;font-size:11px;font-weight:700 }
+    .dvol-alert-row { display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;padding:8px 20px;gap:20px }
+    .dvol-alert-row + .dvol-alert-row { border-top:1px dashed #f0b9c2 }
+    .dvol-alert-row__group { display:grid;grid-template-columns:200px 120px 1fr;align-items:center;gap:24px;min-width:0 }
+    .dvol-alert-row__block { display:flex;flex-direction:column;gap:2px;min-width:0 }
+    .dvol-alert-row__label { font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#a1293a;opacity:.7;font-weight:600 }
+    .dvol-alert-row__value { font-size:13px;font-weight:600;color:#0f172a;display:inline-flex;align-items:center;gap:8px }
+    .dvol-alert-row__value--mono { font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px }
+    .dvol-alert-reason { display:inline-flex;align-items:center;gap:8px;padding:5px 10px;background:#fff;border:1px solid #f5c6cd;border-left:3px solid #be3a4c;border-radius:7px }
+    .dvol-alert-reason-ico { width:18px;height:18px;border-radius:5px;background:#fbe7ea;color:#a1293a;display:grid;place-items:center;flex-shrink:0 }
+    .dvol-alert-reason-ico svg { width:10px;height:10px }
+    .dvol-alert-reason-text { display:flex;align-items:center;gap:6px }
+    .dvol-alert-reason-eyebrow { font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#a1293a;opacity:.75;font-weight:700 }
+    .dvol-alert-reason-title { font-size:12px;font-weight:600;color:#a1293a }
+    .dvol-alert-reason-delay { font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;color:#a1293a;background:#fdf4f5;border:1px solid #fbe7ea;padding:2px 8px;border-radius:999px }
+    .dvol-alert-btn { display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;background:linear-gradient(180deg,#ec4860 0%,#d02d46 100%);color:#fff;border:1px solid rgba(0,0,0,.08);border-radius:7px;font:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:transform .08s }
+    .dvol-alert-btn:hover { transform:translateY(-1px) }
+    .dvol-alert-btn svg { width:11px;height:11px }
+
+    .dvol-card-foot { display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b }
   `;
   document.head.appendChild(s);
 }
+
 
 function dvolBadgeStatutV2(statut) {
   const map = {
     declare:              ['dvol-pill--neutral', 'Déclaré'],
     en_attente_documents: ['dvol-pill--warn',    'Attente documents'],
     relance:              ['dvol-pill--warn',    'Relancé'],
+    action_necessaire:    ['dvol-pill--warn',    'Action nécessaire'],
     expertise_necessaire: ['dvol-pill--alert',   'Expertise nécessaire'],
     en_cours_expertise:   ['dvol-pill--info',    'Expertise en cours'],
     en_attente_cloture:   ['dvol-pill--warn',    'Attente clôture'],
     vehicule_retrouve:    ['dvol-pill--ok',      'Véhicule retrouvé'],
     labtaf:               ['dvol-pill--info',    'LABTAF'],
     refuse:               ['dvol-pill--alert',   'Refusé'],
-    clos:                 ['dvol-pill--neutral',  'Clôturé'],
-    action_necessaire:    ['dvol-pill--warn',    'Action nécessaire']
+    clos:                 ['dvol-pill--neutral',  'Clôturé']
   };
   const [cls, label] = map[statut] || ['dvol-pill--neutral', statut];
   return `<span class="dvol-pill ${cls}"><span class="dot"></span>${label}</span>`;
@@ -366,16 +355,35 @@ function dvolJxpBadge(jours) {
 function dvolFiltrerDossiers() {
   const q = (dvolRecherche || '').toLowerCase().trim();
   return dvolDossiers.filter(d => {
-    // Filtre onglet — utilise le statut virtuel
+    const sv = dvolStatutVirtuel(d);
     if (dvolFiltreActif !== 'tous') {
       const groupe = DVOL_GROUPES[dvolFiltreActif] || [];
-      if (!groupe.includes(dvolStatutVirtuel(d))) return false;
+      if (!groupe.includes(sv)) return false;
     }
-    // Filtre recherche
     if (q) {
       const ref  = (d.ref_sinistre || '').toLowerCase();
       const comp = (d.compagnie_mere || d.compagnie || '').toLowerCase();
       if (!ref.includes(q) && !comp.includes(q)) return false;
+    }
+    // Filtres avancés
+    if (dvolFiltreCompagnies.length > 0) {
+      const comp = (d.compagnie_mere || d.compagnie || '').toUpperCase();
+      if (!dvolFiltreCompagnies.includes(comp)) return false;
+    }
+    if (dvolFiltreGestionnaire) {
+      if (d.gestionnaire_id !== dvolFiltreGestionnaire) return false;
+    }
+    if (dvolFiltreAnciennete) {
+      const j = dvolJours(d.date_declaration) ?? 0;
+      if (dvolFiltreAnciennete === 'low'  && j >= 10) return false;
+      if (dvolFiltreAnciennete === 'mid'  && (j < 10 || j >= 20)) return false;
+      if (dvolFiltreAnciennete === 'high' && j < 20) return false;
+    }
+    if (dvolFiltreDocs) {
+      const recus = dvolGetDocsRecus(d);
+      const complet = DVOL_DOCS_OBLIGATOIRES.every(doc => recus.includes(doc.key));
+      if (dvolFiltreDocs === 'complet'   && !complet) return false;
+      if (dvolFiltreDocs === 'incomplet' &&  complet) return false;
     }
     return true;
   });
@@ -387,10 +395,9 @@ function dvolRendreTableau() {
   const screen = document.getElementById('dvol-screen');
   if (!screen) return;
 
-  // Nombre actifs (pour le badge)
   const nbActifs = dvolDossiers.filter(d => !['clos','refuse','vehicule_retrouve'].includes(d.statut)).length;
 
-  // Alertes encart
+  // Alertes
   const alertes = dvolDossiers.filter(d => {
     if (['clos','refuse','vehicule_retrouve'].includes(d.statut)) return false;
     const etapes  = dvolEtapesEnrichies(d);
@@ -400,43 +407,119 @@ function dvolRendreTableau() {
     return new Date(enCours.datePrevue + 'T12:00:00') <= today;
   });
 
-  const alertesHtml = alertes.length === 0 ? '' : `
-    <div style="background:linear-gradient(135deg,#fff0f4,#fff8fb);border:2px solid var(--rose,#e5195e);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:block">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <span style="font-size:20px">🚨</span>
-        <h2 style="font-size:15px;font-weight:800;color:var(--rose,#e5195e);margin:0">Actions requises</h2>
-        <span style="background:var(--rose,#e5195e);color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${alertes.length}</span>
+  // Bannière alertes (nouveau design)
+  const alertesBanniereHtml = alertes.length === 0 ? '' : `
+    <div class="dvol-alert-banner">
+      <div class="dvol-alert-head">
+        <span class="bell"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16v-5a6 6 0 10-12 0v5l-2 3h16z"></path><path d="M10 21a2 2 0 004 0"></path></svg></span>
+        Actions requises
+        <span class="dvol-alert-count">${alertes.length}</span>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${alertes.map(d => {
-          const etapes  = dvolEtapesEnrichies(d);
-          const enCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
-          return `<div style="background:white;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #fecaca">
-            <div>
-              <span style="font-weight:700;color:#0f172a">${d.compagnie_mere || d.compagnie || '?'}</span>
-              <span style="color:#64748b;font-size:12px;margin-left:8px">${d.ref_sinistre || ''}</span><br>
-              <span style="font-size:12px;color:#dc2626">Étape en retard : <b>${enCours?.label || '?'}</b></span>
+      ${alertes.map(d => {
+        const etapes  = dvolEtapesEnrichies(d);
+        const enCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
+        const jours   = dvolJours(d.date_declaration);
+        const gestNom = dvolNomGestionnaire(d.gestionnaire_id);
+        const init    = gestNom !== '—' ? gestNom.split(' ').map(n=>n[0]||'').join('').substring(0,2).toUpperCase() : '?';
+        const SVG_ARR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>`;
+        const SVG_CLK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>`;
+        return `<div class="dvol-alert-row">
+          <div class="dvol-alert-row__group">
+            <div class="dvol-alert-row__block">
+              <span class="dvol-alert-row__label">Dossier</span>
+              <span class="dvol-alert-row__value dvol-alert-row__value--mono">${d.ref_sinistre || d.numero_dossier || String(d.id).substring(0,8)}</span>
             </div>
-            <button onclick="dvolOuvrirDossier('${d.id}')"
-              style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">
-              Ouvrir →
-            </button>
-          </div>`;
-        }).join('')}
-      </div>
+            <div class="dvol-alert-row__block">
+              <span class="dvol-alert-row__label">Compagnie</span>
+              <span class="dvol-alert-row__value">${d.compagnie_mere || d.compagnie || '—'}</span>
+            </div>
+            <div class="dvol-alert-row__block">
+              <span class="dvol-alert-row__label">Gestionnaire</span>
+              <span class="dvol-alert-row__value">
+                <span class="dvol-avatar" style="--av:#4f63d2">${init}</span>${gestNom}
+              </span>
+            </div>
+          </div>
+          <div class="dvol-alert-reason">
+            <span class="dvol-alert-reason-ico">${SVG_CLK}</span>
+            <span class="dvol-alert-reason-text">
+              <span class="dvol-alert-reason-eyebrow">Étape en retard</span>
+              <span class="dvol-alert-reason-title">${enCours?.label || '?'}</span>
+              <span class="dvol-alert-reason-delay">J+${jours ?? '?'}</span>
+            </span>
+          </div>
+          <button class="dvol-alert-btn" onclick="event.stopPropagation();dvolOuvrirDossier('${d.id}')">
+            Ouvrir ${SVG_ARR}
+          </button>
+        </div>`;
+      }).join('')}
     </div>`;
 
-  // Lignes filtrées
-  const dossiersFiltres = dvolFiltrerDossiers();
+  // Lignes filtrées + tri date vol
+  let dossiersFiltres = dvolFiltrerDossiers();
+  dossiersFiltres = [...dossiersFiltres].sort((a, b) => {
+    const da = a.date_declaration ? new Date(a.date_declaration) : null;
+    const db = b.date_declaration ? new Date(b.date_declaration) : null;
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return dvolSortDateAsc ? da - db : db - da;
+  });
+
+  const sortIcon = dvolSortDateAsc ? '↑' : '↓';
+  const total = dossiersFiltres.length;
+
+  // Compagnies disponibles pour les filtres
+  const compagniesDisponibles = [...new Set(dvolDossiers.map(d => (d.compagnie_mere || d.compagnie || '').toUpperCase()).filter(Boolean))];
+  const gestDisponibles = (allUsers || []);
+
+  // Panneau filtres
+  const filtreActifCount = dvolFiltreCompagnies.length + (dvolFiltreGestionnaire ? 1 : 0) + (dvolFiltreAnciennete ? 1 : 0) + (dvolFiltreDocs ? 1 : 0);
+  const filtrePanelHtml = dvolFiltreOuvert ? `
+    <div class="dvol-filtre-panel">
+      <div class="dvol-filtre-group">
+        <label class="dvol-flabel">Compagnie</label>
+        <div class="dvol-filtre-checkboxes">
+          ${compagniesDisponibles.map(c => `
+            <label>
+              <input type="checkbox" ${dvolFiltreCompagnies.includes(c) ? 'checked' : ''}
+                onchange="dvolToggleFiltreCompagnie('${c}')"> ${c}
+            </label>`).join('')}
+        </div>
+      </div>
+      <div class="dvol-filtre-group">
+        <label class="dvol-flabel">Gestionnaire</label>
+        <select class="dvol-filtre-select" onchange="dvolFiltreGestionnaire=this.value;dvolRendreTableau()">
+          <option value="">Tous les gestionnaires</option>
+          ${gestDisponibles.map(u => `<option value="${u.id}" ${dvolFiltreGestionnaire === u.id ? 'selected' : ''}>${u.prenom} ${u.nom}</option>`).join('')}
+        </select>
+      </div>
+      <div class="dvol-filtre-group">
+        <label class="dvol-flabel">Ancienneté</label>
+        <select class="dvol-filtre-select" onchange="dvolFiltreAnciennete=this.value;dvolRendreTableau()">
+          <option value="">Toutes</option>
+          <option value="low"  ${dvolFiltreAnciennete==='low'  ? 'selected' : ''}>J+0 à J+9 (récent)</option>
+          <option value="mid"  ${dvolFiltreAnciennete==='mid'  ? 'selected' : ''}>J+10 à J+19</option>
+          <option value="high" ${dvolFiltreAnciennete==='high' ? 'selected' : ''}>J+20 et + (urgent)</option>
+        </select>
+      </div>
+      <div class="dvol-filtre-group">
+        <label class="dvol-flabel">Documents obligatoires</label>
+        <select class="dvol-filtre-select" onchange="dvolFiltreDocs=this.value;dvolRendreTableau()">
+          <option value="">Tous</option>
+          <option value="complet"   ${dvolFiltreDocs==='complet'   ? 'selected' : ''}>Complets (4/4)</option>
+          <option value="incomplet" ${dvolFiltreDocs==='incomplet' ? 'selected' : ''}>Incomplets</option>
+        </select>
+        ${filtreActifCount > 0 ? `<button class="dvol-filtre-reset" onclick="dvolResetFiltres()">↺ Réinitialiser tous les filtres</button>` : ''}
+      </div>
+    </div>` : '';
 
   function ligneTr(d) {
     const jours   = dvolJours(d.date_declaration);
     const gestNom = dvolNomGestionnaire(d.gestionnaire_id);
-    const initiales = gestNom !== '—'
-      ? gestNom.split(' ').map(n => n[0] || '').join('').substring(0,2).toUpperCase()
-      : '?';
+    const initiales = gestNom !== '—' ? gestNom.split(' ').map(n => n[0]||'').join('').substring(0,2).toUpperCase() : '?';
     const recusList = dvolGetDocsRecus(d);
-    const nbDocs = recusList.filter(k => DVOL_DOCS_OBLIGATOIRES.find(o => o.key === k)).length;
+    const nbDocs  = recusList.filter(k => DVOL_DOCS_OBLIGATOIRES.find(o => o.key === k)).length;
     const pctDocs = Math.round((nbDocs / DVOL_DOCS_OBLIGATOIRES.length) * 100);
     const isClos  = ['clos','refuse','vehicule_retrouve'].includes(d.statut);
     const ref     = d.ref_sinistre || d.numero_dossier || String(d.id).substring(0,8);
@@ -446,18 +529,8 @@ function dvolRendreTableau() {
       <td style="font-variant-numeric:tabular-nums;color:#334155">${dvolFmtDate(d.date_declaration)}</td>
       <td>${dvolJxpBadge(jours)}</td>
       <td>${dvolBadgeStatutV2(dvolStatutVirtuel(d))}</td>
-      <td>
-        <span class="dvol-cell-gest">
-          <span class="dvol-avatar" style="--av:#4f63d2">${initiales}</span>
-          ${gestNom}
-        </span>
-      </td>
-      <td>
-        <span class="dvol-docs-bar">
-          <div class="dvol-progress"><div class="dvol-progress-bar" style="width:${pctDocs}%"></div></div>
-          ${nbDocs}/${DVOL_DOCS_OBLIGATOIRES.length}
-        </span>
-      </td>
+      <td><span class="dvol-cell-gest"><span class="dvol-avatar" style="--av:#4f63d2">${initiales}</span>${gestNom}</span></td>
+      <td><span class="dvol-docs-bar"><div class="dvol-progress"><div class="dvol-progress-bar" style="width:${pctDocs}%"></div></div>${nbDocs}/${DVOL_DOCS_OBLIGATOIRES.length}</span></td>
       <td style="text-align:right">
         <button class="dvol-open-btn" onclick="event.stopPropagation();dvolOuvrirDossier('${d.id}')">
           Ouvrir
@@ -474,13 +547,13 @@ function dvolRendreTableau() {
       </td></tr>`
     : dossiersFiltres.map(ligneTr).join('');
 
-  const total = dossiersFiltres.length;
   const filtres = ['tous','en_cours','attente','clos'];
   const filtresLabel = { tous:'Tous', en_cours:'En cours', attente:'Attente', clos:'Clôturés' };
+  const SVG_FILTRE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"></path></svg>`;
+  const SVG_EXPORT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M6 11l6 6 6-6"></path><path d="M4 21h16"></path></svg>`;
 
   const html = `
   <div class="dvol-db">
-    ${alertesHtml}
     <div class="dvol-db-head">
       <div>
         <h1 class="dvol-db-title"><span class="d-rose">D</span>vol</h1>
@@ -521,22 +594,24 @@ function dvolRendreTableau() {
             onclick="dvolFiltreActif='${f}';dvolRendreTableau()">${filtresLabel[f]}</button>`).join('')}
         </div>
         <div style="flex:1"></div>
-        <button class="dvol-db-btn dvol-db-btn--ghost" style="height:30px;font-size:12.5px;padding:0 11px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"></path></svg>
-          Filtres
+        <button class="dvol-db-btn dvol-db-btn--ghost" style="height:30px;font-size:12.5px;padding:0 11px;${dvolFiltreOuvert ? 'background:#f3f5fb;border-color:#4f63d2;color:#2f3d95' : ''}${filtreActifCount > 0 ? ';position:relative' : ''}"
+          onclick="dvolFiltreOuvert=!dvolFiltreOuvert;dvolRendreTableau()">
+          ${SVG_FILTRE} Filtres${filtreActifCount > 0 ? ` <span style="background:#4f63d2;color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;font-weight:700">${filtreActifCount}</span>` : ''}
         </button>
         <button class="dvol-db-btn dvol-db-btn--ghost" style="height:30px;font-size:12.5px;padding:0 11px" onclick="dvolExporterCSV()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M6 11l6 6 6-6"></path><path d="M4 21h16"></path></svg>
-          Exporter
+          ${SVG_EXPORT} Exporter
         </button>
       </div>
+
+      ${filtrePanelHtml}
+      ${alertesBanniereHtml}
 
       <table class="dvol-tbl">
         <thead>
           <tr>
-            <th>Référence <span class="sorter">↕</span></th>
+            <th>Référence</th>
             <th>Compagnie</th>
-            <th>Date vol <span class="sorter">↕</span></th>
+            <th>Date vol <span class="sorter" onclick="dvolSortDateAsc=!dvolSortDateAsc;dvolRendreTableau()" title="Trier">${sortIcon}</span></th>
             <th>J+X</th>
             <th>Statut</th>
             <th>Gestionnaire</th>
@@ -548,22 +623,39 @@ function dvolRendreTableau() {
       </table>
 
       <div class="dvol-card-foot">
-        <span>Affichage ${Math.min(1, total)}–${total} sur ${total} dossier${total > 1 ? 's' : ''}</span>
+        <span>Affichage ${Math.min(1,total)}–${total} sur ${total} dossier${total > 1 ? 's' : ''}</span>
       </div>
     </div>
   </div>`;
 
-  // Injection dans le screen
   let container = screen.querySelector('.dvol-db-root');
   if (!container) {
     container = document.createElement('div');
     container.className = 'dvol-db-root';
-    // Masquer l'ancien contenu statique du screen
     Array.from(screen.children).forEach(el => { el.style.display = 'none'; });
     screen.appendChild(container);
   }
   container.innerHTML = html;
 }
+
+// ── Helpers filtres avancés ──
+function dvolToggleFiltreCompagnie(comp) {
+  if (dvolFiltreCompagnies.includes(comp)) {
+    dvolFiltreCompagnies = dvolFiltreCompagnies.filter(c => c !== comp);
+  } else {
+    dvolFiltreCompagnies.push(comp);
+  }
+  dvolRendreTableau();
+}
+
+function dvolResetFiltres() {
+  dvolFiltreCompagnies = [];
+  dvolFiltreGestionnaire = '';
+  dvolFiltreAnciennete = '';
+  dvolFiltreDocs = '';
+  dvolRendreTableau();
+}
+
 
 // ── Export CSV ──
 function dvolExporterCSV() {
