@@ -1,17 +1,24 @@
 // ===== COPIER REFERENCE =====
 async function copyRef(ref, dossierstatut, id, btn) {
-  // Si un dossier est "encours", le passer en "ouvert"
-  if (dossierstatut === 'encours') {
-    const enCours = allDossiers.find(d => d.statut === 'encours' && d.id !== id);
-    if (enCours) {
-      await db.from('dossiers').update({ statut: 'ouvert' }).eq('id', enCours.id);
-      allDossiers = allDossiers.map(d => d.id === enCours.id ? {...d, statut: 'ouvert'} : d);
+  // Ne pas toucher au statut si le dossier est déjà traité via le menu déroulant
+  const statutsTraites = ['relance', 'ouverture', 'refuse', 'gestion_vol'];
+  const dejaTraite = statutsTraites.includes(dossierstatut);
+
+  if (!dejaTraite) {
+    // Si un autre dossier est "encours", le repasser en "ouvert"
+    if (dossierstatut === 'encours') {
+      const enCours = allDossiers.find(d => d.statut === 'encours' && d.id !== id);
+      if (enCours) {
+        await db.from('dossiers').update({ statut: 'ouvert' }).eq('id', enCours.id);
+        allDossiers = allDossiers.map(d => d.id === enCours.id ? {...d, statut: 'ouvert'} : d);
+      }
     }
+    // Passer ce dossier en "encours"
+    await db.from('dossiers').update({ statut: 'encours' }).eq('id', id);
+    allDossiers = allDossiers.map(d => d.id === id ? {...d, statut: 'encours'} : d);
   }
-  // Passer ce dossier en "encours"
-  await db.from('dossiers').update({ statut: 'encours' }).eq('id', id);
-  allDossiers = allDossiers.map(d => d.id === id ? {...d, statut: 'encours'} : d);
-  // Copier dans le presse-papiers
+
+  // Copier dans le presse-papiers (toujours, même si déjà traité)
   navigator.clipboard.writeText(ref).then(() => {
     btn.textContent = '✅'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = '📋'; btn.classList.remove('copied'); }, 2000);
@@ -27,6 +34,10 @@ function statutBadge(statut, verrouille) {
     'ouvert':      ['badge-ouvert',      'Ouvert'],
     'traite':      ['badge-traite2',     'Traité'],
     'verrouille':  ['badge-verrouille',  '🔒 Verrouillé'],
+    'relance':     ['badge-traite2',     '🔄 Relance'],
+    'ouverture':   ['badge-traite2',     '📂 Ouverture'],
+    'refuse':      ['badge-traite2',     '❌ Refus'],
+    'gestion_vol': ['badge-traite2',     '🚗 Gestion VOL'],
   };
   const [cls, label] = map[statut] || map['nonattribue'];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -102,11 +113,12 @@ async function renderAttribution() {
   const countsNature = natures.map(v => ({ label: v, count: allDossiers.filter(d => (d.nature_label||d.nature) === v).length, color: '#d35400', bg: '#fdebd0' }));
   const _knownStatuts = ['attribue','encours','ouvert','traite'];
   const _normStatut = d => {
-    const s = (d.statut||'').toLowerCase().replace(/[^a-z]/g,'');
+    const s = (d.statut||'').toLowerCase().replace(/[^a-z_]/g,'');
     if (s === 'attribue' || s === 'attribute') return 'attribue';
     if (s === 'encours' || s === 'en_cours' || s === 'encour') return 'encours';
     if (s === 'ouvert') return 'ouvert';
     if (s === 'traite' || s === 'traité') return 'traite';
+    if (['relance','ouverture','refuse','gestion_vol'].includes(s)) return 'traite';
     return 'nonattribue'; // fallback identique à statutBadge
   };
   const countsStatut = [
@@ -115,7 +127,7 @@ async function renderAttribution() {
     { value: 'traite',      label: 'Traité' }
   ].map(s => ({ value: s.value, label: s.label, count: allDossiers.filter(d => _normStatut(d) === s.value).length }));
 
-  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite'].includes(d.statut)).length;
+  const nbVerrouilles = allDossiers.filter(d => d.verrouille && !['attribue','encours','ouvert','traite','relance','ouverture','refuse','gestion_vol'].includes(d.statut)).length;
 
   let html = `
   <div <div class="unified-panel">

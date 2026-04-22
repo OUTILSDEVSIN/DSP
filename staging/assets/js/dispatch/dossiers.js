@@ -1,35 +1,68 @@
-// ===== TOGGLE TRAITÉ DANS MES DOSSIERS =====
-async function toggleTraiteMesDossiers(id, checked) {
+// ===== TRAITEMENT DOSSIER — MENU DÉROULANT =====
+// Remplace l'ancienne checkbox par un menu déroulant à 4 actions.
+// Valeurs possibles : 'relance', 'ouverture', 'refuse', 'gestion_vol'
+// Si action vide ('') → annulation = retour à non traité.
+async function actionMesDossiers(id, action) {
   // Bloquer si dossier en troc actif
-  if (isDossierEnTroc && isDossierEnTroc(id)) {
-    showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc avant de le marquer traité.', 'error');
+  if (typeof isDossierEnTroc === 'function' && isDossierEnTroc(id)) {
+    showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc.', 'error');
     await loadDossiers();
     renderMesDossiers();
     return;
   }
-  const newStatut = checked ? 'traite' : 'ouvert';
+
+  // Si action vide → annulation (retour à non traité)
+  if (!action) {
+    const { error } = await db.from('dossiers').update({
+      traite: false,
+      statut: 'ouvert',
+      traite_at: null
+    }).eq('id', id);
+    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await auditLog('REOUVERTURE_DOSSIER', 'Dossier réouvert -- id:' + id);
+    showNotif('🔄 Dossier réouvert.', 'success');
+    await loadDossiers();
+    renderMesDossiers();
+    return;
+  }
+
+  // Libellés pour les messages et logs
+  const labels = {
+    relance:     'Relance',
+    ouverture:   'Ouverture',
+    refuse:      'Refus',
+    gestion_vol: 'Gestion VOL'
+  };
+
+  // Mise à jour en base : traité = true + statut = action choisie
   const { error } = await db.from('dossiers').update({
-    traite: checked,
-    statut: newStatut,
-    traite_at: checked ? new Date().toISOString() : null
+    traite: true,
+    statut: action,
+    traite_at: new Date().toISOString()
   }).eq('id', id);
   if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-  if (checked) {
-    const d = (allDossiers || []).find(x => String(x.id) === String(id));
-    if (d) {
-      await db.from('historique_sinistres').upsert(
-        { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
-        { onConflict: 'ref_sinistre', ignoreDuplicates: true }
-      );
-    }
+
+  // Historique sinistre (traçabilité)
+  const d = (allDossiers || []).find(x => String(x.id) === String(id));
+  if (d) {
+    await db.from('historique_sinistres').upsert(
+      { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
+      { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+    );
   }
-  await auditLog(checked ? 'TRAITEMENT_DOSSIER' : 'REOUVERTURE_DOSSIER',
-    (checked ? 'Dossier marqué traité' : 'Dossier réouvert') + ' -- id:' + id);
-  showNotif(checked ? '✅ Dossier marqué comme traité.' : '🔄 Dossier réouvert.', 'success');
+
+  await auditLog('TRAITEMENT_DOSSIER', 'Dossier traité → ' + (labels[action] || action) + ' -- id:' + id);
+  showNotif('✅ Dossier traité : ' + (labels[action] || action), 'success');
+
+  // Si Gestion VOL → ouvrir le formulaire d'envoi vers DVOL
+  if (action === 'gestion_vol' && typeof dvolOuvrirFormulaire === 'function') {
+    dvolOuvrirFormulaire(id);
+  }
+
   await loadDossiers();
   renderMesDossiers();
 }
-// ===== FIN TOGGLE TRAITÉ MES DOSSIERS =====
+// ===== FIN TRAITEMENT DOSSIER =====
 
 // ===== RÉCUPÉRER UN DOSSIER (gestionnaire) =====
 async function recupererDossier(dossierId) {
@@ -167,7 +200,7 @@ async function renderMesDossiers() {
     <table><thead><tr>
       <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
       <th>Réf. Sinistre</th><th style="white-space:nowrap">Date État</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
+      <th>Portefeuille</th><th>Statut</th><th>Traitement</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
     html += '<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
@@ -226,7 +259,7 @@ async function renderMesDossiers() {
 
     mesDossiers.forEach(d => {
       const statut = d.statut || 'nonattribue';
-      const canSee = ['attribue','encours','ouvert','traite'].includes(statut);
+      const canSee = ['attribue','encours','ouvert','traite','relance','ouverture','refuse','gestion_vol'].includes(statut);
       if (!canSee) return;
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
@@ -262,14 +295,21 @@ async function renderMesDossiers() {
         <td style="text-align:center">
           ${enTroc
             ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-                <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-                  style="width:17px;height:17px;accent-color:var(--rose);cursor:not-allowed;opacity:.4"
-                  disabled title="Troc en cours — action bloquée">
+                <select disabled style="padding:4px 6px;border-radius:6px;font-size:12px;cursor:not-allowed;opacity:.4;border:1px solid #d1d5db;">
+                  <option>— Action —</option>
+                </select>
                 <span style="font-size:9px;color:#e67e22;font-weight:700">⇄ Troc</span>
                </div>`
-            : `<input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-                style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
-                onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">`
+            : `<select onchange="actionMesDossiers('${d.id}', this.value)"
+                style="padding:5px 8px;border-radius:7px;font-size:12px;cursor:pointer;border:1px solid #d1d5db;
+                background:${d.traite ? '#f0fdf4' : '#fff'};font-weight:${d.traite ? '600' : '400'};
+                color:${d.traite ? '#16a34a' : '#374151'};">
+                <option value=""${!d.traite ? ' selected' : ''}>— Action —</option>
+                <option value="relance"${d.statut === 'relance' ? ' selected' : ''}>🔄 Relance</option>
+                <option value="ouverture"${d.statut === 'ouverture' ? ' selected' : ''}>📂 Ouverture</option>
+                <option value="refuse"${d.statut === 'refuse' ? ' selected' : ''}>❌ Refus</option>
+                <option value="gestion_vol"${d.statut === 'gestion_vol' ? ' selected' : ''}>🚗 Gestion VOL</option>
+              </select>`
           }
         </td>
       </tr>`;
