@@ -631,7 +631,7 @@ function dvolDemanderRelance(dossierId) {
 
 async function dvolConfirmerRelance(dossierId) {
   const dateEcheance = document.getElementById('relance-date-echeance')?.value;
-  if (!dateEcheance) { showNotif('Choisis une date d'échéance.', 'error'); return; }
+  if (!dateEcheance) { showNotif('Choisis une date d\'ech\'eance.', 'error'); return; }
   dvolCloseModal();
   const { error } = await db.from('dvol_dossiers')
     .update({ statut: 'relance', date_relance_prevue: dateEcheance })
