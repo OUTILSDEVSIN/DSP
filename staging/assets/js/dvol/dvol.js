@@ -1,5 +1,5 @@
 // ============================================================
-// DVOL v4.1 — Gestion des dossiers vol de véhicule
+// DVOL v4.3 — Gestion des dossiers vol de véhicule
 //
 // Historique :
 // v3.3 — openModal/closeModal renommés dvol*, fix full_name, auditLog
@@ -21,6 +21,8 @@
 //         remplace Notes, table dvol_evenements en base
 // v4.1 — Documents dépliables, formulaire événements toujours visible,
 //         auto-traçage des actions (étape, refus, retrouvé, LABTAF)
+// v4.3 — Statut Relance fonctionnel, Action nécessaire virtuel,
+//         bouton Relancer, modal matin enrichi DVOL
 // ============================================================
 
 let dvolDossiers = [];
@@ -56,7 +58,8 @@ const DVOL_STATUTS = {
   vehicule_retrouve:    { label: 'Véhicule retrouvé',    color: '#059669', bg: '#ecfdf5' },
   labtaf:               { label: 'LABTAF',               color: '#0891b2', bg: '#ecfeff' },
   refuse:               { label: 'Refusé',               color: '#dc2626', bg: '#fef2f2' },
-  clos:                 { label: 'Clôturé',              color: '#374151', bg: '#f9fafb' }
+  clos:                 { label: 'Clôturé',              color: '#374151', bg: '#f9fafb' },
+  action_necessaire:    { label: 'Action nécessaire',    color: '#b45309', bg: '#fef3c7' }
 };
 
 // ────────────────────────────────────────────────────────────
@@ -211,7 +214,7 @@ function dvolEtapesEnrichies(dossier) {
 // ── Groupes de statuts pour les filtres ──
 const DVOL_GROUPES = {
   en_cours: ['declare','en_attente_documents','expertise_necessaire','en_cours_expertise'],
-  attente:  ['en_attente_cloture','labtaf','relance'],
+  attente:  ['en_attente_cloture','labtaf','relance','action_necessaire'],
   clos:     ['vehicule_retrouve','refuse','clos']
 };
 
@@ -347,7 +350,8 @@ function dvolBadgeStatutV2(statut) {
     vehicule_retrouve:    ['dvol-pill--ok',      'Véhicule retrouvé'],
     labtaf:               ['dvol-pill--info',    'LABTAF'],
     refuse:               ['dvol-pill--alert',   'Refusé'],
-    clos:                 ['dvol-pill--neutral',  'Clôturé']
+    clos:                 ['dvol-pill--neutral',  'Clôturé'],
+    action_necessaire:    ['dvol-pill--warn',    'Action nécessaire']
   };
   const [cls, label] = map[statut] || ['dvol-pill--neutral', statut];
   return `<span class="dvol-pill ${cls}"><span class="dot"></span>${label}</span>`;
@@ -362,10 +366,10 @@ function dvolJxpBadge(jours) {
 function dvolFiltrerDossiers() {
   const q = (dvolRecherche || '').toLowerCase().trim();
   return dvolDossiers.filter(d => {
-    // Filtre onglet
+    // Filtre onglet — utilise le statut virtuel
     if (dvolFiltreActif !== 'tous') {
       const groupe = DVOL_GROUPES[dvolFiltreActif] || [];
-      if (!groupe.includes(d.statut)) return false;
+      if (!groupe.includes(dvolStatutVirtuel(d))) return false;
     }
     // Filtre recherche
     if (q) {
@@ -441,7 +445,7 @@ function dvolRendreTableau() {
       <td style="color:#0f172a;font-weight:500">${d.compagnie_mere || d.compagnie || '—'}</td>
       <td style="font-variant-numeric:tabular-nums;color:#334155">${dvolFmtDate(d.date_declaration)}</td>
       <td>${dvolJxpBadge(jours)}</td>
-      <td>${dvolBadgeStatutV2(d.statut)}</td>
+      <td>${dvolBadgeStatutV2(dvolStatutVirtuel(d))}</td>
       <td>
         <span class="dvol-cell-gest">
           <span class="dvol-avatar" style="--av:#4f63d2">${initiales}</span>
@@ -577,6 +581,66 @@ function dvolExporterCSV() {
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
   a.download = 'dvol_export_' + new Date().toISOString().split('T')[0] + '.csv';
   a.click();
+}
+
+
+// ────────────────────────────────────────────────────────────
+// v4.3 — RELANCE & ACTION NÉCESSAIRE
+// ────────────────────────────────────────────────────────────
+
+// Retourne le statut "virtuel" affiché (sans modifier la base)
+// Si statut=relance ET date_relance_prevue <= aujourd'hui → action_necessaire
+function dvolStatutVirtuel(d) {
+  if (d.statut === 'relance' && d.date_relance_prevue) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const echeance = new Date(d.date_relance_prevue + 'T12:00:00');
+    if (echeance <= today) return 'action_necessaire';
+  }
+  return d.statut;
+}
+
+// Ouvre le modal pour fixer une échéance de relance
+function dvolDemanderRelance(dossierId) {
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  const dateDefaut = dvolAddJoursOuvres(new Date().toISOString().split('T')[0], 5);
+  dvolOpenModal({
+    title: '🔄 Relancer — Nouvelle échéance',
+    content: `<div style="padding:8px 0">
+      <p style="color:#374151;line-height:1.6;margin-bottom:16px">
+        Les documents ne sont pas encore complets pour le dossier
+        <strong>${d.ref_sinistre || d.numero_dossier || ''}</strong>.<br>
+        Fixe une date d'échéance pour relancer l'assuré.
+      </p>
+      <div style="margin-bottom:14px">
+        <label style="font-size:0.85em;color:#6b7280;display:block;margin-bottom:6px">📅 Date d'échéance</label>
+        <input type="date" id="relance-date-echeance" value="${dateDefaut}"
+          style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:0.95em;box-sizing:border-box">
+        <div style="font-size:0.8em;color:#6b7280;margin-top:6px">
+          À cette date, le dossier passera en <strong>Action nécessaire</strong> pour t'alerter.
+        </div>
+      </div>
+    </div>`,
+    size: 'small',
+    actions: [
+      { label: 'Annuler', style: 'secondary', onClick: dvolCloseModal },
+      { label: '🔄 Confirmer la relance', style: 'primary', onClick: () => dvolConfirmerRelance(dossierId) }
+    ]
+  });
+}
+
+async function dvolConfirmerRelance(dossierId) {
+  const dateEcheance = document.getElementById('relance-date-echeance')?.value;
+  if (!dateEcheance) { showNotif('Choisis une date d'échéance.', 'error'); return; }
+  dvolCloseModal();
+  const { error } = await db.from('dvol_dossiers')
+    .update({ statut: 'relance', date_relance_prevue: dateEcheance })
+    .eq('id', dossierId);
+  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+  await dvolLogEvenement(dossierId, `Relance fixée — Échéance : ${dvolFmtDate(dateEcheance)}`, 'Note');
+  showNotif('🔄 Dossier passé en relance', 'success');
+  await dvolCharger();
+  dvolOuvrirDossier(dossierId);
 }
 
 // ────────────────────────────────────────────────────────────
@@ -886,9 +950,18 @@ async function dvolOuvrirDossier(id) {
     </div>` : '';
 
   // ── Boutons d'action ──
+  const statutVirtuel = dvolStatutVirtuel(d);
+  const docsComplets = DVOL_DOCS_OBLIGATOIRES.every(doc => dvolGetDocsRecus(d).includes(doc.key));
+  const btnRelancer = (d.statut === 'en_attente_documents' || d.statut === 'relance') && !docsComplets ? `
+      <button class="dvol4-btn dvol4-btn--warn" onclick="dvolDemanderRelance('${d.id}')"
+        style="background:#fef3c7;color:#b45309;border-color:#fde68a">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 11-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+        Relancer
+      </button>` : '';
   const btnActions = dossierClos || d.statut === 'vehicule_retrouve'
     ? `<span style="display:inline-flex;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:8px 14px;font-weight:700;color:#166534">🚗 Véhicule retrouvé — Clôturé 🔒</span>`
     : d.statut !== 'labtaf' && d.statut !== 'refuse' ? `
+      ${btnRelancer}
       <button class="dvol4-btn dvol4-btn--ok" onclick="dvolDemanderRetrouve('${d.id}')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 13l4 4L21 5"></path></svg>
         Véhicule retrouvé
@@ -910,9 +983,13 @@ async function dvolOuvrirDossier(id) {
   const pctOblig = Math.round((nbOblig / DVOL_DOCS_OBLIGATOIRES.length) * 100);
   const SVG_DOC  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3h9l3 3v15H6z"></path><path d="M9 12h6M9 16h4"></path></svg>`;
 
-  // ── Statut pill ──
-  const statutInfo = DVOL_STATUTS[d.statut] || { label: d.statut, color: '#6b7280', bg: '#f3f4f6' };
-  const statutPill = `<span class="dvol4-pill ${d.statut === 'clos' || d.statut === 'vehicule_retrouve' ? 'dvol4-pill--ok' : d.statut === 'refuse' ? 'dvol4-pill--red' : 'dvol4-pill--info'}">
+  // ── Statut pill (utilise le statut virtuel pour affichage) ──
+  const statutInfo = DVOL_STATUTS[statutVirtuel] || { label: statutVirtuel, color: '#6b7280', bg: '#f3f4f6' };
+  const pillCls = ['clos','vehicule_retrouve'].includes(statutVirtuel) ? 'dvol4-pill--ok'
+    : statutVirtuel === 'refuse' ? 'dvol4-pill--red'
+    : statutVirtuel === 'action_necessaire' ? 'dvol4-pill--warn'
+    : 'dvol4-pill--info';
+  const statutPill = `<span class="dvol4-pill ${pillCls}" style="${statutVirtuel === 'action_necessaire' ? 'background:#fef3c7;color:#b45309;border-color:#fde68a' : ''}">
     <span class="dvol4-pill-dot"></span>${statutInfo.label}
   </span>`;
 
@@ -988,6 +1065,19 @@ async function dvolOuvrirDossier(id) {
     <div class="dvol4-body">
 
       ${labtafBanniere}
+      ${statutVirtuel === 'action_necessaire' ? `
+      <div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-weight:800;color:#b45309;font-size:1em;margin-bottom:4px">⚠️ Action nécessaire</div>
+            <div style="font-size:0.85em;color:#92400e">L'échéance de relance est dépassée — Fais le point sur ce dossier.</div>
+          </div>
+          <button onclick="dvolDemanderRelance('${d.id}')"
+            style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:0.9em;white-space:nowrap">
+            🔄 Nouvelle échéance
+          </button>
+        </div>
+      </div>` : ''}
 
       <section class="dvol4-meta">
         <div>
@@ -1216,7 +1306,15 @@ async function dvolToggleDoc(dossierId, docKey, nouvelleValeur) {
   } else {
     liste = liste.filter(k => k !== docKey);
   }
-  await db.from('dvol_dossiers').update({ documents_recus_liste: JSON.stringify(liste) }).eq('id', dossierId);
+  const updates = { documents_recus_liste: JSON.stringify(liste) };
+  // Auto-passage en expertise_necessaire si tous les docs reçus et dossier en relance/attente
+  const tousRecus = DVOL_DOCS_OBLIGATOIRES.every(doc => liste.includes(doc.key));
+  if (tousRecus && ['relance','en_attente_documents'].includes(d.statut)) {
+    updates.statut = 'expertise_necessaire';
+    updates.date_relance_prevue = null;
+    await dvolLogEvenement(dossierId, 'Tous les documents reçus — Passage en Expertise nécessaire', 'Validation');
+  }
+  await db.from('dvol_dossiers').update(updates).eq('id', dossierId);
   await dvolCharger();
   dvolOuvrirDossier(dossierId);
 }
