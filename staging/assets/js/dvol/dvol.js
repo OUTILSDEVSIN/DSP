@@ -1616,7 +1616,7 @@ async function dvolEnregistrer(dossierId) {
 // CRÉATION
 // ────────────────────────────────────────────────────────────
 
-function dvolOuvrirCreation() {
+function dvolOuvrirCreation(prefillRef) {
   const today = new Date().toISOString().split('T')[0];
   const gestOpts = `<option value="">— Non assigné —</option>` +
     (allUsers || []).map(u => `<option value="${u.id}">${u.prenom} ${u.nom}</option>`).join('');
@@ -1635,7 +1635,7 @@ function dvolOuvrirCreation() {
       </div>
       <div>
         <label style="font-size:0.82em;color:#6b7280;display:block;margin-bottom:4px">Référence sinistre</label>
-        <input id="dvol-new-refsinistre" type="text" placeholder="MIA-2026-XXXX"
+        <input id="dvol-new-refsinistre" type="text" placeholder="MIA-2026-XXXX" value="${prefillRef || ''}"
           style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:7px;box-sizing:border-box">
       </div>
       <div>
