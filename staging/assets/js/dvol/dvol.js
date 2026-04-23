@@ -1618,8 +1618,21 @@ async function dvolEnregistrer(dossierId) {
 
 function dvolOuvrirCreation(prefillRef) {
   const today = new Date().toISOString().split('T')[0];
-  const gestOpts = `<option value="">— Non assigné —</option>` +
-    (allUsers || []).map(u => `<option value="${u.id}">${u.prenom} ${u.nom}</option>`).join('');
+
+  // Cases à cocher — documents déjà en possession du gestionnaire
+  const docsObligatoiresHtml = DVOL_DOCS_OBLIGATOIRES.map(doc => `
+    <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;cursor:pointer">
+      <input type="checkbox" data-dvol-doc="${doc.key}"
+        style="width:15px;height:15px;accent-color:#1c8a5e;flex-shrink:0">
+      <span style="font-size:13px;color:#1e293b">${doc.icon} ${doc.label}</span>
+    </label>`).join('');
+
+  const docsOptionnelsHtml = DVOL_DOCS_OPTIONNELS.map(doc => `
+    <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;cursor:pointer">
+      <input type="checkbox" data-dvol-doc="${doc.key}"
+        style="width:15px;height:15px;accent-color:#1c8a5e;flex-shrink:0">
+      <span style="font-size:13px;color:#64748b">${doc.icon} ${doc.label} <em style="font-size:11px">(optionnel)</em></span>
+    </label>`).join('');
 
   const html = `
   <div style="font-family:inherit">
@@ -1638,23 +1651,23 @@ function dvolOuvrirCreation(prefillRef) {
         <input id="dvol-new-refsinistre" type="text" placeholder="MIA-2026-XXXX" value="${prefillRef || ''}"
           style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:7px;box-sizing:border-box">
       </div>
-      <div>
-        <label style="font-size:0.82em;color:#6b7280;display:block;margin-bottom:4px">Date déclaration *</label>
+      <div style="grid-column:1/-1">
+        <label style="font-size:0.82em;color:#6b7280;display:block;margin-bottom:4px">Date de déclaration du sinistre *</label>
         <input id="dvol-new-date" type="date" value="${today}"
           style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:7px;box-sizing:border-box">
       </div>
-      <div>
-        <label style="font-size:0.82em;color:#6b7280;display:block;margin-bottom:4px">Gestionnaire</label>
-        <select id="dvol-new-gest" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:7px;box-sizing:border-box">
-          ${gestOpts}
-        </select>
-      </div>
     </div>
-    <div style="margin-top:12px">
-      <label style="font-size:0.82em;color:#6b7280;display:block;margin-bottom:4px">Notes</label>
-      <textarea id="dvol-new-notes" rows="2"
-        style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:7px;resize:vertical;box-sizing:border-box"
-        placeholder="Informations complémentaires…"></textarea>
+
+    <div style="margin-top:16px">
+      <label style="font-size:0.82em;color:#6b7280;display:block;margin-bottom:8px;font-weight:600">
+        📁 Documents déjà en possession
+      </label>
+      ${docsObligatoiresHtml}
+      ${docsOptionnelsHtml}
+    </div>
+
+    <div style="margin-top:12px;padding:8px 12px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1d4ed8">
+      👤 Ce dossier vous sera automatiquement assigné.
     </div>
   </div>`;
 
@@ -1673,24 +1686,36 @@ async function dvolCreerDossier() {
   const compagnie       = document.getElementById('dvol-new-compagnie')?.value;
   const refSinistre     = document.getElementById('dvol-new-refsinistre')?.value?.trim();
   const dateDeclaration = document.getElementById('dvol-new-date')?.value;
-  const gestId          = document.getElementById('dvol-new-gest')?.value || null;
-  const notes           = document.getElementById('dvol-new-notes')?.value?.trim();
 
   if (!compagnie || !dateDeclaration) {
     showNotif('Veuillez remplir la compagnie et la date de déclaration.', 'error');
     return;
   }
 
+  // Générer un numéro de dossier unique (ex: VOL-2026-00042)
+  const annee = new Date().getFullYear();
+  const ts    = Date.now().toString().slice(-5); // 5 derniers chiffres du timestamp
+  const numeroDossier = `VOL-${annee}-${ts}`;
+
+  // Gestionnaire = utilisateur connecté (auto-assignation)
+  const gestId = currentUserData?.id || null;
+
+  // Récupérer les documents déjà cochés dans le formulaire
+  const docsCoches = Array.from(
+    document.querySelectorAll('[data-dvol-doc]:checked')
+  ).map(el => el.dataset.dvolDoc);
+
   const payload = {
-    compagnie_mere:   compagnie,
-    compagnie:        compagnie,
-    ref_sinistre:     refSinistre || null,
-    date_declaration: dateDeclaration,
-    statut:           'declare',
-    gestionnaire_id:  gestId,
-    notes:            notes || null,
-    created_at:       new Date().toISOString(),
-    updated_at:       new Date().toISOString()
+    numero_dossier:        numeroDossier,
+    compagnie_mere:        compagnie,
+    compagnie:             compagnie,
+    ref_sinistre:          refSinistre || null,
+    date_declaration:      dateDeclaration,
+    statut:                'declare',
+    gestionnaire_id:       gestId,
+    documents_recus_liste: docsCoches.length ? JSON.stringify(docsCoches) : null,
+    created_at:            new Date().toISOString(),
+    updated_at:            new Date().toISOString()
   };
 
   const { data, error } = await db.from('dvol_dossiers').insert(payload).select().single();
@@ -1700,6 +1725,7 @@ async function dvolCreerDossier() {
     return;
   }
 
+  // Étape déclaration auto-validée
   await db.from('dvol_etapes').insert({
     dossier_id:    data.id,
     slug:          'declaration',
@@ -1707,13 +1733,16 @@ async function dvolCreerDossier() {
     date_realisee: dateDeclaration
   });
 
-  await db.from('dvol_dossiers').update({ statut: 'en_attente_documents' }).eq('id', data.id);
+  // Si des docs sont déjà reçus → vérifier si tous les obligatoires sont là
+  const tousObligatoires = DVOL_DOCS_OBLIGATOIRES.every(d => docsCoches.includes(d.key));
+  const prochainStatut = tousObligatoires ? 'expertise_necessaire' : 'en_attente_documents';
+  await db.from('dvol_dossiers').update({ statut: prochainStatut }).eq('id', data.id);
 
   if (typeof auditLog === 'function') {
-    await auditLog('CREATION_DVOL', 'Dossier VOL créé : ' + (refSinistre || data.id));
+    await auditLog('CREATION_DVOL', 'Dossier VOL créé : ' + (refSinistre || numeroDossier));
   }
 
-  showNotif('✅ Dossier VOL créé', 'success');
+  showNotif('✅ Dossier VOL créé — ' + numeroDossier, 'success');
   await dvolCharger();
   dvolCloseModal();
   dvolOuvrirDossier(data.id);
