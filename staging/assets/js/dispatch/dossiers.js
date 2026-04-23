@@ -54,9 +54,20 @@ async function actionMesDossiers(id, action) {
   await auditLog('TRAITEMENT_DOSSIER', 'Dossier traité → ' + (labels[action] || action) + ' -- id:' + id);
   showNotif('✅ Dossier traité : ' + (labels[action] || action), 'success');
 
-  // Si Gestion VOL → ouvrir le formulaire d'envoi vers DVOL
-  if (action === 'gestion_vol' && typeof dvolOuvrirFormulaire === 'function') {
-    dvolOuvrirFormulaire(id);
+  // Si Gestion VOL → basculer vers DVOL + ouvrir formulaire de création pré-rempli
+  if (action === 'gestion_vol') {
+    const refSin = d ? (d.ref_sinistre || '') : '';
+    await loadDossiers();
+    renderMesDossiers();
+    // Basculer vers l'écran DVOL
+    if (typeof switchTool === 'function') switchTool('dvol');
+    // Attendre que l'écran DVOL soit rendu, puis ouvrir le formulaire pré-rempli
+    setTimeout(() => {
+      if (typeof dvolOuvrirCreation === 'function') {
+        dvolOuvrirCreation(refSin);
+      }
+    }, 400);
+    return; // On a déjà fait loadDossiers + renderMesDossiers, pas besoin de le refaire
   }
 
   await loadDossiers();
