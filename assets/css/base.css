@@ -1,7 +1,4 @@
-  /* ===== IMPORT POLICE INTER (Google Fonts) ===== */
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
-  /* ===== TOKENS ===== */
+/* ===== TOKENS ===== */
   :root {
     --navy:       #1B3461;
     --navy-light: #2A4A7F;
@@ -27,13 +24,11 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Segoe UI', system-ui, sans-serif;
     background: var(--gray-bg);
     min-height: 100vh;
     color: var(--navy);
     font-size: 14px;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 
   /* ===== LOGIN ===== */
@@ -113,7 +108,6 @@
     border: 1.5px solid var(--gray-300);
     border-radius: 12px;
     font-size: 14px;
-    font-family: 'Inter', system-ui, sans-serif;
     outline: none;
     color: var(--navy);
     transition: all var(--transition);
@@ -132,7 +126,6 @@
     color: white; border: none;
     border-radius: 12px;
     font-size: 14px;
-    font-family: 'Inter', system-ui, sans-serif;
     font-weight: 700;
     cursor: pointer;
     letter-spacing: 0.2px;
