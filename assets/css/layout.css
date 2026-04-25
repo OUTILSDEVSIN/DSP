@@ -5,7 +5,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 60px;  /* +8px vs ancienne version pour plus d'aération */
+    height: 60px;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -43,7 +43,6 @@
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    font-family: 'Inter', system-ui, sans-serif;
     transition: all var(--transition);
     white-space: nowrap;
   }
@@ -86,8 +85,6 @@
   .content { padding: 20px 28px; }
 
   /* ===== APP SCREEN (conteneur principal) ===== */
-  /* display:flex garantit que main-content avec display:none          */
-  /* est bien masqué quand Dvol ou Dplane est actif.                   */
   #app-screen {
     display: flex;
     flex-direction: column;
@@ -95,8 +92,6 @@
   }
 
   /* ===== TOOL SCREENS (Dplane / Dvol) ===== */
-  /* Ces écrans sont enfants directs de #app-screen.                     */
-  /* min-height:100vh garantit la visibilité même hors contexte flex.    */
   #dplane-screen,
   #dvol-screen {
     flex: 1;
@@ -124,7 +119,6 @@
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
   }
-  /* Chiffre en rose pour hiérarchie visuelle forte */
   .stat-card .number {
     font-size: 28px;
     font-weight: 800;
@@ -214,7 +208,6 @@
     border: 1.5px solid var(--gray-300);
     border-radius: var(--radius-sm);
     font-size: 13px;
-    font-family: 'Inter', system-ui, sans-serif;
     outline: none;
     width: 200px;
     transition: border var(--transition);
@@ -227,7 +220,6 @@
     border: 1.5px solid var(--gray-300);
     border-radius: var(--radius-sm);
     font-size: 13px;
-    font-family: 'Inter', system-ui, sans-serif;
     outline: none;
     background: var(--white);
     cursor: pointer;
@@ -286,7 +278,6 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
-    font-family: 'Inter', system-ui, sans-serif;
     transition: all var(--transition);
     display: inline-flex;
     align-items: center;
