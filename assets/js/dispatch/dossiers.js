@@ -1,35 +1,79 @@
-// ===== TOGGLE TRAITÉ DANS MES DOSSIERS =====
-async function toggleTraiteMesDossiers(id, checked) {
+// ===== TRAITEMENT DOSSIER — MENU DÉROULANT =====
+// Remplace l'ancienne checkbox par un menu déroulant à 4 actions.
+// Valeurs possibles : 'relance', 'ouverture', 'refuse', 'gestion_vol'
+// Si action vide ('') → annulation = retour à non traité.
+async function actionMesDossiers(id, action) {
   // Bloquer si dossier en troc actif
-  if (isDossierEnTroc && isDossierEnTroc(id)) {
-    showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc avant de le marquer traité.', 'error');
+  if (typeof isDossierEnTroc === 'function' && isDossierEnTroc(id)) {
+    showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc.', 'error');
     await loadDossiers();
     renderMesDossiers();
     return;
   }
-  const newStatut = checked ? 'traite' : 'ouvert';
+
+  // Si action vide → annulation (retour à non traité)
+  if (!action) {
+    const { error } = await db.from('dossiers').update({
+      traite: false,
+      statut: 'ouvert',
+      traite_at: null
+    }).eq('id', id);
+    if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+    await auditLog('REOUVERTURE_DOSSIER', 'Dossier réouvert -- id:' + id);
+    showNotif('🔄 Dossier réouvert.', 'success');
+    await loadDossiers();
+    renderMesDossiers();
+    return;
+  }
+
+  // Libellés pour les messages et logs
+  const labels = {
+    relance:     'Relance',
+    ouverture:   'Ouverture',
+    refuse:      'Refus',
+    gestion_vol: 'Gestion VOL'
+  };
+
+  // Mise à jour en base : traité = true + statut = action choisie
   const { error } = await db.from('dossiers').update({
-    traite: checked,
-    statut: newStatut,
-    traite_at: checked ? new Date().toISOString() : null
+    traite: true,
+    statut: action,
+    traite_at: new Date().toISOString()
   }).eq('id', id);
   if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
-  if (checked) {
-    const d = (allDossiers || []).find(x => String(x.id) === String(id));
-    if (d) {
-      await db.from('historique_sinistres').upsert(
-        { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
-        { onConflict: 'ref_sinistre', ignoreDuplicates: true }
-      );
-    }
+
+  // Historique sinistre (traçabilité)
+  const d = (allDossiers || []).find(x => String(x.id) === String(id));
+  if (d) {
+    await db.from('historique_sinistres').upsert(
+      { ref_sinistre: d.ref_sinistre, gestionnaire: currentUserData.prenom + ' ' + currentUserData.nom, date_traitement: new Date().toISOString().split('T')[0] },
+      { onConflict: 'ref_sinistre', ignoreDuplicates: true }
+    );
   }
-  await auditLog(checked ? 'TRAITEMENT_DOSSIER' : 'REOUVERTURE_DOSSIER',
-    (checked ? 'Dossier marqué traité' : 'Dossier réouvert') + ' -- id:' + id);
-  showNotif(checked ? '✅ Dossier marqué comme traité.' : '🔄 Dossier réouvert.', 'success');
+
+  await auditLog('TRAITEMENT_DOSSIER', 'Dossier traité → ' + (labels[action] || action) + ' -- id:' + id);
+  showNotif('✅ Dossier traité : ' + (labels[action] || action), 'success');
+
+  // Si Gestion VOL → basculer vers DVOL + ouvrir formulaire de création pré-rempli
+  if (action === 'gestion_vol') {
+    const refSin = d ? (d.ref_sinistre || '') : '';
+    await loadDossiers();
+    renderMesDossiers();
+    // Basculer vers l'écran DVOL
+    if (typeof switchTool === 'function') switchTool('dvol');
+    // Attendre que l'écran DVOL soit rendu, puis ouvrir le formulaire pré-rempli
+    setTimeout(() => {
+      if (typeof dvolOuvrirCreation === 'function') {
+        dvolOuvrirCreation(refSin);
+      }
+    }, 400);
+    return; // On a déjà fait loadDossiers + renderMesDossiers, pas besoin de le refaire
+  }
+
   await loadDossiers();
   renderMesDossiers();
 }
-// ===== FIN TOGGLE TRAITÉ MES DOSSIERS =====
+// ===== FIN TRAITEMENT DOSSIER =====
 
 // ===== RÉCUPÉRER UN DOSSIER (gestionnaire) =====
 async function recupererDossier(dossierId) {
@@ -80,13 +124,22 @@ async function renderMesDossiers() {
   const mesDossiers = allDossiers.filter(d => d.gestionnaire === monNom);
 
   // ===== BUG-001 FIX : POPUP MATIN =====
-  // Afficher une fois par session le nombre réel de dossiers à traiter.
-  // Ancienne logique : basée sur relances_notif (sessionStorage vidé à chaque fermeture
-  // de navigateur) → affichait 0 au démarrage. Nouvelle logique : on compte directement
-  // les dossiers non traités depuis Supabase, déjà chargés dans mesDossiers.
   var dossiersATraiter = mesDossiers.filter(function(d) { return !d.traite; });
   var dejaVuPopupMatin = safeSession.getItem('popup_matin_vu');
-  if (dossiersATraiter.length > 0 && !dejaVuPopupMatin) {
+
+  // Dossiers DVOL en Action nécessaire pour ce gestionnaire
+  var dvolActionNecessaire = [];
+  try {
+    if (typeof dvolDossiers !== 'undefined' && dvolDossiers.length > 0 && typeof dvolStatutVirtuel === 'function') {
+      var monId = currentUserData?.id || null;
+      dvolActionNecessaire = dvolDossiers.filter(function(d) {
+        return dvolStatutVirtuel(d) === 'action_necessaire'
+          && (!monId || d.gestionnaire_id === monId);
+      });
+    }
+  } catch(e) { /* DVOL pas encore chargé */ }
+
+  if ((dossiersATraiter.length > 0 || dvolActionNecessaire.length > 0) && !dejaVuPopupMatin) {
     safeSession.setItem('popup_matin_vu', '1');
     setTimeout(function() {
       if (document.getElementById('popup-matin-modal')) return;
@@ -94,12 +147,28 @@ async function renderMesDossiers() {
       popupMatin.className = 'modal-overlay';
       popupMatin.id = 'popup-matin-modal';
       popupMatin.style.zIndex = '6000';
-      popupMatin.innerHTML = '<div class="modal" style="max-width:420px;text-align:center">'
+
+      var dvolAlertHtml = '';
+      if (dvolActionNecessaire.length > 0) {
+        dvolAlertHtml = '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px;margin:12px 0;text-align:left">'
+          + '<div style="font-weight:700;color:#b45309;margin-bottom:8px">⚠️ ' + dvolActionNecessaire.length + ' dossier(s) VOL nécessitent une action</div>'
+          + dvolActionNecessaire.map(function(d) {
+              return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid #fde68a">'
+                + '<span style="font-size:13px;color:#92400e;font-weight:600">' + (d.ref_sinistre || d.numero_dossier || '') + '</span>'
+                + '<span style="font-size:12px;color:#92400e">' + (d.compagnie_mere || d.compagnie || '') + '</span>'
+                + '</div>';
+            }).join('')
+          + '</div>';
+      }
+
+      popupMatin.innerHTML = '<div class="modal" style="max-width:440px;text-align:center">'
         + '<div style="font-size:44px;margin-bottom:8px">📋</div>'
         + '<h2 style="color:var(--navy)">Bonjour ' + currentUserData.prenom + ' !</h2>'
-        + '<p style="color:#666;font-size:13px;margin:8px 0 20px">Tu as <strong>'
-        + dossiersATraiter.length + ' dossier(s) à traiter</strong> aujourd\'hui.</p>'
-        + '<button class="btn btn-primary" style="width:100%" onclick="closeModal(\'popup-matin-modal\')">C\'est parti ! 💪</button>'
+        + (dossiersATraiter.length > 0
+            ? '<p style="color:#666;font-size:13px;margin:8px 0 4px">Tu as <strong>' + dossiersATraiter.length + ' dossier(s) à traiter</strong> aujourd\'hui.</p>'
+            : '')
+        + dvolAlertHtml
+        + '<button class="btn btn-primary" style="width:100%;margin-top:16px" onclick=\"closeModal(\'popup-matin-modal\')\">C\'est parti ! 💪</button>'
         + '</div>';
       document.body.appendChild(popupMatin);
     }, 600);
@@ -142,7 +211,7 @@ async function renderMesDossiers() {
     <table><thead><tr>
       <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
       <th>Réf. Sinistre</th><th style="white-space:nowrap">Date État</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Statut</th><th>Marquer traité</th>
+      <th>Portefeuille</th><th>Statut</th><th>Traitement</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
     html += '<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
@@ -201,7 +270,7 @@ async function renderMesDossiers() {
 
     mesDossiers.forEach(d => {
       const statut = d.statut || 'nonattribue';
-      const canSee = ['attribue','encours','ouvert','traite'].includes(statut);
+      const canSee = ['attribue','encours','ouvert','traite','relance','ouverture','refuse','gestion_vol'].includes(statut);
       if (!canSee) return;
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
@@ -237,14 +306,21 @@ async function renderMesDossiers() {
         <td style="text-align:center">
           ${enTroc
             ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-                <input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-                  style="width:17px;height:17px;accent-color:var(--rose);cursor:not-allowed;opacity:.4"
-                  disabled title="Troc en cours — action bloquée">
+                <select disabled style="padding:4px 6px;border-radius:6px;font-size:12px;cursor:not-allowed;opacity:.4;border:1px solid #d1d5db;">
+                  <option>— Action —</option>
+                </select>
                 <span style="font-size:9px;color:#e67e22;font-weight:700">⇄ Troc</span>
                </div>`
-            : `<input type="checkbox" class="traite-checkbox" ${d.traite?'checked':''}
-                style="width:17px;height:17px;accent-color:var(--rose);cursor:pointer"
-                onchange="toggleTraiteMesDossiers('${d.id}', this.checked)">`
+            : `<select onchange="actionMesDossiers('${d.id}', this.value)"
+                style="padding:5px 8px;border-radius:7px;font-size:12px;cursor:pointer;border:1px solid #d1d5db;
+                background:${d.traite ? '#f0fdf4' : '#fff'};font-weight:${d.traite ? '600' : '400'};
+                color:${d.traite ? '#16a34a' : '#374151'};">
+                <option value=""${!d.traite ? ' selected' : ''}>— Action —</option>
+                <option value="relance"${d.statut === 'relance' ? ' selected' : ''}>🔄 Relance</option>
+                <option value="ouverture"${d.statut === 'ouverture' ? ' selected' : ''}>📂 Ouverture</option>
+                <option value="refuse"${d.statut === 'refuse' ? ' selected' : ''}>❌ Refus</option>
+                <option value="gestion_vol"${d.statut === 'gestion_vol' ? ' selected' : ''}>🚗 Gestion VOL</option>
+              </select>`
           }
         </td>
       </tr>`;
