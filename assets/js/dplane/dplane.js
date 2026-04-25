@@ -615,20 +615,4 @@ async function dplaneInit() {
   if (isGest) setTimeout(dplaneBriefingGestionnaire, 1200);
 }
 
-// ── Switcher ──
-function switchTool(tool) {
-  const tabs=document.getElementById('tabs-container');
-  const mc=document.getElementById('main-content');
-  const dp=document.getElementById('dplane-screen');
-  const bd=document.getElementById('btn-tool-dispatch');
-  const bpl=document.getElementById('btn-tool-dplane');
-  if(tool==='dplane'){
-    if(tabs)tabs.style.display='none'; if(mc)mc.style.display='none'; if(dp)dp.style.display='block';
-    bd?.classList.remove('active'); bpl?.classList.add('active');
-    dplaneInit();
-  } else {
-    if(tabs)tabs.style.display=''; if(mc)mc.style.display=''; if(dp)dp.style.display='none';
-    bd?.classList.add('active'); bpl?.classList.remove('active');
-  }
-}
 // FIN DPLANE v5.1
