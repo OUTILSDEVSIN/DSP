@@ -34,6 +34,47 @@ function showTab(id) {
   else if (id === 'stats') renderStats();
 }
 
+// ===== TOOL SWITCHER (Dispatch / Dplane / Dvol) =====
+function switchTool(tool) {
+  // Masquer tous les écrans outils
+  var screens = ['dispatch-screen', 'dplane-screen', 'dvol-screen'];
+  screens.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Masquer aussi les zones principales de dispatch (tabs + content)
+  var tabsContainer = document.getElementById('tabs-container');
+  var mainContent   = document.getElementById('main-content');
+
+  // Mettre à jour les boutons du tool switcher
+  ['dispatch', 'dplane', 'dvol'].forEach(function(t) {
+    var btn = document.getElementById('btn-tool-' + t);
+    if (btn) btn.classList.toggle('active', t === tool);
+  });
+
+  if (tool === 'dispatch') {
+    if (tabsContainer) tabsContainer.style.display = '';
+    if (mainContent)   mainContent.style.display   = '';
+    showTab(currentTab || 'dashboard');
+
+  } else if (tool === 'dplane') {
+    if (tabsContainer) tabsContainer.style.display = 'none';
+    if (mainContent)   mainContent.style.display   = 'none';
+    var dplaneScreen = document.getElementById('dplane-screen');
+    if (dplaneScreen) dplaneScreen.style.display = 'block';
+    if (typeof dplaneInit === 'function') dplaneInit();
+
+  } else if (tool === 'dvol') {
+    if (tabsContainer) tabsContainer.style.display = 'none';
+    if (mainContent)   mainContent.style.display   = 'none';
+    var dvolScreen = document.getElementById('dvol-screen');
+    if (dvolScreen)  dvolScreen.style.display  = 'block';
+    if (typeof dvolCharger === 'function') dvolCharger();
+  }
+}
+// ===== FIN TOOL SWITCHER =====
+
 // ===== LOAD DATA =====
 async function loadAllUsers() {
   const { data } = await db.from('utilisateurs').select('id,nom,prenom,role,email,actif').eq('actif', true);
@@ -41,7 +82,6 @@ async function loadAllUsers() {
 }
 
 async function loadDossiers() {
-  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat').order('created_at', { ascending: true });
+  const { data } = await db.from('dossiers').select('id,ref_sinistre,ref_contrat,nature,nature_label,type,portefeuille,gestionnaire,statut,traite,verrouille,created_at,demande_supp,date_etat,is_dvol,date_passage_dvol,traite_at').order('created_at', { ascending: true });
   allDossiers = data || [];
 }
-
