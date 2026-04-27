@@ -199,7 +199,7 @@ if (_lockoutUntil && Date.now() < _lockoutUntil) {
   safeLocal.removeItem('dispatchis_emergency_time');
 }
 document.getElementById('login-screen').style.display = 'none';
-document.getElementById('app-screen').style.display = 'block';
+document.getElementById('app-screen').style.display = 'flex';
 document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
 document.getElementById('header-role').textContent = data.role.toUpperCase();
 checkVersionSync();
@@ -319,4 +319,3 @@ function closeModal(id) {
 const el = document.getElementById(id);
 if (el) el.remove();
 }
-
