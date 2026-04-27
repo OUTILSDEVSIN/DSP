@@ -37,6 +37,8 @@ db.auth.onAuthStateChange(function(event, session) {
     currentUserData = null;
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('workspace-screen').style.display = 'none';
+    document.getElementById('dproject-screen').style.display = 'none';
     showNotif('Session expirée. Veuillez vous reconnecter.', 'error');
   }
 });
@@ -52,18 +54,14 @@ db.auth.onAuthStateChange(function(event, session) {
 // [config.js] let filterGestionnaire = '';
 // [config.js] let filterStatut = '';
 
-// ── VÉRIFICATION VERSION SUPABASE ────────────────────────
-
 // ===== RENOUVELLEMENT MOT DE PASSE (90j) =====
 var PWD_RENEWAL_DAYS = 90;
 
 async function checkPasswordExpiry() {
   if (!currentUserData) return;
   var lastChange = currentUserData.last_password_change;
-  // Si la colonne n'existe pas en DB (undefined) → ne pas forcer
   if (lastChange === undefined) return;
   if (!lastChange) {
-    // Champ null = première connexion → forcer le changement
     showPasswordRenewalModal(true);
     return;
   }
@@ -71,7 +69,6 @@ async function checkPasswordExpiry() {
   if (daysSince >= PWD_RENEWAL_DAYS) {
     showPasswordRenewalModal(false, daysSince);
   } else if (daysSince >= PWD_RENEWAL_DAYS - 7) {
-    // Avertissement 7j avant expiration
     var remaining = PWD_RENEWAL_DAYS - daysSince;
     showNotif('⚠️ Votre mot de passe expire dans ' + remaining + ' jour(s). Pensez à le changer.', 'info');
   }
@@ -112,7 +109,6 @@ async function doRenewPassword() {
   if (newPwd !== confirmPwd) { errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.style.display = 'block'; return; }
   var { error } = await db.auth.updateUser({ password: newPwd });
   if (error) { errEl.textContent = 'Erreur : ' + error.message; errEl.style.display = 'block'; return; }
-  // Mettre à jour last_password_change en base
   await db.from('utilisateurs').update({ last_password_change: new Date().toISOString() }).eq('email', currentUser.email);
   await auditLog('RENOUVELLEMENT_MDP', 'Mot de passe renouvelé');
   var m = document.getElementById('pwd-renewal-modal');
@@ -190,6 +186,7 @@ async function loadUserData() {
 const { data } = await db.from('utilisateurs').select('id,email,nom,prenom,role,actif,last_password_change').eq('email', currentUser.email).single();
 if (!data) { showNotif('Utilisateur non trouvé dans la base.', 'error'); await db.auth.signOut(); return; }
 currentUserData = data;
+
 // Vérifier lockout d'urgence au démarrage
 var _lockoutUntil = 0; try { _lockoutUntil = parseInt(safeLocal.getItem('dispatchis_emergency_lockout') || '0'); } catch(e) {}
 if (_lockoutUntil && Date.now() < _lockoutUntil) {
@@ -198,25 +195,18 @@ if (_lockoutUntil && Date.now() < _lockoutUntil) {
   safeLocal.removeItem('dispatchis_emergency_lockout');
   safeLocal.removeItem('dispatchis_emergency_time');
 }
+
+// Masquer le login, init de base
 document.getElementById('login-screen').style.display = 'none';
-document.getElementById('app-screen').style.display = 'flex';
 document.getElementById('header-name').textContent = data.prenom + ' ' + data.nom;
 document.getElementById('header-role').textContent = data.role.toUpperCase();
-checkVersionSync();
-  initDarkMode();
-buildTabs();
+initDarkMode();
 _initIdleTracking();
 await loadAllUsers();
-showTab('dashboard');
 checkPasswordExpiry();
-// Afficher le bouton reset uniquement pour admin/manager
-const btnReset = document.getElementById('btn-reset-header');
-if (btnReset) btnReset.style.display = ['admin','manager'].includes(data.role) ? '' : 'none';
-// Afficher le bouton God Switch uniquement pour Julien Maubon (admin)
-const btnGod = document.getElementById('btn-god-switch');
-if (btnGod && currentUser && currentUser.email === 'julien.maubon@mieuxassure.com' && data.role === 'admin') {
-  btnGod.style.display = '';
-}
+
+// Afficher le sélecteur d'espace
+showWorkspaceSelector();
 }
 
 
@@ -235,7 +225,6 @@ function _resetIdleTimer() {
     _idleWarningShown = false;
   }
   if (!currentUser) return;
-  // Avertissement 5 min avant
   _idleWarningTimer = setTimeout(function() {
     if (!currentUser) return;
     _idleWarningShown = true;
@@ -247,7 +236,6 @@ function _resetIdleTimer() {
       document.body.appendChild(banner);
     }
   }, IDLE_TIMEOUT - 5 * 60 * 1000);
-  // Déconnexion effective
   _idleTimer = setTimeout(async function() {
     if (!currentUser) return;
     await auditLog('DECONNEXION_IDLE', 'Déconnexion automatique après 1h d\'inactivité');
@@ -257,6 +245,8 @@ function _resetIdleTimer() {
     if (w) w.remove();
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('workspace-screen').style.display = 'none';
+    document.getElementById('dproject-screen').style.display = 'none';
     document.getElementById('login-email').value = '';
     document.getElementById('login-password').value = '';
     showNotif('Session expirée après 1h d\'inactivité. Reconnectez-vous.', 'error');
@@ -277,6 +267,8 @@ await db.auth.signOut();
 currentUser = null; currentUserData = null;
 document.getElementById('login-screen').style.display = 'flex';
 document.getElementById('app-screen').style.display = 'none';
+document.getElementById('workspace-screen').style.display = 'none';
+document.getElementById('dproject-screen').style.display = 'none';
 document.getElementById('login-email').value = '';
 document.getElementById('login-password').value = '';
 }
@@ -320,3 +312,46 @@ const el = document.getElementById(id);
 if (el) el.remove();
 }
 
+// ===== SÉLECTEUR D'ESPACE DE TRAVAIL =====
+function showWorkspaceSelector() {
+  // Cacher tous les écrans
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('dproject-screen').style.display = 'none';
+  // Mettre à jour le nom dans le sélecteur
+  var wsUsername = document.getElementById('ws-username');
+  if (wsUsername && currentUserData) {
+    wsUsername.textContent = currentUserData.prenom + ' ' + currentUserData.nom;
+  }
+  // Afficher le sélecteur
+  document.getElementById('workspace-screen').style.display = 'flex';
+}
+
+function selectWorkspace(type) {
+  safeLocal.setItem('dispatchis_workspace', type);
+  document.getElementById('workspace-screen').style.display = 'none';
+
+  if (type === 'dproject') {
+    document.getElementById('dproject-screen').style.display = 'flex';
+    document.getElementById('app-screen').style.display = 'none';
+    // Mettre à jour le nom dans le header Dproject
+    var dpName = document.getElementById('dp-header-name');
+    if (dpName && currentUserData) {
+      dpName.textContent = currentUserData.prenom + ' ' + currentUserData.nom;
+    }
+    // Initialiser Dproject
+    if (typeof dprojectInit === 'function') dprojectInit();
+  } else {
+    document.getElementById('app-screen').style.display = 'flex';
+    document.getElementById('dproject-screen').style.display = 'none';
+    checkVersionSync();
+    buildTabs();
+    showTab('dashboard');
+    const btnReset = document.getElementById('btn-reset-header');
+    if (btnReset) btnReset.style.display = ['admin','manager'].includes(currentUserData.role) ? '' : 'none';
+    const btnGod = document.getElementById('btn-god-switch');
+    if (btnGod && currentUser && currentUser.email === 'julien.maubon@mieuxassure.com' && currentUserData.role === 'admin') {
+      btnGod.style.display = '';
+    }
+  }
+}
+// ===== FIN SÉLECTEUR D'ESPACE DE TRAVAIL =====
