@@ -2,7 +2,7 @@
 // DPROJECT.JS v3.0 — Gestion Projet DSP
 // Fusion : charte graphique sidebar + modal détail
 //          + commentaires + zone "À qualifier"
-// Palette : navy #1b2656 · accent #e5195e · bg #eef1f6
+// Design System Dispatchis — navy #1B3461 · cobalt #4A7EC7 · rose #e5195e · bg #f4f7fc
 // ===================================================
 
 var DP_ACCENT = '#e5195e';
@@ -27,128 +27,167 @@ function dprojectRender() {
   var container = document.getElementById('dproject-content');
   if (!container) return;
   container.style.padding    = '0';
-  container.style.background = '#eef1f6';
+  container.style.background = '#f4f7fc';
   container.style.minHeight  = '100%';
 
   container.innerHTML = `
 <style>
+/* ── Font ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ── Tokens Dispatchis Design System ── */
+.dp-layout *{font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+
 /* ── Layout ── */
-.dp-layout{display:flex;min-height:calc(100vh - 90px);}
+.dp-layout{display:flex;min-height:calc(100vh - 90px);background:#f4f7fc;}
 
 /* ── Sidebar ── */
-.dp-sidebar{width:230px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;}
-.dp-sidebar-top{padding:20px 16px 16px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;}
-.dp-sidebar-icon{width:38px;height:38px;border-radius:10px;background:${DP_ACCENT};display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff;flex-shrink:0;}
-.dp-sidebar-name{font-size:14px;font-weight:800;color:#0f172a;}
-.dp-sidebar-sub{font-size:11px;color:#94a3b8;}
-.dp-nav{padding:12px 0;flex:1;}
-.dp-nav-label{font-size:10px;font-weight:700;color:#cbd5e1;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px 4px;}
-.dp-nav-btn{display:flex;align-items:center;gap:9px;width:100%;padding:9px 16px;font-size:13px;font-weight:600;color:#64748b;background:none;border:none;border-left:3px solid transparent;cursor:pointer;text-align:left;transition:all .15s;}
-.dp-nav-btn:hover{background:#f8fafc;color:#0f172a;}
-.dp-nav-btn.active{border-left-color:${DP_ACCENT};background:#fff0f5;color:${DP_ACCENT};}
-.dp-nav-badge{margin-left:auto;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;}
-.dp-badge-red   {background:#fee2e2;color:#991b1b;}
-.dp-badge-blue  {background:#dbeafe;color:#1e40af;}
+.dp-sidebar{width:234px;flex-shrink:0;background:#fff;border-right:1px solid #e4eaf2;display:flex;flex-direction:column;box-shadow:1px 0 0 #e4eaf2;}
+.dp-sidebar-top{padding:18px 16px 14px;border-bottom:1px solid #e4eaf2;display:flex;align-items:center;gap:10px;}
+.dp-sidebar-icon{
+  width:36px;height:36px;border-radius:10px;
+  background:#1B3461;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:900;color:#fff;flex-shrink:0;
+  box-shadow:0 2px 6px rgba(27,52,97,.22);
+}
+.dp-sidebar-icon span{color:#e5195e;}
+.dp-sidebar-name{font-size:14px;font-weight:700;color:#1B3461;letter-spacing:-.01em;}
+.dp-sidebar-sub{font-size:11px;color:#9aa6ba;margin-top:1px;}
+.dp-nav{padding:10px 0;flex:1;}
+.dp-nav-label{font-size:10px;font-weight:600;color:#cdd6e3;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px 4px;}
+.dp-nav-btn{
+  display:flex;align-items:center;gap:9px;width:100%;padding:9px 16px;
+  font-size:13px;font-weight:500;color:#6b7689;
+  background:none;border:none;border-left:2.5px solid transparent;
+  cursor:pointer;text-align:left;transition:all .18s cubic-bezier(.16,1,.3,1);
+}
+.dp-nav-btn:hover{background:#f4f7fc;color:#1B3461;}
+.dp-nav-btn.active{border-left-color:#e5195e;background:#fce8ef;color:#e5195e;font-weight:600;}
+.dp-nav-badge{margin-left:auto;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;}
+.dp-badge-red   {background:#feeaea;color:#991b1b;}
+.dp-badge-blue  {background:#e9f0fa;color:#1B3461;}
 .dp-badge-green {background:#dcfce7;color:#166534;}
-.dp-badge-orange{background:#ffedd5;color:#9a3412;}
-.dp-sidebar-stats{padding:14px 16px;border-top:1px solid #e2e8f0;font-size:12px;}
-.dp-stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:#64748b;}
+.dp-badge-orange{background:#fef3e2;color:#92540a;}
+.dp-sidebar-stats{padding:12px 16px;border-top:1px solid #e4eaf2;font-size:12px;}
+.dp-stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;color:#6b7689;}
 .dp-stat-row:last-child{margin-bottom:0;}
-.dp-stat-row strong{color:#0f172a;font-weight:700;}
+.dp-stat-row strong{color:#1B3461;font-weight:700;}
 
 /* ── Main ── */
 .dp-main{flex:1;padding:24px 28px;overflow:auto;}
-.dp-page-title{font-size:20px;font-weight:800;color:#0f172a;margin:0 0 4px;}
-.dp-page-sub{font-size:13px;color:#64748b;margin:0 0 20px;}
+.dp-page-title{font-size:20px;font-weight:800;color:#122446;margin:0 0 3px;letter-spacing:-.02em;}
+.dp-page-sub{font-size:13px;color:#6b7689;margin:0 0 20px;}
 
 /* ── À qualifier ── */
-.dp-qualifier-zone{background:linear-gradient(135deg,#fff7ed,#fff);border:2px solid #f97316;border-radius:14px;padding:16px 20px;margin-bottom:20px;}
+.dp-qualifier-zone{background:#fff;border:1.5px solid #fecf3e;border-radius:12px;padding:16px 20px;margin-bottom:18px;box-shadow:0 2px 8px rgba(217,119,6,.08);}
 .dp-qualifier-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.dp-qualifier-count{background:#f97316;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
-.dp-qualifier-item{background:#fff;border:1px solid #fed7aa;border-radius:10px;padding:11px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:box-shadow .15s;margin-bottom:8px;}
+.dp-qualifier-count{background:#d97706;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;}
+.dp-qualifier-item{background:#f4f7fc;border:1px solid #e4eaf2;border-radius:8px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:all .18s cubic-bezier(.16,1,.3,1);margin-bottom:7px;}
 .dp-qualifier-item:last-child{margin-bottom:0;}
-.dp-qualifier-item:hover{box-shadow:0 2px 12px rgba(249,115,22,.15);}
+.dp-qualifier-item:hover{background:#e9f0fa;border-color:#b8cfeb;box-shadow:0 2px 8px rgba(27,52,97,.08);transform:translateY(-1px);}
 
 /* ── Card ── */
-.dp-card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;}
-.dp-card-header{padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-.dp-card-title{font-size:14px;font-weight:700;color:#0f172a;}
-.dp-card-sub{font-size:12px;color:#94a3b8;}
+.dp-card{background:#fff;border-radius:10px;border:1px solid #e4eaf2;overflow:hidden;box-shadow:0 1px 3px rgba(27,52,97,.07),0 1px 2px rgba(27,52,97,.04);}
+.dp-card-header{padding:13px 18px;border-bottom:1px solid #e4eaf2;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.dp-card-title{font-size:14px;font-weight:700;color:#122446;}
+.dp-card-sub{font-size:12px;color:#9aa6ba;}
 
 /* ── Boutons ── */
-.dp-btn{padding:8px 15px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s;}
-.dp-btn-accent{background:${DP_ACCENT};color:#fff;}
-.dp-btn-accent:hover{opacity:.85;}
-.dp-btn-ghost{background:transparent;color:#64748b;border:1.5px solid #e2e8f0;}
-.dp-btn-ghost:hover{border-color:#94a3b8;color:#0f172a;}
-.dp-btn-dark{background:#0f172a;color:#fff;}
-.dp-btn-dark:hover{opacity:.85;}
+.dp-btn{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .18s cubic-bezier(.16,1,.3,1);font-family:inherit;}
+/* Primary = navy (DS rule: buttons are navy, rose reserved for single CTA) */
+.dp-btn-accent{background:#1B3461;color:#fff;box-shadow:0 2px 6px rgba(27,52,97,.20);}
+.dp-btn-accent:hover{background:#2A4A7F;transform:translateY(-1px);box-shadow:0 4px 12px rgba(27,52,97,.26);}
+.dp-btn-accent:active{transform:translateY(0);}
+.dp-btn-ghost{background:transparent;color:#6b7689;border:1.5px solid #e4eaf2;}
+.dp-btn-ghost:hover{border-color:#cdd6e3;color:#1B3461;background:#f4f7fc;}
+/* Sauvegarder = cobalt */
+.dp-btn-dark{background:#4A7EC7;color:#fff;box-shadow:0 2px 6px rgba(74,126,199,.20);}
+.dp-btn-dark:hover{background:#3463aa;transform:translateY(-1px);}
 
 /* ── Filtres / inputs ── */
 .dp-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-.dp-input{padding:7px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#374151;outline:none;transition:border .15s;}
-.dp-input:focus{border-color:${DP_ACCENT};}
+.dp-input{
+  padding:7px 11px;border:1.5px solid #cdd6e3;border-radius:6px;
+  font-size:13px;color:#303a4d;outline:none;
+  background:#f1f4f9;font-family:inherit;
+  transition:all .18s cubic-bezier(.16,1,.3,1);
+}
+.dp-input:focus{border-color:#4A7EC7;background:#fff;box-shadow:0 0 0 3px rgba(74,126,199,.18);}
 
 /* ── Table ── */
 .dp-tbl{width:100%;border-collapse:collapse;font-size:13px;}
-.dp-tbl th{padding:9px 13px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.07em;text-transform:uppercase;background:#f8fafc;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
-.dp-tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#374151;}
+.dp-tbl th{
+  padding:9px 13px;text-align:left;
+  font-size:10px;font-weight:600;color:#9aa6ba;
+  letter-spacing:.07em;text-transform:uppercase;
+  background:#f8f9fb;border-bottom:1px solid #e4eaf2;white-space:nowrap;
+}
+.dp-tbl td{padding:11px 13px;border-bottom:1px solid #f1f4f9;color:#4a5567;}
 .dp-tbl tr:last-child td{border-bottom:none;}
 .dp-tbl tr.dp-row-clickable{cursor:pointer;}
-.dp-tbl tr.dp-row-clickable:hover td{background:#f8fafc;}
+.dp-tbl tr.dp-row-clickable:hover td{background:#f4f7fc;}
 
 /* ── Kanban ── */
 .dp-kanban{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;}
-.dp-kanban-col{min-width:220px;flex-shrink:0;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:12px;}
-.dp-kanban-col-head{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.dp-kanban-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12px;}
+.dp-kanban-col{min-width:220px;flex-shrink:0;background:#f4f7fc;border-radius:10px;border:1px solid #e4eaf2;padding:12px;}
+.dp-kanban-col-head{font-size:10px;font-weight:600;color:#6b7689;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.dp-kanban-card{background:#fff;border:1px solid #e4eaf2;border-radius:8px;padding:10px 12px;margin-bottom:7px;box-shadow:0 1px 2px rgba(27,52,97,.04);transition:all .18s cubic-bezier(.16,1,.3,1);}
 .dp-kanban-card:last-child{margin-bottom:0;}
-.dp-kanban-card-title{font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px;}
-.dp-kanban-empty{font-size:12px;color:#cbd5e1;text-align:center;padding:16px 8px;}
+.dp-kanban-card:hover{box-shadow:0 4px 12px rgba(27,52,97,.10);transform:translateY(-1px);}
+.dp-kanban-card-title{font-size:13px;font-weight:600;color:#122446;margin-bottom:6px;}
+.dp-kanban-empty{font-size:12px;color:#cdd6e3;text-align:center;padding:16px 8px;}
 
 /* ── Modal overlay ── */
-.dp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9000;padding:16px;}
-.dp-modal{background:#fff;border-radius:16px;width:540px;max-width:100%;max-height:92vh;overflow-y:auto;}
+.dp-overlay{position:fixed;inset:0;background:rgba(15,27,45,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:9000;padding:16px;}
+.dp-modal{background:#fff;border-radius:14px;width:540px;max-width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 12px 32px rgba(27,52,97,.14);}
 
 /* ── Modal détail ── */
 .dp-detail-header{padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 .dp-detail-body{padding:16px 24px 24px;display:flex;flex-direction:column;gap:20px;}
-.dp-detail-section-label{font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase;}
+.dp-detail-section-label{font-size:10px;font-weight:600;color:#9aa6ba;margin-bottom:10px;letter-spacing:.07em;text-transform:uppercase;}
 .dp-progress{display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:4px;}
 .dp-step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin:0 auto;flex-shrink:0;}
 .dp-step-line{width:28px;height:2px;margin:14px 2px 0;flex-shrink:0;}
-.dp-admin-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px 16px;}
-.dp-admin-box-title{font-size:11px;font-weight:700;color:#0369a1;margin-bottom:12px;}
+/* Admin box = cobalt-tinted */
+.dp-admin-box{background:#e9f0fa;border:1px solid #d6e3f5;border-radius:10px;padding:14px 16px;}
+.dp-admin-box-title{font-size:10px;font-weight:700;color:#1B3461;margin-bottom:12px;letter-spacing:.07em;text-transform:uppercase;}
 .dp-comments-box{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
-.dp-comment-item{background:#f8fafc;border-radius:10px;padding:10px 14px;}
-.dp-comment-author{font-size:12px;font-weight:700;color:#0f172a;}
-.dp-comment-date{font-size:11px;color:#94a3b8;}
-.dp-comment-text{font-size:13px;color:#374151;margin:4px 0 0;}
+.dp-comment-item{background:#f4f7fc;border-radius:8px;padding:10px 14px;}
+.dp-comment-author{font-size:12px;font-weight:700;color:#122446;}
+.dp-comment-date{font-size:11px;color:#9aa6ba;}
+.dp-comment-text{font-size:13px;color:#4a5567;margin:4px 0 0;}
 
 /* ── Modal formulaire ── */
 .dp-form-modal{width:500px;}
-.dp-modal-title{font-size:17px;font-weight:800;color:#0f172a;margin:0 0 18px;padding:26px 26px 0;}
+.dp-modal-title{font-size:17px;font-weight:800;color:#122446;margin:0 0 18px;padding:26px 26px 0;letter-spacing:-.02em;}
 .dp-fgrp{margin-bottom:14px;padding:0 26px;}
 .dp-fgrp:last-of-type{margin-bottom:0;}
-.dp-flabel{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:5px;letter-spacing:.04em;}
-.dp-finput,.dp-fselect,.dp-ftextarea{width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#0f172a;outline:none;transition:border .15s;font-family:inherit;box-sizing:border-box;}
-.dp-finput:focus,.dp-fselect:focus,.dp-ftextarea:focus{border-color:${DP_ACCENT};}
+.dp-flabel{display:block;font-size:10px;font-weight:600;color:#6b7689;margin-bottom:6px;letter-spacing:.07em;text-transform:uppercase;}
+.dp-finput,.dp-fselect,.dp-ftextarea{
+  width:100%;padding:9px 12px;
+  border:1.5px solid #cdd6e3;border-radius:6px;
+  font-size:13px;color:#1c2434;outline:none;
+  background:#f1f4f9;font-family:inherit;
+  transition:all .18s cubic-bezier(.16,1,.3,1);box-sizing:border-box;
+}
+.dp-finput:focus,.dp-fselect:focus,.dp-ftextarea:focus{border-color:#4A7EC7;background:#fff;box-shadow:0 0 0 3px rgba(74,126,199,.18);}
 .dp-ftextarea{resize:vertical;min-height:72px;}
 .dp-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 26px;margin-bottom:14px;}
 .dp-prio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
 .dp-urgence-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
-.dp-choice-btn{padding:9px 4px;border-radius:8px;border:2px solid transparent;font-size:11px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;}
-.dp-modal-err{background:#fee2e2;color:#991b1b;padding:8px 11px;border-radius:8px;font-size:12px;font-weight:600;margin:0 26px 10px;display:none;}
-.dp-modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:16px 26px;border-top:1px solid #f1f5f9;margin-top:6px;}
+.dp-choice-btn{padding:9px 4px;border-radius:6px;border:2px solid transparent;font-size:11px;font-weight:700;cursor:pointer;text-align:center;transition:all .18s cubic-bezier(.16,1,.3,1);}
+.dp-modal-err{background:#feeaea;color:#991b1b;padding:8px 11px;border-radius:8px;font-size:12px;font-weight:600;margin:0 26px 10px;display:none;border:1px solid #fecaca;}
+.dp-modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:16px 26px;border-top:1px solid #f1f4f9;margin-top:6px;}
 
 /* ── États vides ── */
-.dp-empty{text-align:center;padding:48px 20px;color:#94a3b8;}
+.dp-empty{text-align:center;padding:48px 20px;color:#9aa6ba;}
 .dp-empty-icon{font-size:32px;margin-bottom:10px;}
 .dp-empty p{font-size:13px;}
 
-/* ── Badge générique ── */
-.dp-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap;}
-.dp-badge-dot{width:6px;height:6px;border-radius:50%;display:inline-block;opacity:.8;}
+/* ── Badge générique — pill pastel ── */
+.dp-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;}
+.dp-badge-dot{width:5px;height:5px;border-radius:50%;display:inline-block;}
 </style>
 
 <div class="dp-layout">
@@ -156,9 +195,9 @@ function dprojectRender() {
   <!-- ══ SIDEBAR ══ -->
   <aside class="dp-sidebar">
     <div class="dp-sidebar-top">
-      <div class="dp-sidebar-icon">D</div>
+      <div class="dp-sidebar-icon"><span>D</span></div>
       <div>
-        <div class="dp-sidebar-name">Dproject</div>
+        <div class="dp-sidebar-name"><span style="color:#e5195e;font-weight:800;">D</span>project</div>
         <div class="dp-sidebar-sub">Gestion projet DSP</div>
       </div>
     </div>
@@ -279,7 +318,7 @@ async function dpLoadAQualifier(targetId) {
           <span style="font-size:18px;">🔔</span>
           <span style="font-size:14px;font-weight:800;color:#9a3412;">À qualifier</span>
           <span class="dp-qualifier-count">${items.length}</span>
-          <span style="font-size:12px;color:#94a3b8;">nouvelles demandes en attente</span>
+          <span style="font-size:12px;color:#9aa6ba;">nouvelles demandes en attente</span>
         </div>
         ${items.map(function(item){
           var code = item.code || (item._type === 'bug' ? 'BUG-???' : 'EVOL-???');
@@ -289,8 +328,8 @@ async function dpLoadAQualifier(targetId) {
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
               <span style="font-size:16px;">${icon}</span>
               <div>
-                <div style="font-weight:700;font-size:13px;color:#0f172a;">${item.titre}</div>
-                <div style="font-size:11px;color:#94a3b8;">${code} · ${date}</div>
+                <div style="font-weight:700;font-size:13px;color:#122446;">${item.titre}</div>
+                <div style="font-size:11px;color:#9aa6ba;">${code} · ${date}</div>
               </div>
             </div>
             <span style="background:#fff7ed;color:#9a3412;font-size:11px;font-weight:700;
@@ -334,7 +373,7 @@ function dpRenderBugs(container) {
             <th>ID</th><th>TITRE</th><th>URGENCE</th><th>ZONE</th><th>ENV.</th><th>STATUT</th>
           </tr></thead>
           <tbody id="dp-bugs-tbody">
-            <tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8;">Chargement…</td></tr>
+            <tr><td colspan="6" style="text-align:center;padding:32px;color:#9aa6ba;">Chargement…</td></tr>
           </tbody>
         </table>
       </div>
@@ -372,18 +411,18 @@ function dpRenderBugsTable(bugs) {
   var tbody = document.getElementById('dp-bugs-tbody');
   if (!tbody) return;
   if (!bugs.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Aucun bug trouvé</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#9aa6ba;">Aucun bug trouvé</td></tr>';
     return;
   }
   tbody.innerHTML = bugs.map(function(b){
     return `<tr class="dp-row-clickable" onclick="dpOuvrirDetail('bug',${b.id})">
       <td><span style="background:#fee2e2;color:#991b1b;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;font-family:monospace;">${b.code||'BUG-?'}</span></td>
       <td>
-        <div style="font-weight:600;color:#0f172a;">${b.titre||'—'}</div>
-        ${b.description?`<div style="font-size:12px;color:#94a3b8;">${b.description.substring(0,65)}…</div>`:''}
+        <div style="font-weight:600;color:#122446;">${b.titre||'—'}</div>
+        ${b.description?`<div style="font-size:12px;color:#9aa6ba;">${b.description.substring(0,65)}…</div>`:''}
       </td>
       <td>${dpBadgeUrgence(b.urgence)}</td>
-      <td>${b.zone?`<span style="background:#f1f5f9;color:#475569;font-size:12px;padding:3px 8px;border-radius:6px;">${b.zone}</span>`:'—'}</td>
+      <td>${b.zone?`<span style="background:#e9f0fa;color:#1B3461;font-size:12px;padding:3px 8px;border-radius:6px;">${b.zone}</span>`:'—'}</td>
       <td>${dpBadgeEnv(b.environnement)}</td>
       <td>${dpBadgeStatut(b.statut)}</td>
     </tr>`;
@@ -416,7 +455,7 @@ function dpRenderEvolutions(container) {
             <th>ID</th><th>TITRE</th><th>STATUT</th><th>DATE</th>
           </tr></thead>
           <tbody id="dp-evols-tbody">
-            <tr><td colspan="4" style="text-align:center;padding:32px;color:#94a3b8;">Chargement…</td></tr>
+            <tr><td colspan="4" style="text-align:center;padding:32px;color:#9aa6ba;">Chargement…</td></tr>
           </tbody>
         </table>
       </div>
@@ -440,7 +479,7 @@ async function dpLoadAQualifierEvols(targetId) {
           <span style="font-size:18px;">🔔</span>
           <span style="font-size:14px;font-weight:800;color:#9a3412;">À qualifier</span>
           <span class="dp-qualifier-count">${items.length}</span>
-          <span style="font-size:12px;color:#94a3b8;">évolutions en attente</span>
+          <span style="font-size:12px;color:#9aa6ba;">évolutions en attente</span>
         </div>
         ${items.map(function(item){
           var code = item.code || 'EVOL-???';
@@ -449,8 +488,8 @@ async function dpLoadAQualifierEvols(targetId) {
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
               <span style="font-size:16px;">💡</span>
               <div>
-                <div style="font-weight:700;font-size:13px;color:#0f172a;">${item.titre}</div>
-                <div style="font-size:11px;color:#94a3b8;">${code} · ${date}</div>
+                <div style="font-weight:700;font-size:13px;color:#122446;">${item.titre}</div>
+                <div style="font-size:11px;color:#9aa6ba;">${code} · ${date}</div>
               </div>
             </div>
             <span style="background:#fff7ed;color:#9a3412;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;">Qualifier →</span>
@@ -485,7 +524,7 @@ function dpRenderEvolsTable(evols) {
   var tbody = document.getElementById('dp-evols-tbody');
   if (!tbody) return;
   if (!evols.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#94a3b8;">Aucune évolution</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#9aa6ba;">Aucune évolution</td></tr>';
     return;
   }
   tbody.innerHTML = evols.map(function(ev){
@@ -493,11 +532,11 @@ function dpRenderEvolsTable(evols) {
     return `<tr class="dp-row-clickable" onclick="dpOuvrirDetail('evolution',${ev.id})">
       <td><span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;font-family:monospace;">${ev.code||'EVOL-?'}</span></td>
       <td>
-        <div style="font-weight:600;color:#0f172a;">${ev.titre||'—'}</div>
-        ${ev.description?`<div style="font-size:12px;color:#94a3b8;">${ev.description.substring(0,65)}…</div>`:''}
+        <div style="font-weight:600;color:#122446;">${ev.titre||'—'}</div>
+        ${ev.description?`<div style="font-size:12px;color:#9aa6ba;">${ev.description.substring(0,65)}…</div>`:''}
       </td>
       <td>${dpBadgeStatut(ev.statut)}</td>
-      <td style="font-size:12px;color:#64748b;">${date}</td>
+      <td style="font-size:12px;color:#6b7689;">${date}</td>
     </tr>`;
   }).join('');
 }
@@ -512,7 +551,7 @@ async function dpOuvrirDetail(type, id) {
   var overlay = document.createElement('div');
   overlay.className = 'dp-overlay';
   overlay.id = 'dp-detail-modal';
-  overlay.innerHTML = `<div class="dp-modal" style="width:640px;"><div style="text-align:center;padding:40px;color:#94a3b8;">Chargement…</div></div>`;
+  overlay.innerHTML = `<div class="dp-modal" style="width:640px;"><div style="text-align:center;padding:40px;color:#9aa6ba;">Chargement…</div></div>`;
   document.body.appendChild(overlay);
 
   try {
@@ -540,11 +579,11 @@ function dpRenderDetailModal(box, type, data, comments) {
     <!-- ── En-tête ── -->
     <div class="dp-detail-header">
       <div>
-        <span style="font-size:11px;font-weight:700;color:#94a3b8;font-family:monospace;">${code}</span>
-        <h2 style="font-size:17px;font-weight:800;color:#0f172a;margin:4px 0 0;">${data.titre}</h2>
+        <span style="font-size:11px;font-weight:700;color:#9aa6ba;font-family:monospace;">${code}</span>
+        <h2 style="font-size:17px;font-weight:800;color:#122446;margin:4px 0 0;">${data.titre}</h2>
       </div>
       <button onclick="document.getElementById('dp-detail-modal').remove()"
-        style="background:#f1f5f9;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px;color:#64748b;flex-shrink:0;">✕</button>
+        style="background:#f1f5f9;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px;color:#6b7689;flex-shrink:0;">✕</button>
     </div>
 
     <div class="dp-detail-body">
@@ -578,7 +617,7 @@ function dpRenderDetailModal(box, type, data, comments) {
         ${isBug && data.zone    ? `<div><div class="dp-detail-section-label" style="margin-bottom:4px;">Zone</div><span style="font-weight:600;">${data.zone}</span></div>` : ''}
         ${isBug && data.environnement ? `<div><div class="dp-detail-section-label" style="margin-bottom:4px;">Env.</div>${dpBadgeEnv(data.environnement)}</div>` : ''}
         ${data.date_echeance ? `<div><div class="dp-detail-section-label" style="margin-bottom:4px;">Échéance</div><span style="font-weight:600;">${new Date(data.date_echeance).toLocaleDateString('fr-FR')}</span></div>` : ''}
-        ${data.description ? `<div style="grid-column:1/-1;"><div class="dp-detail-section-label" style="margin-bottom:4px;">Description</div><p style="margin:0;color:#374151;font-size:13px;">${data.description}</p></div>` : ''}
+        ${data.description ? `<div style="grid-column:1/-1;"><div class="dp-detail-section-label" style="margin-bottom:4px;">Description</div><p style="margin:0;color:#4a5567;font-size:13px;">${data.description}</p></div>` : ''}
         ${data.screenshot ? `<div style="grid-column:1/-1;"><div class="dp-detail-section-label" style="margin-bottom:6px;">Capture d'écran</div><img src="${data.screenshot}" style="max-width:100%;border-radius:8px;border:1px solid #e2e8f0;max-height:200px;object-fit:contain;"></div>` : ''}
       </div>
 
@@ -587,7 +626,7 @@ function dpRenderDetailModal(box, type, data, comments) {
         <div class="dp-admin-box-title">⚙️ GESTION ADMIN</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
           <div>
-            <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Statut</label>
+            <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Statut</label>
             <select id="dp-det-statut" style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
               ${etapes.map(function(e){ return `<option ${e===statut?'selected':''}>${e}</option>`; }).join('')}
               ${!isBug ? `<option ${'Refusée'===statut?'selected':''}>Refusée</option>` : ''}
@@ -595,20 +634,20 @@ function dpRenderDetailModal(box, type, data, comments) {
             </select>
           </div>
           ${isBug ? `<div>
-            <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Urgence</label>
+            <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Urgence</label>
             <select id="dp-det-urgence" style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
               <option value="">— Choisir —</option>
               ${['Critique','Majeur','Mineur','Cosmétique'].map(function(u){ return `<option ${u===data.urgence?'selected':''}>${u}</option>`; }).join('')}
             </select>
           </div>` : ''}
           <div>
-            <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Échéance</label>
+            <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Échéance</label>
             <input type="date" id="dp-det-echeance" value="${data.date_echeance||''}"
               style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
           </div>
         </div>
         ${!isBug ? `<div style="margin-top:10px;">
-          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Retour admin</label>
+          <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Retour admin</label>
           <textarea id="dp-det-comm-admin" rows="2"
             style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;"
             placeholder="Justification, retour…">${data.commentaire_admin||''}</textarea>
@@ -632,7 +671,7 @@ function dpRenderDetailModal(box, type, data, comments) {
                   <p class="dp-comment-text">${c.contenu}</p>
                 </div>`;
               }).join('')
-            : '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:16px;">Aucun commentaire</div>'
+            : '<div style="color:#9aa6ba;font-size:13px;text-align:center;padding:16px;">Aucun commentaire</div>'
           }
         </div>
         <div style="display:flex;gap:8px;">
@@ -716,7 +755,7 @@ function dpRenderTaches(container) {
             <th>ID</th><th>TITRE</th><th>PRIORITÉ</th><th>STATUT</th><th>ÉCHÉANCE</th>
           </tr></thead>
           <tbody id="dp-taches-tbody">
-            <tr><td colspan="5" style="text-align:center;padding:32px;color:#94a3b8;">Chargement…</td></tr>
+            <tr><td colspan="5" style="text-align:center;padding:32px;color:#9aa6ba;">Chargement…</td></tr>
           </tbody>
         </table>
       </div>
@@ -753,7 +792,7 @@ function dpRenderTachesTable(taches) {
   var tbody = document.getElementById('dp-taches-tbody');
   if (!tbody) return;
   if (!taches.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#94a3b8;">Aucune tâche</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#9aa6ba;">Aucune tâche</td></tr>';
     return;
   }
   tbody.innerHTML = taches.map(function(t){
@@ -761,12 +800,12 @@ function dpRenderTachesTable(taches) {
     return `<tr class="dp-row-clickable" onclick="dpOpenTacheForm(${JSON.stringify(t).replace(/"/g,'&quot;')})">
       <td><span style="font-size:11px;font-weight:700;color:#7c3aed;font-family:monospace;">T-${String(t.id).padStart(3,'0')}</span></td>
       <td>
-        <div style="font-weight:600;color:#0f172a;">${t.titre||'—'}</div>
-        ${t.description?`<div style="font-size:12px;color:#94a3b8;">${t.description.substring(0,65)}…</div>`:''}
+        <div style="font-weight:600;color:#122446;">${t.titre||'—'}</div>
+        ${t.description?`<div style="font-size:12px;color:#9aa6ba;">${t.description.substring(0,65)}…</div>`:''}
       </td>
       <td>${dpBadgePriorite(t.priorite)}</td>
       <td>${dpBadgeStatutTache(t.statut)}</td>
-      <td style="color:#64748b;">${echeance}</td>
+      <td style="color:#6b7689;">${echeance}</td>
     </tr>`;
   }).join('');
 }
@@ -1052,7 +1091,7 @@ async function dpRenderRoadmap(container) {
         return `<div class="dp-kanban-col">
           <div class="dp-kanban-col-head">
             ${col.icon} ${col.key}
-            <span style="margin-left:auto;background:#e2e8f0;color:#64748b;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">${items.length}</span>
+            <span style="margin-left:auto;background:#e2e8f0;color:#6b7689;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">${items.length}</span>
           </div>
           ${items.length === 0
             ? '<div class="dp-kanban-empty">Vide</div>'
@@ -1091,7 +1130,7 @@ function dpBadgeUrgence(u) {
 function dpBadgeEnv(e) {
   if (e === 'PROD')    return `<span class="dp-badge" style="background:#fee2e2;color:#991b1b;"><span class="dp-badge-dot" style="background:#dc2626;"></span>PROD</span>`;
   if (e === 'Staging') return `<span class="dp-badge" style="background:#fef9c3;color:#854d0e;"><span class="dp-badge-dot" style="background:#ca8a04;"></span>Staging</span>`;
-  return '<span style="color:#94a3b8;">—</span>';
+  return '<span style="color:#9aa6ba;">—</span>';
 }
 
 function dpBadgeStatut(s) {
