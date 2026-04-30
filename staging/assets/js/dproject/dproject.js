@@ -9,6 +9,11 @@ function dprojectInit() {
   dprojectRender();
 }
 
+// Disponible globalement dès le chargement du fichier
+function dpKpiCard(color, iconPath, label, value, sub) {
+  return '<div class="dp-kpi"><div class="dp-kpi__ico dp-kpi__ico--'+color+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+iconPath+'</svg></div><div><div class="dp-kpi__label">'+label+'</div><div class="dp-kpi__value">'+value+'</div>'+(sub?'<div class="dp-kpi__sub">'+sub+'</div>':'')+'</div></div>';
+}
+
 function dprojectRender() {
   var container = document.getElementById('dproject-content');
   if (!container) return;
@@ -256,11 +261,6 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 (function(){
 
 // ── Helpers HTML ──────────────────────────────────────────
-function dpKpiCard(color, iconPath, label, value, sub) {
-  return '<div class="dp-kpi"><div class="dp-kpi__ico dp-kpi__ico--'+color+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+iconPath+'</svg></div><div><div class="dp-kpi__label">'+label+'</div><div class="dp-kpi__value" >'+value+'</div>'+(sub?'<div class="dp-kpi__sub">'+sub+'</div>':'')+'</div></div>';
-}
-window.dpKpiCard = dpKpiCard;
-
 function dpBadgeUrgence(u) {
   var map = {
     'Critique':   {cls:'dp-urg--critique',   label:'Critique'},
