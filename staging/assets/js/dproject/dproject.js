@@ -1,1164 +1,741 @@
-// ===================================================
-// DPROJECT.JS v3.0 — Gestion Projet DSP
-// Fusion : charte graphique sidebar + modal détail
-//          + commentaires + zone "À qualifier"
-// Design System Dispatchis — navy #1B3461 · cobalt #4A7EC7 · rose #e5195e · bg #f4f7fc
-// ===================================================
+/* =========================================================
+   Dproject — Module gestion projet DSP
+   Rendu dans #dproject-content (app Dispatchis)
+   Design basé sur le fichier Standalone Dproject Module
+   ========================================================= */
 
-var DP_ACCENT = '#e5195e';
+function dprojectInit() {
+  dprojectRender();
+}
 
-// ── État ────────────────────────────────────────────
-var _dpSection          = 'bugs';
-var _dpBugsData         = [];
-var _dpTachesData       = [];
-var _dpEvolsData        = [];
-var _dpSelectedUrgence  = '';
-var _dpSelectedPriorite = '';
-
-// ─────────────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────────────
-function dprojectInit() { dprojectRender(); }
-
-// ─────────────────────────────────────────────────
-// RENDU PRINCIPAL — layout 2 panneaux
-// ─────────────────────────────────────────────────
 function dprojectRender() {
   var container = document.getElementById('dproject-content');
   if (!container) return;
-  container.style.padding    = '0';
-  container.style.background = '#f4f7fc';
-  container.style.minHeight  = '100%';
+  container.style.padding = '0';
+  container.style.background = '#eef1f6';
+  container.style.minHeight = '100%';
+  container.style.fontFamily = "'Inter', system-ui, -apple-system, sans-serif";
+  container.style.webkitFontSmoothing = 'antialiased';
 
   container.innerHTML = `
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
 <style>
-/* ── Font ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-/* ── Tokens Dispatchis Design System ── */
-.dp-layout *{font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
-
-/* ── Layout ── */
-.dp-layout{display:flex;min-height:calc(100vh - 90px);background:#f4f7fc;}
-
-/* ── Sidebar ── */
-.dp-sidebar{width:234px;flex-shrink:0;background:#fff;border-right:1px solid #e4eaf2;display:flex;flex-direction:column;box-shadow:1px 0 0 #e4eaf2;}
-.dp-sidebar-top{padding:18px 16px 14px;border-bottom:1px solid #e4eaf2;display:flex;align-items:center;gap:10px;}
-.dp-sidebar-icon{
-  width:36px;height:36px;border-radius:10px;
-  background:#1B3461;
-  display:flex;align-items:center;justify-content:center;
-  font-size:16px;font-weight:900;color:#fff;flex-shrink:0;
-  box-shadow:0 2px 6px rgba(27,52,97,.22);
+/* ---- Variables ---- */
+#dproject-content {
+  --bg:#eef1f6;
+  --surface:#ffffff;
+  --ink-900:#0f172a; --ink-800:#1e293b; --ink-700:#334155;
+  --ink-600:#475569; --ink-500:#64748b; --ink-400:#94a3b8;
+  --ink-300:#cbd5e1; --ink-200:#e2e8f0; --ink-100:#f1f5f9; --ink-50:#f8fafc;
+  --navy:#1B3461; --navy-2:#22306e;
+  --rose:#e5195e; --rose-2:#c61148;
+  --brand-700:#2f3d95; --brand-600:#3b4cb8; --brand-500:#4f63d2;
+  --brand-100:#e6eaf7; --brand-50:#f3f5fb;
+  --ok-700:#166b4a; --ok-100:#e3f5ec; --ok-50:#f1faf5;
+  --warn-700:#8a5a1c; --warn-100:#fbefd9; --warn-50:#fdf8ed;
+  --danger-700:#a1293a; --danger-100:#fbe7ea; --danger-50:#fdf4f5;
+  --info-700:#1f458c; --info-100:#e3eefb; --info-50:#f1f6fc;
+  --shadow-md:0 1px 2px rgba(15,23,42,.04),0 4px 12px -4px rgba(15,23,42,.08);
+  --shadow-xs:0 1px 0 rgba(15,23,42,.04);
 }
-.dp-sidebar-icon span{color:#e5195e;}
-.dp-sidebar-name{font-size:14px;font-weight:700;color:#1B3461;letter-spacing:-.01em;}
-.dp-sidebar-sub{font-size:11px;color:#9aa6ba;margin-top:1px;}
-.dp-nav{padding:10px 0;flex:1;}
-.dp-nav-label{font-size:10px;font-weight:600;color:#cdd6e3;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px 4px;}
-.dp-nav-btn{
-  display:flex;align-items:center;gap:9px;width:100%;padding:9px 16px;
-  font-size:13px;font-weight:500;color:#6b7689;
-  background:none;border:none;border-left:2.5px solid transparent;
-  cursor:pointer;text-align:left;transition:all .18s cubic-bezier(.16,1,.3,1);
+#dproject-content *{box-sizing:border-box}
+#dproject-content a{text-decoration:none}
+
+/* ---- Page ---- */
+.dp-page{padding:24px 32px 48px;max-width:1480px;margin:0 auto}
+.dp-page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px;flex-wrap:wrap}
+.dp-page-head__title{font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--brand-700);margin:0}
+.dp-page-head__sub{font-size:13.5px;color:var(--ink-500);margin-top:4px}
+
+/* ---- Buttons ---- */
+.dp-btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:9px;border:1px solid transparent;font:inherit;font-size:13px;font-weight:500;cursor:pointer;background:#fff;color:var(--ink-800);box-shadow:var(--shadow-xs);transition:transform .1s}
+.dp-btn:hover{transform:translateY(-1px)}
+.dp-btn svg{width:14px;height:14px;flex-shrink:0}
+.dp-btn--ghost{background:#fff;border-color:var(--ink-200);color:var(--ink-800)}
+.dp-btn--ghost:hover{background:var(--ink-50);border-color:var(--ink-300)}
+.dp-btn--primary{background:linear-gradient(180deg,#2b3a87 0%,#1f2a6d 100%);color:#fff;border-color:rgba(15,23,42,.15);box-shadow:0 1px 0 rgba(255,255,255,.15) inset,0 1px 2px rgba(15,23,42,.2)}
+.dp-btn--primary:hover{background:linear-gradient(180deg,#324296 0%,#24317b 100%)}
+.dp-btn--rose{background:linear-gradient(180deg,#f04d65 0%,#d8344e 100%);color:#fff;border-color:rgba(0,0,0,.1);box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 1px 2px rgba(216,52,78,.35)}
+
+/* ---- Tabs ---- */
+.dp-tabs{display:flex;gap:4px;background:#fff;border:1px solid rgba(15,23,42,.06);border-radius:12px;padding:4px;box-shadow:var(--shadow-xs);margin-bottom:16px;width:fit-content}
+.dp-tabs button{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:8px;border:0;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--ink-600);cursor:pointer;transition:background .12s,color .12s}
+.dp-tabs button:hover{background:var(--ink-50);color:var(--ink-800)}
+.dp-tabs button.is-active{background:var(--navy);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(15,23,42,.15)}
+.dp-tabs button .dp-count{display:inline-grid;place-items:center;min-width:20px;height:18px;padding:0 6px;border-radius:5px;background:#fde7ef;color:var(--rose);font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.dp-tabs button.is-active .dp-count{background:rgba(255,255,255,.18);color:#fff}
+
+/* ---- KPIs ---- */
+.dp-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.dp-kpi{background:var(--surface);border:1px solid rgba(15,23,42,.06);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow-xs);display:flex;align-items:center;gap:12px}
+.dp-kpi__ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+.dp-kpi__ico--rose{background:#fde7ef;color:var(--rose)}
+.dp-kpi__ico--blue{background:var(--brand-50);color:var(--brand-700)}
+.dp-kpi__ico--ok{background:var(--ok-50);color:var(--ok-700)}
+.dp-kpi__ico--warn{background:var(--warn-50);color:var(--warn-700)}
+.dp-kpi__ico svg{width:18px;height:18px}
+.dp-kpi__label{font-size:11px;color:var(--ink-500);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.dp-kpi__value{font-size:22px;font-weight:700;color:var(--ink-900);margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* ---- Card ---- */
+.dp-card{background:var(--surface);border:1px solid rgba(15,23,42,.06);border-radius:18px;box-shadow:var(--shadow-md);overflow:hidden}
+.dp-card__head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--ink-100)}
+.dp-card__title{font-size:14px;font-weight:700;color:var(--navy);margin:0}
+.dp-card__sub{font-size:12px;color:var(--ink-500);margin-top:2px}
+
+/* ---- Toolbar ---- */
+.dp-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dp-select{height:32px;padding:0 30px 0 12px;border-radius:8px;border:1px solid var(--ink-200);background:#fff url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.4'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e") no-repeat right 10px center;font:inherit;font-size:12.5px;color:var(--ink-800);cursor:pointer}
+.dp-search{position:relative;width:220px}
+.dp-search input{width:100%;height:32px;border:1px solid var(--ink-200);border-radius:8px;background:#fff;padding:0 10px 0 30px;font:inherit;font-size:12.5px;color:var(--ink-800);outline:none}
+.dp-search input:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(229,25,94,.12)}
+.dp-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--ink-400);width:13px;height:13px}
+
+/* ---- Tables ---- */
+table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.dp-t thead th{background:var(--ink-50);color:var(--ink-500);padding:10px 14px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--ink-200)}
+.dp-t tbody td{padding:12px 14px;border-bottom:1px solid var(--ink-100);vertical-align:middle}
+.dp-t tbody tr:hover td{background:#fafbfd}
+.dp-t tbody tr:last-child td{border-bottom:none}
+
+/* ---- Ref badges ---- */
+.dp-ref{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:var(--navy);background:#eef1f6;padding:3px 8px;border-radius:5px;border:1px solid var(--ink-200)}
+.dp-ref--evol{color:#9333ea;background:#f3e8ff;border-color:#d8b4fe}
+.dp-ref--bug{color:#dc2626;background:#fde7e7;border-color:#f3a0a0}
+.dp-ref--prod{color:var(--danger-700);background:var(--danger-50);border-color:#f3a0a0}
+.dp-ref--staging{color:var(--warn-700);background:var(--warn-50);border-color:#f3c988}
+
+.dp-title-cell{font-weight:600;color:var(--ink-900);font-size:13px}
+.dp-desc{font-size:11.5px;color:var(--ink-500);margin-top:2px;line-height:1.4}
+
+/* ---- Pills statuts ---- */
+.dp-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.01em;border:1px solid;white-space:nowrap}
+.dp-pill::before{content:"";width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dp-pill--todo     {background:var(--ink-50);   border-color:var(--ink-200); color:var(--ink-700)}
+.dp-pill--todo::before{background:var(--ink-400)}
+.dp-pill--doing    {background:var(--info-50);  border-color:#a0c4f3;        color:var(--info-700)}
+.dp-pill--doing::before{background:#2563eb}
+.dp-pill--staging  {background:var(--warn-50);  border-color:#f3c988;        color:var(--warn-700)}
+.dp-pill--staging::before{background:#d97706}
+.dp-pill--done     {background:var(--ok-50);    border-color:#a0e0c0;        color:var(--ok-700)}
+.dp-pill--done::before{background:#16a34a}
+.dp-pill--new      {background:#f3e8ff;         border-color:#d8b4fe;        color:#6b21a8}
+.dp-pill--new::before{background:#9333ea}
+.dp-pill--analysis {background:var(--info-50);  border-color:#a0c4f3;        color:var(--info-700)}
+.dp-pill--analysis::before{background:#2563eb}
+.dp-pill--accepted {background:var(--ok-50);    border-color:#a0e0c0;        color:var(--ok-700)}
+.dp-pill--accepted::before{background:#16a34a}
+.dp-pill--refused  {background:var(--danger-50);border-color:#f3a0a0;        color:var(--danger-700)}
+.dp-pill--refused::before{background:#dc2626}
+.dp-pill--deployed {background:#ecfeff;         border-color:#67e8f9;        color:#0e7490}
+.dp-pill--deployed::before{background:#06b6d4}
+
+/* ---- Urgence bugs ---- */
+.dp-urg{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid;white-space:nowrap}
+.dp-urg__dot{width:8px;height:8px;border-radius:50%}
+.dp-urg--critical{background:#fde7e7;border-color:#f3a0a0;color:#8c1f1f}
+.dp-urg--critical .dp-urg__dot{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+.dp-urg--major{background:#fef3e2;border-color:#f3c988;color:#7a4a0c}
+.dp-urg--major .dp-urg__dot{background:#ea580c}
+.dp-urg--minor{background:#fef9c3;border-color:#fde68a;color:#854d0e}
+.dp-urg--minor .dp-urg__dot{background:#eab308}
+.dp-urg--cosmetic{background:#e3eefb;border-color:#a0c4f3;color:#1f458c}
+.dp-urg--cosmetic .dp-urg__dot{background:#2563eb}
+
+/* ---- Priorités ---- */
+.dp-prio{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.dp-prio--high{background:#fde7e7;color:#8c1f1f}
+.dp-prio--norm{background:var(--ink-50);color:var(--ink-600)}
+.dp-prio--low{background:var(--ink-50);color:var(--ink-500)}
+
+/* ---- Avatar / who ---- */
+.dp-who{display:flex;align-items:center;gap:8px}
+.dp-av{width:24px;height:24px;border-radius:50%;background:var(--av,var(--ink-500));color:#fff;font-size:9.5px;font-weight:700;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 0 2px #fff,0 0 0 3px var(--ink-200)}
+.dp-who__name{font-size:12.5px;color:var(--ink-800);font-weight:500}
+.dp-date{font-size:12px;color:var(--ink-600);font-variant-numeric:tabular-nums}
+.dp-zone{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;background:var(--brand-50);color:var(--brand-700);font-size:10.5px;font-weight:600;letter-spacing:.02em}
+
+/* ---- Tab panels ---- */
+.dp-tab-panel{display:none}
+.dp-tab-panel.is-active{display:block}
+
+/* ---- Roadmap ---- */
+.dp-roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.dp-quarter{background:var(--surface);border:1px solid rgba(15,23,42,.06);border-radius:14px;padding:14px;box-shadow:var(--shadow-xs)}
+.dp-quarter__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--ink-100)}
+.dp-quarter__title{font-size:13px;font-weight:700;color:var(--navy);letter-spacing:-.005em}
+.dp-quarter__count{font-size:10.5px;color:var(--ink-500);font-weight:600}
+.dp-quarter--current{background:linear-gradient(180deg,#fff7fa 0%,#fff 70%);border-color:#fbd0dd}
+.dp-quarter--current .dp-quarter__title{color:var(--rose)}
+.dp-rm-item{background:#fff;border:1px solid var(--ink-200);border-radius:9px;padding:9px 11px;margin-bottom:8px;border-left:3px solid var(--ink-300)}
+.dp-rm-item:last-child{margin-bottom:0}
+.dp-rm-item--evol{border-left-color:#9333ea}
+.dp-rm-item--task{border-left-color:var(--brand-600)}
+.dp-rm-item--bug{border-left-color:#dc2626}
+.dp-rm-item__top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.dp-rm-item__ref{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-500);font-weight:600}
+.dp-rm-item__title{font-size:12.5px;font-weight:600;color:var(--ink-900);line-height:1.3}
+
+/* ---- Formulaire ---- */
+.dp-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px}
+.dp-form-full{grid-column:1/-1}
+.dp-form-field{display:flex;flex-direction:column;gap:6px}
+.dp-form-field label{font-size:11px;font-weight:600;color:var(--ink-600);text-transform:uppercase;letter-spacing:.06em}
+.dp-form-field input,.dp-form-field textarea,.dp-form-field select{padding:10px 12px;border:1px solid var(--ink-200);border-radius:9px;background:#fff;font:inherit;font-size:13px;color:var(--ink-900);outline:none}
+.dp-form-field input:focus,.dp-form-field textarea:focus,.dp-form-field select:focus{border-color:var(--rose);box-shadow:0 0 0 3px rgba(229,25,94,.12)}
+.dp-form-field textarea{resize:vertical;min-height:90px;font-family:inherit}
+.dp-urg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.dp-urg-opt{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;border:1px solid var(--ink-200);background:#fff;cursor:pointer;font-size:12.5px;font-weight:600}
+.dp-urg-opt:hover{border-color:var(--ink-300)}
+.dp-urg-opt.is-selected{border-color:var(--rose);background:#fff7fa;box-shadow:0 0 0 3px rgba(229,25,94,.1)}
+.dp-urg-opt input{display:none}
+.dp-urg-opt .dp-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dp-form-actions{padding:14px 18px;border-top:1px solid var(--ink-100);display:flex;justify-content:flex-end;gap:10px;background:#fafbfd}
+
+@media(max-width:1100px){
+  .dp-kpis{grid-template-columns:repeat(2,1fr)}
+  .dp-roadmap{grid-template-columns:repeat(2,1fr)}
+  .dp-form-grid{grid-template-columns:1fr}
 }
-.dp-nav-btn:hover{background:#f4f7fc;color:#1B3461;}
-.dp-nav-btn.active{border-left-color:#e5195e;background:#fce8ef;color:#e5195e;font-weight:600;}
-.dp-nav-badge{margin-left:auto;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;}
-.dp-badge-red   {background:#feeaea;color:#991b1b;}
-.dp-badge-blue  {background:#e9f0fa;color:#1B3461;}
-.dp-badge-green {background:#dcfce7;color:#166534;}
-.dp-badge-orange{background:#fef3e2;color:#92540a;}
-.dp-sidebar-stats{padding:12px 16px;border-top:1px solid #e4eaf2;font-size:12px;}
-.dp-stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;color:#6b7689;}
-.dp-stat-row:last-child{margin-bottom:0;}
-.dp-stat-row strong{color:#1B3461;font-weight:700;}
-
-/* ── Main ── */
-.dp-main{flex:1;padding:24px 28px;overflow:auto;}
-.dp-page-title{font-size:20px;font-weight:800;color:#122446;margin:0 0 3px;letter-spacing:-.02em;}
-.dp-page-sub{font-size:13px;color:#6b7689;margin:0 0 20px;}
-
-/* ── À qualifier ── */
-.dp-qualifier-zone{background:#fff;border:1.5px solid #fecf3e;border-radius:12px;padding:16px 20px;margin-bottom:18px;box-shadow:0 2px 8px rgba(217,119,6,.08);}
-.dp-qualifier-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.dp-qualifier-count{background:#d97706;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;}
-.dp-qualifier-item{background:#f4f7fc;border:1px solid #e4eaf2;border-radius:8px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:all .18s cubic-bezier(.16,1,.3,1);margin-bottom:7px;}
-.dp-qualifier-item:last-child{margin-bottom:0;}
-.dp-qualifier-item:hover{background:#e9f0fa;border-color:#b8cfeb;box-shadow:0 2px 8px rgba(27,52,97,.08);transform:translateY(-1px);}
-
-/* ── Card ── */
-.dp-card{background:#fff;border-radius:10px;border:1px solid #e4eaf2;overflow:hidden;box-shadow:0 1px 3px rgba(27,52,97,.07),0 1px 2px rgba(27,52,97,.04);}
-.dp-card-header{padding:13px 18px;border-bottom:1px solid #e4eaf2;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-.dp-card-title{font-size:14px;font-weight:700;color:#122446;}
-.dp-card-sub{font-size:12px;color:#9aa6ba;}
-
-/* ── Boutons ── */
-.dp-btn{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .18s cubic-bezier(.16,1,.3,1);font-family:inherit;}
-/* Primary = navy (DS rule: buttons are navy, rose reserved for single CTA) */
-.dp-btn-accent{background:#1B3461;color:#fff;box-shadow:0 2px 6px rgba(27,52,97,.20);}
-.dp-btn-accent:hover{background:#2A4A7F;transform:translateY(-1px);box-shadow:0 4px 12px rgba(27,52,97,.26);}
-.dp-btn-accent:active{transform:translateY(0);}
-.dp-btn-ghost{background:transparent;color:#6b7689;border:1.5px solid #e4eaf2;}
-.dp-btn-ghost:hover{border-color:#cdd6e3;color:#1B3461;background:#f4f7fc;}
-/* Sauvegarder = cobalt */
-.dp-btn-dark{background:#4A7EC7;color:#fff;box-shadow:0 2px 6px rgba(74,126,199,.20);}
-.dp-btn-dark:hover{background:#3463aa;transform:translateY(-1px);}
-
-/* ── Filtres / inputs ── */
-.dp-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-.dp-input{
-  padding:7px 11px;border:1.5px solid #cdd6e3;border-radius:6px;
-  font-size:13px;color:#303a4d;outline:none;
-  background:#f1f4f9;font-family:inherit;
-  transition:all .18s cubic-bezier(.16,1,.3,1);
-}
-.dp-input:focus{border-color:#4A7EC7;background:#fff;box-shadow:0 0 0 3px rgba(74,126,199,.18);}
-
-/* ── Table ── */
-.dp-tbl{width:100%;border-collapse:collapse;font-size:13px;}
-.dp-tbl th{
-  padding:9px 13px;text-align:left;
-  font-size:10px;font-weight:600;color:#9aa6ba;
-  letter-spacing:.07em;text-transform:uppercase;
-  background:#f8f9fb;border-bottom:1px solid #e4eaf2;white-space:nowrap;
-}
-.dp-tbl td{padding:11px 13px;border-bottom:1px solid #f1f4f9;color:#4a5567;}
-.dp-tbl tr:last-child td{border-bottom:none;}
-.dp-tbl tr.dp-row-clickable{cursor:pointer;}
-.dp-tbl tr.dp-row-clickable:hover td{background:#f4f7fc;}
-
-/* ── Kanban ── */
-.dp-kanban{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;}
-.dp-kanban-col{min-width:220px;flex-shrink:0;background:#f4f7fc;border-radius:10px;border:1px solid #e4eaf2;padding:12px;}
-.dp-kanban-col-head{font-size:10px;font-weight:600;color:#6b7689;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.dp-kanban-card{background:#fff;border:1px solid #e4eaf2;border-radius:8px;padding:10px 12px;margin-bottom:7px;box-shadow:0 1px 2px rgba(27,52,97,.04);transition:all .18s cubic-bezier(.16,1,.3,1);}
-.dp-kanban-card:last-child{margin-bottom:0;}
-.dp-kanban-card:hover{box-shadow:0 4px 12px rgba(27,52,97,.10);transform:translateY(-1px);}
-.dp-kanban-card-title{font-size:13px;font-weight:600;color:#122446;margin-bottom:6px;}
-.dp-kanban-empty{font-size:12px;color:#cdd6e3;text-align:center;padding:16px 8px;}
-
-/* ── Modal overlay ── */
-.dp-overlay{position:fixed;inset:0;background:rgba(15,27,45,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:9000;padding:16px;}
-.dp-modal{background:#fff;border-radius:14px;width:540px;max-width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 12px 32px rgba(27,52,97,.14);}
-
-/* ── Modal détail ── */
-.dp-detail-header{padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-.dp-detail-body{padding:16px 24px 24px;display:flex;flex-direction:column;gap:20px;}
-.dp-detail-section-label{font-size:10px;font-weight:600;color:#9aa6ba;margin-bottom:10px;letter-spacing:.07em;text-transform:uppercase;}
-.dp-progress{display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:4px;}
-.dp-step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin:0 auto;flex-shrink:0;}
-.dp-step-line{width:28px;height:2px;margin:14px 2px 0;flex-shrink:0;}
-/* Admin box = cobalt-tinted */
-.dp-admin-box{background:#e9f0fa;border:1px solid #d6e3f5;border-radius:10px;padding:14px 16px;}
-.dp-admin-box-title{font-size:10px;font-weight:700;color:#1B3461;margin-bottom:12px;letter-spacing:.07em;text-transform:uppercase;}
-.dp-comments-box{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
-.dp-comment-item{background:#f4f7fc;border-radius:8px;padding:10px 14px;}
-.dp-comment-author{font-size:12px;font-weight:700;color:#122446;}
-.dp-comment-date{font-size:11px;color:#9aa6ba;}
-.dp-comment-text{font-size:13px;color:#4a5567;margin:4px 0 0;}
-
-/* ── Modal formulaire ── */
-.dp-form-modal{width:500px;}
-.dp-modal-title{font-size:17px;font-weight:800;color:#122446;margin:0 0 18px;padding:26px 26px 0;letter-spacing:-.02em;}
-.dp-fgrp{margin-bottom:14px;padding:0 26px;}
-.dp-fgrp:last-of-type{margin-bottom:0;}
-.dp-flabel{display:block;font-size:10px;font-weight:600;color:#6b7689;margin-bottom:6px;letter-spacing:.07em;text-transform:uppercase;}
-.dp-finput,.dp-fselect,.dp-ftextarea{
-  width:100%;padding:9px 12px;
-  border:1.5px solid #cdd6e3;border-radius:6px;
-  font-size:13px;color:#1c2434;outline:none;
-  background:#f1f4f9;font-family:inherit;
-  transition:all .18s cubic-bezier(.16,1,.3,1);box-sizing:border-box;
-}
-.dp-finput:focus,.dp-fselect:focus,.dp-ftextarea:focus{border-color:#4A7EC7;background:#fff;box-shadow:0 0 0 3px rgba(74,126,199,.18);}
-.dp-ftextarea{resize:vertical;min-height:72px;}
-.dp-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 26px;margin-bottom:14px;}
-.dp-prio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
-.dp-urgence-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
-.dp-choice-btn{padding:9px 4px;border-radius:6px;border:2px solid transparent;font-size:11px;font-weight:700;cursor:pointer;text-align:center;transition:all .18s cubic-bezier(.16,1,.3,1);}
-.dp-modal-err{background:#feeaea;color:#991b1b;padding:8px 11px;border-radius:8px;font-size:12px;font-weight:600;margin:0 26px 10px;display:none;border:1px solid #fecaca;}
-.dp-modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:16px 26px;border-top:1px solid #f1f4f9;margin-top:6px;}
-
-/* ── États vides ── */
-.dp-empty{text-align:center;padding:48px 20px;color:#9aa6ba;}
-.dp-empty-icon{font-size:32px;margin-bottom:10px;}
-.dp-empty p{font-size:13px;}
-
-/* ── Badge générique — pill pastel ── */
-.dp-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;}
-.dp-badge-dot{width:5px;height:5px;border-radius:50%;display:inline-block;}
 </style>
 
-<div class="dp-layout">
+<div class="dp-page">
 
-  <!-- ══ SIDEBAR ══ -->
-  <aside class="dp-sidebar">
-    <div class="dp-sidebar-top">
-      <div class="dp-sidebar-icon"><span>D</span></div>
+  <!-- En-tête page -->
+  <div class="dp-page-head">
+    <div>
+      <h1 class="dp-page-head__title">Dproject — Gestion projet DSP</h1>
+      <div class="dp-page-head__sub">Tâches, évolutions, bugs et roadmap · remplace Jira pour l'équipe Dispatchis</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="dp-btn dp-btn--ghost" id="dp-btn-bug">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6V4a4 4 0 018 0v2"/><rect x="4" y="6" width="16" height="14" rx="3"/><path d="M9 12h6M9 16h6"/></svg>
+        Signaler un bug
+      </button>
+      <button class="dp-btn dp-btn--ghost" id="dp-btn-evol">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/></svg>
+        Proposer une évolution
+      </button>
+      <button class="dp-btn dp-btn--rose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Nouvelle tâche
+      </button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <section class="dp-kpis">
+    <div class="dp-kpi">
+      <div class="dp-kpi__ico dp-kpi__ico--rose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      </div>
       <div>
-        <div class="dp-sidebar-name"><span style="color:#e5195e;font-weight:800;">D</span>project</div>
-        <div class="dp-sidebar-sub">Gestion projet DSP</div>
+        <div class="dp-kpi__label">Tâches actives</div>
+        <div class="dp-kpi__value">18</div>
       </div>
     </div>
-    <nav class="dp-nav">
-      <div class="dp-nav-label">Suivi</div>
-      <button class="dp-nav-btn active" id="dp-nav-bugs" onclick="dpSwitchSection('bugs')">
-        🐛 Bugs
-        <span class="dp-nav-badge dp-badge-red" id="dp-badge-bugs">—</span>
-      </button>
-      <button class="dp-nav-btn" id="dp-nav-evolutions" onclick="dpSwitchSection('evolutions')">
-        💡 Évolutions
-        <span class="dp-nav-badge dp-badge-green" id="dp-badge-evols">—</span>
-      </button>
-      <button class="dp-nav-btn" id="dp-nav-taches" onclick="dpSwitchSection('taches')">
-        📝 Tâches
-        <span class="dp-nav-badge dp-badge-blue" id="dp-badge-taches">—</span>
-      </button>
-      <div class="dp-nav-label" style="margin-top:8px;">Vision</div>
-      <button class="dp-nav-btn" id="dp-nav-roadmap" onclick="dpSwitchSection('roadmap')">
-        🗺️ Roadmap
-      </button>
-    </nav>
-    <div class="dp-sidebar-stats">
-      <div class="dp-stat-row">Bugs ouverts <strong id="dp-stat-bugs">—</strong></div>
-      <div class="dp-stat-row">Tâches actives <strong id="dp-stat-taches">—</strong></div>
-      <div class="dp-stat-row">Évolutions <strong id="dp-stat-evols">—</strong></div>
+    <div class="dp-kpi">
+      <div class="dp-kpi__ico dp-kpi__ico--blue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/></svg>
+      </div>
+      <div>
+        <div class="dp-kpi__label">Évolutions ouvertes</div>
+        <div class="dp-kpi__value">12</div>
+      </div>
     </div>
-  </aside>
+    <div class="dp-kpi">
+      <div class="dp-kpi__ico dp-kpi__ico--warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6V4a4 4 0 018 0v2"/><rect x="4" y="6" width="16" height="14" rx="3"/></svg>
+      </div>
+      <div>
+        <div class="dp-kpi__label">Bugs à traiter</div>
+        <div class="dp-kpi__value">7 <span style="font-size:11px;color:var(--danger-700);font-weight:600;margin-left:4px">3 critiques</span></div>
+      </div>
+    </div>
+    <div class="dp-kpi">
+      <div class="dp-kpi__ico dp-kpi__ico--ok">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div>
+        <div class="dp-kpi__label">Livrés ce trimestre</div>
+        <div class="dp-kpi__value">23</div>
+      </div>
+    </div>
+  </section>
 
-  <!-- ══ CONTENU ══ -->
-  <main class="dp-main" id="dp-main-content">
-    <div class="dp-empty"><div class="dp-empty-icon">⏳</div><p>Chargement…</p></div>
-  </main>
+  <!-- Tabs -->
+  <div class="dp-tabs" role="tablist">
+    <button class="is-active" data-tab="taches">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Tâches <span class="dp-count">18</span>
+    </button>
+    <button data-tab="evolutions">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/></svg>
+      Évolutions <span class="dp-count">12</span>
+    </button>
+    <button data-tab="bugs">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6V4a4 4 0 018 0v2"/><rect x="4" y="6" width="16" height="14" rx="3"/></svg>
+      Bugs <span class="dp-count">7</span>
+    </button>
+    <button data-tab="roadmap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Roadmap
+    </button>
+  </div>
 
-</div>`;
-
-  dpSwitchSection('bugs');
-  dpLoadAllStats();
-}
-
-// ─────────────────────────────────────────────────
-// NAVIGATION
-// ─────────────────────────────────────────────────
-function dpSwitchSection(section) {
-  _dpSection = section;
-  ['bugs','evolutions','taches','roadmap'].forEach(function(s) {
-    var btn = document.getElementById('dp-nav-' + s);
-    if (btn) btn.className = 'dp-nav-btn' + (s === section ? ' active' : '');
-  });
-  var main = document.getElementById('dp-main-content');
-  if (!main) return;
-  if (section === 'bugs')       dpRenderBugs(main);
-  if (section === 'evolutions') dpRenderEvolutions(main);
-  if (section === 'taches')     dpRenderTaches(main);
-  if (section === 'roadmap')    dpRenderRoadmap(main);
-}
-
-// ─────────────────────────────────────────────────
-// STATS GLOBALES
-// ─────────────────────────────────────────────────
-async function dpLoadAllStats() {
-  try {
-    var [bugs, taches, evols, qualifier] = await Promise.all([
-      db.from('dsp_bugs').select('id,urgence,statut').not('statut','in','("Corrigé","Ne sera pas corrigé")'),
-      db.from('dsp_taches').select('id').neq('statut','Terminé'),
-      db.from('dsp_evolutions').select('id').not('statut','in','("Déployée","Refusée")'),
-      db.from('dsp_bugs').select('id',{count:'exact'}).eq('statut','Nouveau')
-    ]);
-    var bugsCount  = (bugs.data  || []).length;
-    var critiques  = (bugs.data  || []).filter(function(b){ return b.urgence === 'Critique'; }).length;
-    var tachesCount= taches.count || 0;
-    var evolsCount = (evols.data || []).length;
-    var qCount     = qualifier.count || 0;
-
-    var set = function(id, val) { var el = document.getElementById(id); if(el) el.textContent = val; };
-    set('dp-badge-bugs',   bugsCount  + (critiques ? ' ('+critiques+'🔴)' : ''));
-    set('dp-badge-taches', tachesCount);
-    set('dp-badge-evols',  evolsCount);
-    set('dp-stat-bugs',    bugsCount);
-    set('dp-stat-taches',  tachesCount);
-    set('dp-stat-evols',   evolsCount);
-
-    // Badge orange sidebar si items à qualifier
-    if (qCount > 0) {
-      var navBugs = document.getElementById('dp-nav-bugs');
-      if (navBugs && !navBugs.querySelector('.dp-badge-orange')) {
-        var span = document.createElement('span');
-        span.className = 'dp-nav-badge dp-badge-orange';
-        span.style.marginLeft = '4px';
-        span.textContent = qCount + ' à qualifier';
-        navBugs.appendChild(span);
-      }
-    }
-  } catch(e) { /* silencieux */ }
-}
-
-// ═════════════════════════════════════════════════
-// ZONE "À QUALIFIER" — alertes nouvelles demandes
-// ═════════════════════════════════════════════════
-async function dpLoadAQualifier(targetId) {
-  var zone = document.getElementById(targetId);
-  if (!zone) return;
-  try {
-    var [bugs, evols] = await Promise.all([
-      db.from('dsp_bugs').select('*').eq('statut','Nouveau').order('created_at',{ascending:false}),
-      db.from('dsp_evolutions').select('*').eq('statut','Nouvelle').order('created_at',{ascending:false})
-    ]);
-    var items = [
-      ...(bugs.data  || []).map(function(b){ return Object.assign({},b,{_type:'bug'}); }),
-      ...(evols.data || []).map(function(e){ return Object.assign({},e,{_type:'evolution'}); })
-    ].sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); });
-
-    if (!items.length) { zone.innerHTML = ''; return; }
-
-    zone.innerHTML = `
-      <div class="dp-qualifier-zone">
-        <div class="dp-qualifier-head">
-          <span style="font-size:18px;">🔔</span>
-          <span style="font-size:14px;font-weight:800;color:#9a3412;">À qualifier</span>
-          <span class="dp-qualifier-count">${items.length}</span>
-          <span style="font-size:12px;color:#9aa6ba;">nouvelles demandes en attente</span>
+  <!-- ===== TÂCHES ===== -->
+  <section class="dp-tab-panel is-active" id="dp-tab-taches">
+    <div class="dp-card">
+      <div class="dp-card__head">
+        <div>
+          <h3 class="dp-card__title">Tâches</h3>
+          <div class="dp-card__sub">Suivi de développement · accès admin uniquement</div>
         </div>
-        ${items.map(function(item){
-          var code = item.code || (item._type === 'bug' ? 'BUG-???' : 'EVOL-???');
-          var icon = item._type === 'bug' ? '🐛' : '💡';
-          var date = new Date(item.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
-          return `<div class="dp-qualifier-item" onclick="dpOuvrirDetail('${item._type}',${item.id})">
-            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-              <span style="font-size:16px;">${icon}</span>
-              <div>
-                <div style="font-weight:700;font-size:13px;color:#122446;">${item.titre}</div>
-                <div style="font-size:11px;color:#9aa6ba;">${code} · ${date}</div>
-              </div>
+        <div class="dp-toolbar">
+          <div class="dp-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input placeholder="Rechercher…">
+          </div>
+          <select class="dp-select"><option>Tous statuts</option><option>À faire</option><option>En cours</option><option>En staging</option><option>Terminé</option></select>
+          <select class="dp-select"><option>Toute priorité</option><option>Haute</option><option>Normale</option><option>Basse</option></select>
+          <select class="dp-select"><option>Tous assignés</option><option>Julien Maubon</option><option>Antoine Ferrand</option></select>
+        </div>
+      </div>
+      <table class="dp-t">
+        <colgroup><col style="width:90px"><col><col style="width:120px"><col style="width:100px"><col style="width:170px"><col style="width:110px"><col style="width:110px"></colgroup>
+        <thead><tr><th>ID</th><th>Titre</th><th>Statut</th><th>Priorité</th><th>Assigné à</th><th>Cible</th><th>Lié à</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="dp-ref">TASK-042</span></td>
+            <td>
+              <div class="dp-title-cell">Refonte modal Dossier Vol — bannière actions</div>
+              <div class="dp-desc">Intégrer la bannière dans la carte du tableau, ajout d'un second dossier en retard.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--doing">En cours</span></td>
+            <td><span class="dp-prio dp-prio--high">Haute</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#4f63d2">JM</span><span class="dp-who__name">Julien Maubon</span></div></td>
+            <td class="dp-date">30 avr. 2026</td>
+            <td><span class="dp-ref dp-ref--evol">EVOL-008</span></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref">TASK-041</span></td>
+            <td>
+              <div class="dp-title-cell">KPIs Dvol — export Excel</div>
+              <div class="dp-desc">Bouton d'export du tableau de bord avec données filtrées.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--staging">En staging</span></td>
+            <td><span class="dp-prio dp-prio--norm">Normale</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#5b3bb8">AF</span><span class="dp-who__name">Antoine Ferrand</span></div></td>
+            <td class="dp-date">28 avr. 2026</td>
+            <td><span class="dp-ref dp-ref--evol">EVOL-011</span></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref">TASK-040</span></td>
+            <td>
+              <div class="dp-title-cell">Dplane — supprimer week-ends</div>
+              <div class="dp-desc">Limiter la grille hebdo à lun-ven et adapter les colonnes.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--done">Terminé</span></td>
+            <td><span class="dp-prio dp-prio--norm">Normale</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#4f63d2">JM</span><span class="dp-who__name">Julien Maubon</span></div></td>
+            <td class="dp-date">25 avr. 2026</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref">TASK-039</span></td>
+            <td>
+              <div class="dp-title-cell">Bouton « Demander une absence » sur Dplane</div>
+              <div class="dp-desc">Workflow simple gestionnaire → admin pour valider absence/congé.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--todo">À faire</span></td>
+            <td><span class="dp-prio dp-prio--high">Haute</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#5b3bb8">AF</span><span class="dp-who__name">Antoine Ferrand</span></div></td>
+            <td class="dp-date">5 mai 2026</td>
+            <td><span class="dp-ref dp-ref--evol">EVOL-012</span></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref">TASK-038</span></td>
+            <td>
+              <div class="dp-title-cell">Correction tri colonne « SIN » dans Dvol Dashboard</div>
+              <div class="dp-desc">Le tri ne respectait pas l'ordre alphanumérique avec les zéros initiaux.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--doing">En cours</span></td>
+            <td><span class="dp-prio dp-prio--norm">Normale</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#4f63d2">JM</span><span class="dp-who__name">Julien Maubon</span></div></td>
+            <td class="dp-date">2 mai 2026</td>
+            <td><span class="dp-ref dp-ref--bug">BUG-005</span></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref">TASK-037</span></td>
+            <td>
+              <div class="dp-title-cell">Politiques RLS Supabase — table dsp_bugs</div>
+              <div class="dp-desc">Lecture par tous les gestionnaires, écriture restreinte au signaleur + admin.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--todo">À faire</span></td>
+            <td><span class="dp-prio dp-prio--high">Haute</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#5b3bb8">AF</span><span class="dp-who__name">Antoine Ferrand</span></div></td>
+            <td class="dp-date">10 mai 2026</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== ÉVOLUTIONS ===== -->
+  <section class="dp-tab-panel" id="dp-tab-evolutions">
+    <div class="dp-card">
+      <div class="dp-card__head">
+        <div>
+          <h3 class="dp-card__title">Évolutions</h3>
+          <div class="dp-card__sub">Demandes de fonctionnalités proposées par les gestionnaires</div>
+        </div>
+        <div class="dp-toolbar">
+          <div class="dp-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input placeholder="Rechercher…">
+          </div>
+          <select class="dp-select"><option>Tous statuts</option><option>Nouvelle</option><option>En analyse</option><option>Acceptée</option><option>Refusée</option><option>Déployée</option></select>
+          <button class="dp-btn dp-btn--rose" id="dp-btn-evol-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Proposer
+          </button>
+        </div>
+      </div>
+      <table class="dp-t">
+        <colgroup><col style="width:90px"><col><col style="width:140px"><col style="width:170px"><col style="width:110px"></colgroup>
+        <thead><tr><th>ID</th><th>Titre</th><th>Statut</th><th>Soumis par</th><th>Date</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="dp-ref dp-ref--evol">EVOL-012</span></td>
+            <td>
+              <div class="dp-title-cell">Workflow demande d'absence sur Dplane</div>
+              <div class="dp-desc">Permettre aux gestionnaires de soumettre une absence directement depuis le planning.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--accepted">Acceptée</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#b3791b">CD</span><span class="dp-who__name">Camille Durand</span></div></td>
+            <td class="dp-date">22 avr. 2026</td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--evol">EVOL-011</span></td>
+            <td>
+              <div class="dp-title-cell">Export Excel des KPIs Dvol</div>
+              <div class="dp-desc">Exporter le tableau de bord avec les filtres appliqués pour partage à la direction.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--deployed">Déployée</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#128087">SL</span><span class="dp-who__name">Sophie Leroy</span></div></td>
+            <td class="dp-date">18 avr. 2026</td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--evol">EVOL-010</span></td>
+            <td>
+              <div class="dp-title-cell">Filtrage du journal par rôle dans le modal dossier</div>
+              <div class="dp-desc">Pouvoir masquer les événements système pour ne voir que les actions humaines.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--analysis">En analyse</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#be3a4c">EP</span><span class="dp-who__name">Émilie Petit</span></div></td>
+            <td class="dp-date">20 avr. 2026</td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--evol">EVOL-009</span></td>
+            <td>
+              <div class="dp-title-cell">Vue Kanban sur Dvol Dashboard</div>
+              <div class="dp-desc">Alternative au tableau pour visualiser les dossiers par étape.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--new">Nouvelle</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#0e6b70">MR</span><span class="dp-who__name">Marc Rousseau</span></div></td>
+            <td class="dp-date">24 avr. 2026</td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--evol">EVOL-008</span></td>
+            <td>
+              <div class="dp-title-cell">Bannière « Actions requises » intégrée dans le tableau</div>
+              <div class="dp-desc">Mettre en avant les dossiers en retard sans quitter la vue principale.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--accepted">Acceptée</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#4f63d2">JM</span><span class="dp-who__name">Julien Maubon</span></div></td>
+            <td class="dp-date">15 avr. 2026</td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--evol">EVOL-007</span></td>
+            <td>
+              <div class="dp-title-cell">Notifications push Dispatch</div>
+              <div class="dp-desc">Alerter en temps réel l'arrivée d'un nouveau dossier.</div>
+            </td>
+            <td><span class="dp-pill dp-pill--refused">Refusée</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#128087">SL</span><span class="dp-who__name">Sophie Leroy</span></div></td>
+            <td class="dp-date">10 avr. 2026</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== BUGS ===== -->
+  <section class="dp-tab-panel" id="dp-tab-bugs">
+    <div class="dp-card">
+      <div class="dp-card__head">
+        <div>
+          <h3 class="dp-card__title">Bugs</h3>
+          <div class="dp-card__sub">Signalements en cours · qualifiés par niveau d'urgence</div>
+        </div>
+        <div class="dp-toolbar">
+          <div class="dp-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input placeholder="Rechercher…">
+          </div>
+          <select class="dp-select"><option>Toute urgence</option><option>Critique</option><option>Majeur</option><option>Mineur</option><option>Cosmétique</option></select>
+          <select class="dp-select"><option>Tous environnements</option><option>PROD</option><option>Staging</option></select>
+          <button class="dp-btn dp-btn--rose" id="dp-btn-bug-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Signaler
+          </button>
+        </div>
+      </div>
+      <table class="dp-t">
+        <colgroup><col style="width:90px"><col><col style="width:120px"><col style="width:130px"><col style="width:100px"><col style="width:140px"><col style="width:170px"></colgroup>
+        <thead><tr><th>ID</th><th>Titre</th><th>Urgence</th><th>Zone</th><th>Env.</th><th>Statut</th><th>Signalé par</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="dp-ref dp-ref--bug">BUG-008</span></td>
+            <td>
+              <div class="dp-title-cell">Connexion impossible après mise à jour Supabase</div>
+              <div class="dp-desc">Erreur 401 systématique pour les rôles « gestionnaire » depuis 9h ce matin.</div>
+            </td>
+            <td><span class="dp-urg dp-urg--critical"><span class="dp-urg__dot"></span>Critique</span></td>
+            <td><span class="dp-zone">Auth</span></td>
+            <td><span class="dp-ref dp-ref--prod">PROD</span></td>
+            <td><span class="dp-pill dp-pill--analysis">En analyse</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#128087">SL</span><span class="dp-who__name">Sophie Leroy</span></div></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--bug">BUG-007</span></td>
+            <td>
+              <div class="dp-title-cell">Création dossier — perte des pièces jointes au refresh</div>
+              <div class="dp-desc">Les fichiers uploadés disparaissent si la page est rafraîchie avant validation.</div>
+            </td>
+            <td><span class="dp-urg dp-urg--critical"><span class="dp-urg__dot"></span>Critique</span></td>
+            <td><span class="dp-zone">Dispatch</span></td>
+            <td><span class="dp-ref dp-ref--prod">PROD</span></td>
+            <td><span class="dp-pill dp-pill--doing">En correction</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#b3791b">CD</span><span class="dp-who__name">Camille Durand</span></div></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--bug">BUG-006</span></td>
+            <td>
+              <div class="dp-title-cell">Dplane — affectation impossible le mercredi</div>
+              <div class="dp-desc">Le clic « + » ne déclenche rien sur la colonne Mer pour les utilisateurs Firefox.</div>
+            </td>
+            <td><span class="dp-urg dp-urg--major"><span class="dp-urg__dot"></span>Majeur</span></td>
+            <td><span class="dp-zone">Dplane</span></td>
+            <td><span class="dp-ref dp-ref--prod">PROD</span></td>
+            <td><span class="dp-pill dp-pill--staging">En staging</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#5b3bb8">AF</span><span class="dp-who__name">Antoine Ferrand</span></div></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--bug">BUG-005</span></td>
+            <td>
+              <div class="dp-title-cell">Tri colonne SIN dans Dvol Dashboard</div>
+              <div class="dp-desc">Le tri ignore les zéros initiaux et casse l'ordre alphanumérique.</div>
+            </td>
+            <td><span class="dp-urg dp-urg--minor"><span class="dp-urg__dot"></span>Mineur</span></td>
+            <td><span class="dp-zone">Dvol</span></td>
+            <td><span class="dp-ref dp-ref--prod">PROD</span></td>
+            <td><span class="dp-pill dp-pill--doing">En correction</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#be3a4c">EP</span><span class="dp-who__name">Émilie Petit</span></div></td>
+          </tr>
+          <tr>
+            <td><span class="dp-ref dp-ref--bug">BUG-004</span></td>
+            <td>
+              <div class="dp-title-cell">Avatar débordant sur la timeline événement</div>
+              <div class="dp-desc">Léger décalage de 2px sur Safari uniquement.</div>
+            </td>
+            <td><span class="dp-urg dp-urg--cosmetic"><span class="dp-urg__dot"></span>Cosmétique</span></td>
+            <td><span class="dp-zone">Dvol</span></td>
+            <td><span class="dp-ref dp-ref--staging">Staging</span></td>
+            <td><span class="dp-pill dp-pill--todo">Nouveau</span></td>
+            <td><div class="dp-who"><span class="dp-av" style="--av:#4f63d2">JM</span><span class="dp-who__name">Julien Maubon</span></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== ROADMAP ===== -->
+  <section class="dp-tab-panel" id="dp-tab-roadmap">
+    <div class="dp-card">
+      <div class="dp-card__head">
+        <div>
+          <h3 class="dp-card__title">Roadmap 2026</h3>
+          <div class="dp-card__sub">Vue trimestrielle · évolutions acceptées et tâches importantes</div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:center;font-size:11.5px;color:var(--ink-600)">
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#9333ea;display:inline-block"></span>Évolution</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:var(--brand-600);display:inline-block"></span>Tâche</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#dc2626;display:inline-block"></span>Bug</span>
+        </div>
+      </div>
+      <div style="padding:18px">
+        <div class="dp-roadmap">
+          <div class="dp-quarter dp-quarter--current">
+            <div class="dp-quarter__head">
+              <div class="dp-quarter__title">T2 · 2026 (en cours)</div>
+              <div class="dp-quarter__count">5 items</div>
             </div>
-            <span style="background:#fff7ed;color:#9a3412;font-size:11px;font-weight:700;
-              padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">Qualifier →</span>
-          </div>`;
-        }).join('')}
-      </div>`;
-  } catch(e) { /* silencieux */ }
-}
-
-// ═════════════════════════════════════════════════
-// SECTION BUGS
-// ═════════════════════════════════════════════════
-function dpRenderBugs(container) {
-  container.innerHTML = `
-    <p class="dp-page-title">🐛 Bugs</p>
-    <p class="dp-page-sub">Signalements en cours · qualifiés par niveau d'urgence</p>
-    <div id="dp-qualifier-bugs"></div>
-    <div class="dp-card">
-      <div class="dp-card-header">
-        <div class="dp-filters">
-          <input class="dp-input" type="text" id="dp-bugs-search" placeholder="Rechercher…" oninput="dpFilterBugs()" style="width:150px;">
-          <select class="dp-input" id="dp-bugs-urgence" onchange="dpFilterBugs()">
-            <option value="">Toute urgence</option>
-            <option>Critique</option><option>Majeur</option><option>Mineur</option><option>Cosmétique</option>
-          </select>
-          <select class="dp-input" id="dp-bugs-env" onchange="dpFilterBugs()">
-            <option value="">Tous env.</option><option>PROD</option><option>Staging</option>
-          </select>
-          <select class="dp-input" id="dp-bugs-statut" onchange="dpFilterBugs()">
-            <option value="">Tous statuts</option>
-            <option>Nouveau</option><option>En analyse</option><option>En correction</option>
-            <option>En staging</option><option>Corrigé</option><option>Ne sera pas corrigé</option>
-          </select>
-        </div>
-        <button class="dp-btn dp-btn-accent" onclick="dpOpenBugForm()">+ Signaler un bug</button>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="dp-tbl">
-          <thead><tr>
-            <th>ID</th><th>TITRE</th><th>URGENCE</th><th>ZONE</th><th>ENV.</th><th>STATUT</th>
-          </tr></thead>
-          <tbody id="dp-bugs-tbody">
-            <tr><td colspan="6" style="text-align:center;padding:32px;color:#9aa6ba;">Chargement…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-  dpLoadAQualifier('dp-qualifier-bugs');
-  dpLoadBugs();
-}
-
-async function dpLoadBugs() {
-  try {
-    var { data, error } = await db.from('dsp_bugs').select('*').order('created_at',{ascending:false});
-    if (error) throw error;
-    _dpBugsData = data || [];
-    dpRenderBugsTable(_dpBugsData);
-  } catch(e) {
-    var tbody = document.getElementById('dp-bugs-tbody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:#ef4444;">Erreur : ${e.message}</td></tr>`;
-  }
-}
-
-function dpFilterBugs() {
-  var s = (document.getElementById('dp-bugs-search')  || {}).value || '';
-  var u = (document.getElementById('dp-bugs-urgence') || {}).value || '';
-  var e = (document.getElementById('dp-bugs-env')     || {}).value || '';
-  var st= (document.getElementById('dp-bugs-statut')  || {}).value || '';
-  dpRenderBugsTable(_dpBugsData.filter(function(b){
-    return (!s || (b.titre||'').toLowerCase().includes(s.toLowerCase()))
-        && (!u  || b.urgence === u)
-        && (!e  || b.environnement === e)
-        && (!st || b.statut === st);
-  }));
-}
-
-function dpRenderBugsTable(bugs) {
-  var tbody = document.getElementById('dp-bugs-tbody');
-  if (!tbody) return;
-  if (!bugs.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#9aa6ba;">Aucun bug trouvé</td></tr>';
-    return;
-  }
-  tbody.innerHTML = bugs.map(function(b){
-    return `<tr class="dp-row-clickable" onclick="dpOuvrirDetail('bug',${b.id})">
-      <td><span style="background:#fee2e2;color:#991b1b;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;font-family:monospace;">${b.code||'BUG-?'}</span></td>
-      <td>
-        <div style="font-weight:600;color:#122446;">${b.titre||'—'}</div>
-        ${b.description?`<div style="font-size:12px;color:#9aa6ba;">${b.description.substring(0,65)}…</div>`:''}
-      </td>
-      <td>${dpBadgeUrgence(b.urgence)}</td>
-      <td>${b.zone?`<span style="background:#e9f0fa;color:#1B3461;font-size:12px;padding:3px 8px;border-radius:6px;">${b.zone}</span>`:'—'}</td>
-      <td>${dpBadgeEnv(b.environnement)}</td>
-      <td>${dpBadgeStatut(b.statut)}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ═════════════════════════════════════════════════
-// SECTION ÉVOLUTIONS
-// ═════════════════════════════════════════════════
-function dpRenderEvolutions(container) {
-  container.innerHTML = `
-    <p class="dp-page-title">💡 Évolutions</p>
-    <p class="dp-page-sub">Demandes d'amélioration soumises par l'équipe</p>
-    <div id="dp-qualifier-evols"></div>
-    <div class="dp-card">
-      <div class="dp-card-header">
-        <div class="dp-filters">
-          <input class="dp-input" type="text" id="dp-evols-search" placeholder="Rechercher…" oninput="dpFilterEvols()" style="width:180px;">
-          <select class="dp-input" id="dp-evols-statut" onchange="dpFilterEvols()">
-            <option value="">Tous statuts</option>
-            <option>Nouvelle</option><option>En analyse</option><option>Acceptée</option>
-            <option>En développement</option><option>Déployée</option><option>Refusée</option>
-          </select>
-        </div>
-        <button class="dp-btn dp-btn-accent" onclick="dpOpenEvolForm()">+ Demander une évolution</button>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="dp-tbl">
-          <thead><tr>
-            <th>ID</th><th>TITRE</th><th>STATUT</th><th>DATE</th>
-          </tr></thead>
-          <tbody id="dp-evols-tbody">
-            <tr><td colspan="4" style="text-align:center;padding:32px;color:#9aa6ba;">Chargement…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-
-  // Charger qualificatifs pour évolutions aussi
-  dpLoadAQualifierEvols('dp-qualifier-evols');
-  dpLoadEvols();
-}
-
-async function dpLoadAQualifierEvols(targetId) {
-  var zone = document.getElementById(targetId);
-  if (!zone) return;
-  try {
-    var { data } = await db.from('dsp_evolutions').select('*').eq('statut','Nouvelle').order('created_at',{ascending:false});
-    var items = data || [];
-    if (!items.length) { zone.innerHTML = ''; return; }
-    zone.innerHTML = `
-      <div class="dp-qualifier-zone">
-        <div class="dp-qualifier-head">
-          <span style="font-size:18px;">🔔</span>
-          <span style="font-size:14px;font-weight:800;color:#9a3412;">À qualifier</span>
-          <span class="dp-qualifier-count">${items.length}</span>
-          <span style="font-size:12px;color:#9aa6ba;">évolutions en attente</span>
-        </div>
-        ${items.map(function(item){
-          var code = item.code || 'EVOL-???';
-          var date = new Date(item.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
-          return `<div class="dp-qualifier-item" onclick="dpOuvrirDetail('evolution',${item.id})">
-            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-              <span style="font-size:16px;">💡</span>
-              <div>
-                <div style="font-weight:700;font-size:13px;color:#122446;">${item.titre}</div>
-                <div style="font-size:11px;color:#9aa6ba;">${code} · ${date}</div>
-              </div>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-012</span><span class="dp-pill dp-pill--accepted">Acceptée</span></div>
+              <div class="dp-rm-item__title">Workflow demande absence Dplane</div>
             </div>
-            <span style="background:#fff7ed;color:#9a3412;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;">Qualifier →</span>
-          </div>`;
-        }).join('')}
-      </div>`;
-  } catch(e) { /* silencieux */ }
-}
-
-async function dpLoadEvols() {
-  try {
-    var { data, error } = await db.from('dsp_evolutions').select('*').order('created_at',{ascending:false});
-    if (error) throw error;
-    _dpEvolsData = data || [];
-    dpRenderEvolsTable(_dpEvolsData);
-  } catch(e) {
-    var tbody = document.getElementById('dp-evols-tbody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:32px;color:#ef4444;">Erreur : ${e.message}</td></tr>`;
-  }
-}
-
-function dpFilterEvols() {
-  var s  = (document.getElementById('dp-evols-search') || {}).value || '';
-  var st = (document.getElementById('dp-evols-statut') || {}).value || '';
-  dpRenderEvolsTable(_dpEvolsData.filter(function(e){
-    return (!s  || (e.titre||'').toLowerCase().includes(s.toLowerCase()))
-        && (!st || e.statut === st);
-  }));
-}
-
-function dpRenderEvolsTable(evols) {
-  var tbody = document.getElementById('dp-evols-tbody');
-  if (!tbody) return;
-  if (!evols.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#9aa6ba;">Aucune évolution</td></tr>';
-    return;
-  }
-  tbody.innerHTML = evols.map(function(ev){
-    var date = new Date(ev.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-    return `<tr class="dp-row-clickable" onclick="dpOuvrirDetail('evolution',${ev.id})">
-      <td><span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;font-family:monospace;">${ev.code||'EVOL-?'}</span></td>
-      <td>
-        <div style="font-weight:600;color:#122446;">${ev.titre||'—'}</div>
-        ${ev.description?`<div style="font-size:12px;color:#9aa6ba;">${ev.description.substring(0,65)}…</div>`:''}
-      </td>
-      <td>${dpBadgeStatut(ev.statut)}</td>
-      <td style="font-size:12px;color:#6b7689;">${date}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ═════════════════════════════════════════════════
-// MODAL DÉTAIL — bug ou évolution
-// ═════════════════════════════════════════════════
-async function dpOuvrirDetail(type, id) {
-  var ex = document.getElementById('dp-detail-modal');
-  if (ex) ex.remove();
-
-  var overlay = document.createElement('div');
-  overlay.className = 'dp-overlay';
-  overlay.id = 'dp-detail-modal';
-  overlay.innerHTML = `<div class="dp-modal" style="width:640px;"><div style="text-align:center;padding:40px;color:#9aa6ba;">Chargement…</div></div>`;
-  document.body.appendChild(overlay);
-
-  try {
-    var table = type === 'bug' ? 'dsp_bugs' : 'dsp_evolutions';
-    var { data } = await db.from(table).select('*').eq('id', id).single();
-    if (!data) throw new Error('Introuvable');
-    var commRes = await db.from('dsp_commentaires').select('*').eq('ref_type', type).eq('ref_id', id).order('created_at',{ascending:true});
-    dpRenderDetailModal(overlay.querySelector('.dp-modal'), type, data, commRes.data || []);
-  } catch(e) {
-    overlay.querySelector('.dp-modal').innerHTML = `<div style="padding:40px;text-align:center;color:#ef4444;">Erreur : ${e.message}</div>`;
-  }
-}
-
-function dpRenderDetailModal(box, type, data, comments) {
-  var isBug  = type === 'bug';
-  var etapes = isBug
-    ? ['Nouveau','En analyse','En correction','En staging','Corrigé']
-    : ['Nouvelle','En analyse','Acceptée','En développement','Déployée'];
-  var statut  = data.statut || etapes[0];
-  var stepIdx = etapes.indexOf(statut);
-  var code    = data.code || (isBug ? 'BUG-?' : 'EVOL-?');
-  var accentColor = DP_ACCENT;
-
-  box.innerHTML = `
-    <!-- ── En-tête ── -->
-    <div class="dp-detail-header">
-      <div>
-        <span style="font-size:11px;font-weight:700;color:#9aa6ba;font-family:monospace;">${code}</span>
-        <h2 style="font-size:17px;font-weight:800;color:#122446;margin:4px 0 0;">${data.titre}</h2>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-011</span><span class="dp-pill dp-pill--deployed">Déployée</span></div>
+              <div class="dp-rm-item__title">Export Excel KPIs Dvol</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-008</span><span class="dp-pill dp-pill--doing">En cours</span></div>
+              <div class="dp-rm-item__title">Bannière actions requises Dvol</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--task">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">TASK-037</span><span class="dp-pill dp-pill--todo">À faire</span></div>
+              <div class="dp-rm-item__title">Politiques RLS Supabase</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--bug">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">BUG-007</span><span class="dp-pill dp-pill--doing">Correction</span></div>
+              <div class="dp-rm-item__title">Pertes pièces jointes Dispatch</div>
+            </div>
+          </div>
+          <div class="dp-quarter">
+            <div class="dp-quarter__head">
+              <div class="dp-quarter__title">T3 · 2026</div>
+              <div class="dp-quarter__count">3 items</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-010</span><span class="dp-pill dp-pill--analysis">Analyse</span></div>
+              <div class="dp-rm-item__title">Filtrage journal par rôle</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-013</span><span class="dp-pill dp-pill--new">Nouvelle</span></div>
+              <div class="dp-rm-item__title">SSO Microsoft Entra</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--task">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">TASK-050</span><span class="dp-pill dp-pill--todo">À faire</span></div>
+              <div class="dp-rm-item__title">Migration Supabase v2.5</div>
+            </div>
+          </div>
+          <div class="dp-quarter">
+            <div class="dp-quarter__head">
+              <div class="dp-quarter__title">T4 · 2026</div>
+              <div class="dp-quarter__count">2 items</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-009</span><span class="dp-pill dp-pill--new">Nouvelle</span></div>
+              <div class="dp-rm-item__title">Vue Kanban Dvol Dashboard</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-014</span><span class="dp-pill dp-pill--new">Backlog</span></div>
+              <div class="dp-rm-item__title">Mode sombre global</div>
+            </div>
+          </div>
+          <div class="dp-quarter">
+            <div class="dp-quarter__head">
+              <div class="dp-quarter__title">T1 · 2027</div>
+              <div class="dp-quarter__count">2 items</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--evol">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">EVOL-015</span><span class="dp-pill dp-pill--new">Backlog</span></div>
+              <div class="dp-rm-item__title">App mobile lecture seule</div>
+            </div>
+            <div class="dp-rm-item dp-rm-item--task">
+              <div class="dp-rm-item__top"><span class="dp-rm-item__ref">TASK-058</span><span class="dp-pill dp-pill--todo">À faire</span></div>
+              <div class="dp-rm-item__title">Refonte design Dispatch</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <button onclick="document.getElementById('dp-detail-modal').remove()"
-        style="background:#f1f5f9;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px;color:#6b7689;flex-shrink:0;">✕</button>
     </div>
 
-    <div class="dp-detail-body">
-
-      <!-- ── Progression ── -->
-      <div>
-        <div class="dp-detail-section-label">Progression</div>
-        <div class="dp-progress">
-          ${etapes.map(function(e, i) {
-            var done    = i < stepIdx;
-            var current = i === stepIdx;
-            var dotBg   = current ? accentColor : (done ? '#e2e8f0' : '#f1f5f9');
-            var dotBorder = done || current ? (current ? accentColor : '#0f172a') : '#e2e8f0';
-            var dotColor  = current ? '#fff' : (done ? '#64748b' : '#94a3b8');
-            return `<div style="display:flex;align-items:flex-start;flex-shrink:0;">
-              <div style="text-align:center;">
-                <div class="dp-step-dot" style="background:${dotBg};border:2px solid ${dotBorder};color:${dotColor};">
-                  ${done ? '✓' : i+1}
-                </div>
-                <div style="font-size:10px;color:${done||current?'#0f172a':'#94a3b8'};margin-top:4px;max-width:68px;text-align:center;line-height:1.2;">${e}</div>
-              </div>
-              ${i < etapes.length-1 ? `<div class="dp-step-line" style="background:${done?'#94a3b8':'#e2e8f0'};"></div>` : ''}
-            </div>`;
-          }).join('')}
+    <!-- Formulaire Signaler un bug -->
+    <div class="dp-card" style="margin-top:14px">
+      <div class="dp-card__head">
+        <div>
+          <h3 class="dp-card__title">Aperçu — Formulaire « Signaler un bug »</h3>
+          <div class="dp-card__sub">Vue gestionnaire · soumission directe depuis n'importe quelle page DSP</div>
         </div>
       </div>
-
-      <!-- ── Infos ── -->
-      <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-        ${isBug && data.urgence ? `<div><div class="dp-detail-section-label" style="margin-bottom:4px;">Urgence</div>${dpBadgeUrgence(data.urgence)}</div>` : ''}
-        ${isBug && data.zone    ? `<div><div class="dp-detail-section-label" style="margin-bottom:4px;">Zone</div><span style="font-weight:600;">${data.zone}</span></div>` : ''}
-        ${isBug && data.environnement ? `<div><div class="dp-detail-section-label" style="margin-bottom:4px;">Env.</div>${dpBadgeEnv(data.environnement)}</div>` : ''}
-        ${data.date_echeance ? `<div><div class="dp-detail-section-label" style="margin-bottom:4px;">Échéance</div><span style="font-weight:600;">${new Date(data.date_echeance).toLocaleDateString('fr-FR')}</span></div>` : ''}
-        ${data.description ? `<div style="grid-column:1/-1;"><div class="dp-detail-section-label" style="margin-bottom:4px;">Description</div><p style="margin:0;color:#4a5567;font-size:13px;">${data.description}</p></div>` : ''}
-        ${data.screenshot ? `<div style="grid-column:1/-1;"><div class="dp-detail-section-label" style="margin-bottom:6px;">Capture d'écran</div><img src="${data.screenshot}" style="max-width:100%;border-radius:8px;border:1px solid #e2e8f0;max-height:200px;object-fit:contain;"></div>` : ''}
-      </div>
-
-      <!-- ── Admin ── -->
-      <div class="dp-admin-box">
-        <div class="dp-admin-box-title">⚙️ GESTION ADMIN</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
-          <div>
-            <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Statut</label>
-            <select id="dp-det-statut" style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
-              ${etapes.map(function(e){ return `<option ${e===statut?'selected':''}>${e}</option>`; }).join('')}
-              ${!isBug ? `<option ${'Refusée'===statut?'selected':''}>Refusée</option>` : ''}
-              ${isBug  ? `<option ${'Ne sera pas corrigé'===statut?'selected':''}>Ne sera pas corrigé</option>` : ''}
-            </select>
-          </div>
-          ${isBug ? `<div>
-            <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Urgence</label>
-            <select id="dp-det-urgence" style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
-              <option value="">— Choisir —</option>
-              ${['Critique','Majeur','Mineur','Cosmétique'].map(function(u){ return `<option ${u===data.urgence?'selected':''}>${u}</option>`; }).join('')}
-            </select>
-          </div>` : ''}
-          <div>
-            <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Échéance</label>
-            <input type="date" id="dp-det-echeance" value="${data.date_echeance||''}"
-              style="width:100%;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+      <div class="dp-form-grid">
+        <div class="dp-form-field dp-form-full">
+          <label>Titre</label>
+          <input value="Tri SIN cassé sur Dvol Dashboard">
+        </div>
+        <div class="dp-form-field dp-form-full">
+          <label>Description — ce qui se passe / ce qui était attendu</label>
+          <textarea>Lorsque je clique sur l'en-tête SIN pour trier, les dossiers SIN-2026-00045 apparaissent avant SIN-2026-00009. Le tri devrait respecter l'ordre numérique.</textarea>
+        </div>
+        <div class="dp-form-field">
+          <label>Zone concernée</label>
+          <select><option>Dispatch</option><option>Dplane</option><option selected>Dvol</option><option>Mes dossiers</option><option>Auth</option></select>
+        </div>
+        <div class="dp-form-field">
+          <label>Environnement</label>
+          <select><option selected>PROD</option><option>Staging</option></select>
+        </div>
+        <div class="dp-form-field dp-form-full">
+          <label>Niveau d'urgence</label>
+          <div class="dp-urg-grid">
+            <label class="dp-urg-opt"><input type="radio" name="dp-u"><span class="dp-dot" style="background:#dc2626"></span>Critique</label>
+            <label class="dp-urg-opt"><input type="radio" name="dp-u"><span class="dp-dot" style="background:#ea580c"></span>Majeur</label>
+            <label class="dp-urg-opt is-selected"><input type="radio" name="dp-u" checked><span class="dp-dot" style="background:#eab308"></span>Mineur</label>
+            <label class="dp-urg-opt"><input type="radio" name="dp-u"><span class="dp-dot" style="background:#2563eb"></span>Cosmétique</label>
           </div>
         </div>
-        ${!isBug ? `<div style="margin-top:10px;">
-          <label style="font-size:11px;font-weight:600;color:#4a5567;display:block;margin-bottom:4px;">Retour admin</label>
-          <textarea id="dp-det-comm-admin" rows="2"
-            style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;"
-            placeholder="Justification, retour…">${data.commentaire_admin||''}</textarea>
-        </div>` : ''}
-        <button onclick="dpSauvegarderDetail('${type}',${data.id})"
-          class="dp-btn dp-btn-dark" style="margin-top:12px;">💾 Sauvegarder</button>
       </div>
-
-      <!-- ── Commentaires ── -->
-      <div>
-        <div class="dp-detail-section-label">Commentaires (${comments.length})</div>
-        <div class="dp-comments-box" id="dp-det-comments">
-          ${comments.length
-            ? comments.map(function(c){
-                var d = new Date(c.created_at).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-                return `<div class="dp-comment-item">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                    <span class="dp-comment-author">${c.auteur_nom||'Admin'}</span>
-                    <span class="dp-comment-date">${d}</span>
-                  </div>
-                  <p class="dp-comment-text">${c.contenu}</p>
-                </div>`;
-              }).join('')
-            : '<div style="color:#9aa6ba;font-size:13px;text-align:center;padding:16px;">Aucun commentaire</div>'
-          }
-        </div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="dp-det-new-comment" placeholder="Ajouter un commentaire…"
-            class="dp-input" style="flex:1;"
-            onkeydown="if(event.key==='Enter') dpAjouterCommentaire('${type}',${data.id})">
-          <button onclick="dpAjouterCommentaire('${type}',${data.id})"
-            class="dp-btn dp-btn-dark">Envoyer</button>
-        </div>
+      <div class="dp-form-actions">
+        <button class="dp-btn dp-btn--ghost">Annuler</button>
+        <button class="dp-btn dp-btn--rose">Soumettre le bug</button>
       </div>
+    </div>
+  </section>
 
-    </div>`;
-}
+</div>
 
-async function dpSauvegarderDetail(type, id) {
-  var statut    = (document.getElementById('dp-det-statut')      || {}).value || '';
-  var echeance  = (document.getElementById('dp-det-echeance')    || {}).value || null;
-  var urgence   = (document.getElementById('dp-det-urgence')     || {}).value || null;
-  var commAdmin = (document.getElementById('dp-det-comm-admin')  || {}).value || null;
-  var table     = type === 'bug' ? 'dsp_bugs' : 'dsp_evolutions';
-  var payload   = { statut };
-  if (echeance)              payload.date_echeance     = echeance;
-  if (urgence)               payload.urgence           = urgence;
-  if (commAdmin !== null && type === 'evolution') payload.commentaire_admin = commAdmin;
-  try {
-    var { error } = await db.from(table).update(payload).eq('id', id);
-    if (error) throw error;
-    document.getElementById('dp-detail-modal').remove();
-    if (typeof showNotif === 'function') showNotif('✅ Mis à jour !', 'success');
-    dpLoadAllStats();
-    // Rafraîchir l'onglet courant
-    var main = document.getElementById('dp-main-content');
-    if (main) dpSwitchSection(_dpSection);
-  } catch(e) {
-    if (typeof showNotif === 'function') showNotif('Erreur : ' + e.message, 'error');
+<script>
+(function() {
+  var tabs   = document.querySelectorAll('#dproject-content .dp-tabs button');
+  var panels = document.querySelectorAll('#dproject-content .dp-tab-panel');
+
+  function activateTab(name) {
+    tabs.forEach(function(t) { t.classList.remove('is-active'); });
+    panels.forEach(function(p) { p.classList.remove('is-active'); });
+    var btn = document.querySelector('#dproject-content .dp-tabs button[data-tab="' + name + '"]');
+    var panel = document.getElementById('dp-tab-' + name);
+    if (btn)   btn.classList.add('is-active');
+    if (panel) panel.classList.add('is-active');
   }
-}
 
-async function dpAjouterCommentaire(type, id) {
-  var input   = document.getElementById('dp-det-new-comment');
-  var contenu = (input || {}).value || '';
-  if (!contenu.trim()) return;
-  try {
-    await db.from('dsp_commentaires').insert({
-      ref_type: type, ref_id: id, contenu: contenu.trim(),
-      auteur_id:  (typeof currentUser     !== 'undefined' && currentUser)     ? currentUser.id : null,
-      auteur_nom: (typeof currentUserData !== 'undefined' && currentUserData) ? currentUserData.prenom + ' ' + currentUserData.nom : 'Admin'
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function() { activateTab(t.dataset.tab); });
+  });
+
+  var bugBtns  = ['dp-btn-bug',  'dp-btn-bug-2'];
+  var evolBtns = ['dp-btn-evol', 'dp-btn-evol-2'];
+  bugBtns.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', function() { activateTab('bugs'); });
+  });
+  evolBtns.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', function() { activateTab('evolutions'); });
+  });
+
+  // Urgence radio toggle
+  document.querySelectorAll('#dproject-content .dp-urg-opt').forEach(function(o) {
+    o.addEventListener('click', function() {
+      var group = o.closest('.dp-urg-grid');
+      if (group) group.querySelectorAll('.dp-urg-opt').forEach(function(x) { x.classList.remove('is-selected'); });
+      o.classList.add('is-selected');
     });
-    if (input) input.value = '';
-    dpOuvrirDetail(type, id); // Réouvre le modal pour afficher le nouveau commentaire
-  } catch(e) {
-    if (typeof showNotif === 'function') showNotif('Erreur : ' + e.message, 'error');
-  }
-}
-
-// ═════════════════════════════════════════════════
-// SECTION TÂCHES
-// ═════════════════════════════════════════════════
-function dpRenderTaches(container) {
-  container.innerHTML = `
-    <p class="dp-page-title">📝 Tâches</p>
-    <p class="dp-page-sub">Travaux planifiés · en cours · terminés</p>
-    <div class="dp-card">
-      <div class="dp-card-header">
-        <div class="dp-filters">
-          <input class="dp-input" type="text" id="dp-taches-search" placeholder="Rechercher…" oninput="dpFilterTaches()" style="width:150px;">
-          <select class="dp-input" id="dp-taches-statut" onchange="dpFilterTaches()">
-            <option value="">Tous statuts</option>
-            <option>À faire</option><option>En cours</option><option>Terminé</option>
-          </select>
-          <select class="dp-input" id="dp-taches-prio" onchange="dpFilterTaches()">
-            <option value="">Toute priorité</option>
-            <option>Haute</option><option>Moyenne</option><option>Basse</option>
-          </select>
-        </div>
-        <button class="dp-btn dp-btn-accent" onclick="dpOpenTacheForm(null)">+ Nouvelle tâche</button>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="dp-tbl">
-          <thead><tr>
-            <th>ID</th><th>TITRE</th><th>PRIORITÉ</th><th>STATUT</th><th>ÉCHÉANCE</th>
-          </tr></thead>
-          <tbody id="dp-taches-tbody">
-            <tr><td colspan="5" style="text-align:center;padding:32px;color:#9aa6ba;">Chargement…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-  dpLoadTaches();
-}
-
-async function dpLoadTaches() {
-  try {
-    var { data, error } = await db.from('dsp_taches').select('*').order('created_at',{ascending:false});
-    if (error) throw error;
-    _dpTachesData = data || [];
-    dpRenderTachesTable(_dpTachesData);
-  } catch(e) {
-    var tbody = document.getElementById('dp-taches-tbody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:#f59e0b;">
-      ${e.message && e.message.includes('relation') ? '⚠️ Table <code>dsp_taches</code> absente — exécute la migration SQL' : 'Erreur : ' + e.message}
-    </td></tr>`;
-  }
-}
-
-function dpFilterTaches() {
-  var s  = (document.getElementById('dp-taches-search') || {}).value || '';
-  var st = (document.getElementById('dp-taches-statut') || {}).value || '';
-  var p  = (document.getElementById('dp-taches-prio')   || {}).value || '';
-  dpRenderTachesTable(_dpTachesData.filter(function(t){
-    return (!s  || (t.titre||'').toLowerCase().includes(s.toLowerCase()))
-        && (!st || t.statut === st)
-        && (!p  || t.priorite === p);
-  }));
-}
-
-function dpRenderTachesTable(taches) {
-  var tbody = document.getElementById('dp-taches-tbody');
-  if (!tbody) return;
-  if (!taches.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#9aa6ba;">Aucune tâche</td></tr>';
-    return;
-  }
-  tbody.innerHTML = taches.map(function(t){
-    var echeance = t.date_cible ? new Date(t.date_cible).toLocaleDateString('fr-FR') : '—';
-    return `<tr class="dp-row-clickable" onclick="dpOpenTacheForm(${JSON.stringify(t).replace(/"/g,'&quot;')})">
-      <td><span style="font-size:11px;font-weight:700;color:#7c3aed;font-family:monospace;">T-${String(t.id).padStart(3,'0')}</span></td>
-      <td>
-        <div style="font-weight:600;color:#122446;">${t.titre||'—'}</div>
-        ${t.description?`<div style="font-size:12px;color:#9aa6ba;">${t.description.substring(0,65)}…</div>`:''}
-      </td>
-      <td>${dpBadgePriorite(t.priorite)}</td>
-      <td>${dpBadgeStatutTache(t.statut)}</td>
-      <td style="color:#6b7689;">${echeance}</td>
-    </tr>`;
-  }).join('');
-}
-
-function dpOpenTacheForm(tache) {
-  _dpSelectedPriorite = tache ? tache.priorite : '';
-  var overlay = document.createElement('div');
-  overlay.className = 'dp-overlay';
-  overlay.id = 'dp-tache-modal';
-  overlay.innerHTML = `
-    <div class="dp-modal dp-form-modal">
-      <div class="dp-modal-title">${tache ? '📝 Modifier la tâche' : '📝 Nouvelle tâche'}</div>
-      <div id="dp-tache-err" class="dp-modal-err"></div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">TITRE *</label>
-        <input class="dp-finput" id="dp-tache-titre" value="${tache?(tache.titre||''):''}" placeholder="Intitulé…">
-      </div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">DESCRIPTION</label>
-        <textarea class="dp-ftextarea" id="dp-tache-desc" placeholder="Détails…">${tache?(tache.description||''):''}</textarea>
-      </div>
-      <div class="dp-grid-2">
-        <div>
-          <label class="dp-flabel">STATUT</label>
-          <select class="dp-fselect" id="dp-tache-statut">
-            <option ${!tache||tache.statut==='À faire'?'selected':''}>À faire</option>
-            <option ${tache&&tache.statut==='En cours'?'selected':''}>En cours</option>
-            <option ${tache&&tache.statut==='Terminé'?'selected':''}>Terminé</option>
-          </select>
-        </div>
-        <div>
-          <label class="dp-flabel">ÉCHÉANCE</label>
-          <input class="dp-finput" type="date" id="dp-tache-echeance" value="${tache&&tache.date_cible?tache.date_cible.substring(0,10):''}">
-        </div>
-      </div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">PRIORITÉ *</label>
-        <div class="dp-prio-grid">
-          ${[['Basse','#f0fdf4','#166534'],['Moyenne','#fefce8','#854d0e'],['Haute','#fff1f2','#9f1239']].map(function(p){
-            var sel = tache && tache.priorite === p[0];
-            return `<button class="dp-choice-btn" id="dp-prio-${p[0]}"
-              style="background:${p[1]};color:${p[2]};${sel?'outline:2.5px solid #0f172a;':''}"
-              onclick="dpSelPrio('${p[0]}')">${p[0]}</button>`;
-          }).join('')}
-        </div>
-      </div>
-      <div class="dp-modal-footer">
-        <button class="dp-btn dp-btn-ghost" onclick="document.getElementById('dp-tache-modal').remove()">Annuler</button>
-        <button class="dp-btn dp-btn-accent" onclick="dpSaveTache(${tache?tache.id:'null'})">Enregistrer</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-}
-
-function dpSelPrio(p) {
-  _dpSelectedPriorite = p;
-  ['Basse','Moyenne','Haute'].forEach(function(x){
-    var btn = document.getElementById('dp-prio-'+x);
-    if (btn) btn.style.outline = x === p ? '2.5px solid #0f172a' : 'none';
   });
-}
-
-async function dpSaveTache(id) {
-  var titre    = (document.getElementById('dp-tache-titre')    || {}).value || '';
-  var desc     = (document.getElementById('dp-tache-desc')     || {}).value || '';
-  var statut   = (document.getElementById('dp-tache-statut')   || {}).value || 'À faire';
-  var echeance = (document.getElementById('dp-tache-echeance') || {}).value || null;
-  var errEl    = document.getElementById('dp-tache-err');
-  if (!titre.trim())      { errEl.textContent='Titre obligatoire.'; errEl.style.display='block'; return; }
-  if (!_dpSelectedPriorite) { errEl.textContent='Choisis une priorité.'; errEl.style.display='block'; return; }
-  try {
-    var payload = { titre, description:desc, statut, priorite:_dpSelectedPriorite, date_cible:echeance||null };
-    var q = id ? db.from('dsp_taches').update(payload).eq('id',id) : db.from('dsp_taches').insert(payload);
-    var { error } = await q;
-    if (error) throw error;
-    document.getElementById('dp-tache-modal').remove();
-    _dpSelectedPriorite = '';
-    await dpLoadTaches();
-    await dpLoadAllStats();
-    if (typeof showNotif === 'function') showNotif('✅ Tâche enregistrée !', 'success');
-  } catch(e) { errEl.textContent='Erreur : '+e.message; errEl.style.display='block'; }
-}
-
-// ═════════════════════════════════════════════════
-// FORMULAIRES SIGNALEMENT (admin)
-// ═════════════════════════════════════════════════
-function dpOpenBugForm() {
-  _dpSelectedUrgence = '';
-  var overlay = document.createElement('div');
-  overlay.className = 'dp-overlay';
-  overlay.id = 'dp-bug-modal';
-  overlay.innerHTML = `
-    <div class="dp-modal dp-form-modal">
-      <div class="dp-modal-title">🐛 Signaler un bug</div>
-      <div id="dp-bug-err" class="dp-modal-err"></div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">TITRE *</label>
-        <input class="dp-finput" id="dp-bug-titre" placeholder="Décris le problème…">
-      </div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">DESCRIPTION</label>
-        <textarea class="dp-ftextarea" id="dp-bug-desc" placeholder="Étapes pour reproduire…"></textarea>
-      </div>
-      <div class="dp-grid-2">
-        <div>
-          <label class="dp-flabel">ZONE</label>
-          <select class="dp-fselect" id="dp-bug-zone">
-            <option value="">— Choisir —</option>
-            <option>Dispatch</option><option>Dossiers</option><option>Habilitations</option>
-            <option>Import</option><option>Dplane</option><option>Dvol</option>
-            <option>Dashboard</option><option>Admin</option><option>Dproject</option><option>Autre</option>
-          </select>
-        </div>
-        <div>
-          <label class="dp-flabel">ENVIRONNEMENT</label>
-          <select class="dp-fselect" id="dp-bug-env">
-            <option value="">— Choisir —</option><option>PROD</option><option>Staging</option>
-          </select>
-        </div>
-      </div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">URGENCE *</label>
-        <div class="dp-urgence-grid">
-          ${[['Cosmétique','#f1f5f9','#64748b'],['Mineur','#fefce8','#854d0e'],['Majeur','#fff7ed','#9a3412'],['Critique','#fee2e2','#991b1b']].map(function(u){
-            return `<button class="dp-choice-btn" id="dp-urg-${u[0]}" style="background:${u[1]};color:${u[2]};"
-              onclick="dpSelUrg('${u[0]}')">${u[0]}</button>`;
-          }).join('')}
-        </div>
-      </div>
-      <div class="dp-modal-footer">
-        <button class="dp-btn dp-btn-ghost" onclick="document.getElementById('dp-bug-modal').remove()">Annuler</button>
-        <button class="dp-btn dp-btn-accent" onclick="dpSaveBug()">Enregistrer</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-}
-
-function dpSelUrg(u) {
-  _dpSelectedUrgence = u;
-  ['Cosmétique','Mineur','Majeur','Critique'].forEach(function(x){
-    var btn = document.getElementById('dp-urg-'+x);
-    if (btn) btn.style.outline = x === u ? '2.5px solid #0f172a' : 'none';
-  });
-}
-
-async function dpSaveBug() {
-  var titre = (document.getElementById('dp-bug-titre') || {}).value || '';
-  var desc  = (document.getElementById('dp-bug-desc')  || {}).value || '';
-  var zone  = (document.getElementById('dp-bug-zone')  || {}).value || '';
-  var env   = (document.getElementById('dp-bug-env')   || {}).value || '';
-  var errEl = document.getElementById('dp-bug-err');
-  if (!titre.trim())       { errEl.textContent='Titre obligatoire.';         errEl.style.display='block'; return; }
-  if (!_dpSelectedUrgence) { errEl.textContent='Choisis un niveau d\'urgence.'; errEl.style.display='block'; return; }
-  try {
-    var { error } = await db.from('dsp_bugs').insert({
-      titre, description:desc, zone:zone||null, environnement:env||null,
-      urgence:_dpSelectedUrgence, statut:'Nouveau',
-      signale_par: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null
-    });
-    if (error) throw error;
-    document.getElementById('dp-bug-modal').remove();
-    _dpSelectedUrgence = '';
-    await dpLoadBugs();
-    await dpLoadAllStats();
-    if (typeof showNotif === 'function') showNotif('✅ Bug signalé !', 'success');
-  } catch(e) { errEl.textContent='Erreur : '+e.message; errEl.style.display='block'; }
-}
-
-function dpOpenEvolForm() {
-  _dpSelectedPriorite = '';
-  var overlay = document.createElement('div');
-  overlay.className = 'dp-overlay';
-  overlay.id = 'dp-evol-modal';
-  overlay.innerHTML = `
-    <div class="dp-modal dp-form-modal">
-      <div class="dp-modal-title">💡 Demander une évolution</div>
-      <div id="dp-evol-err" class="dp-modal-err"></div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">TITRE *</label>
-        <input class="dp-finput" id="dp-evol-titre" placeholder="Ex : Ajouter un export PDF…">
-      </div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">DESCRIPTION</label>
-        <textarea class="dp-ftextarea" id="dp-evol-desc" placeholder="Détaille le besoin…"></textarea>
-      </div>
-      <div class="dp-grid-2">
-        <div>
-          <label class="dp-flabel">MODULE</label>
-          <select class="dp-fselect" id="dp-evol-zone">
-            <option value="">— Choisir —</option>
-            <option>Dispatch</option><option>Dossiers</option><option>Habilitations</option>
-            <option>Import</option><option>Dplane</option><option>Dvol</option>
-            <option>Dashboard</option><option>Admin</option><option>Dproject</option><option>Autre</option>
-          </select>
-        </div>
-        <div></div>
-      </div>
-      <div class="dp-fgrp">
-        <label class="dp-flabel">PRIORITÉ *</label>
-        <div class="dp-prio-grid">
-          ${[['Basse','#f0fdf4','#166534'],['Moyenne','#fefce8','#854d0e'],['Haute','#fff1f2','#9f1239']].map(function(p){
-            return `<button class="dp-choice-btn" id="dp-evol-prio-${p[0]}" style="background:${p[1]};color:${p[2]};"
-              onclick="dpSelEvolPrio('${p[0]}')">${p[0]}</button>`;
-          }).join('')}
-        </div>
-      </div>
-      <div class="dp-modal-footer">
-        <button class="dp-btn dp-btn-ghost" onclick="document.getElementById('dp-evol-modal').remove()">Annuler</button>
-        <button class="dp-btn dp-btn-accent" onclick="dpSaveEvol(null)">Enregistrer</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-}
-
-function dpSelEvolPrio(p) {
-  _dpSelectedPriorite = p;
-  ['Basse','Moyenne','Haute'].forEach(function(x){
-    var btn = document.getElementById('dp-evol-prio-'+x);
-    if (btn) btn.style.outline = x === p ? '2.5px solid #0f172a' : 'none';
-  });
-}
-
-async function dpSaveEvol(id) {
-  var titre  = (document.getElementById('dp-evol-titre') || {}).value || '';
-  var desc   = (document.getElementById('dp-evol-desc')  || {}).value || '';
-  var zone   = (document.getElementById('dp-evol-zone')  || {}).value || null;
-  var errEl  = document.getElementById('dp-evol-err');
-  if (!titre.trim())        { errEl.textContent='Titre obligatoire.';    errEl.style.display='block'; return; }
-  if (!_dpSelectedPriorite) { errEl.textContent='Choisis une priorité.'; errEl.style.display='block'; return; }
-  try {
-    var payload = { titre, description:desc, zone:zone||null, priorite:_dpSelectedPriorite, statut:'Nouvelle',
-      soumis_par: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null };
-    var q = id ? db.from('dsp_evolutions').update(payload).eq('id',id) : db.from('dsp_evolutions').insert(payload);
-    var { error } = await q;
-    if (error) throw error;
-    document.getElementById('dp-evol-modal').remove();
-    _dpSelectedPriorite = '';
-    await dpLoadEvols();
-    await dpLoadAllStats();
-    if (typeof showNotif === 'function') showNotif('✅ Évolution enregistrée !', 'success');
-  } catch(e) { errEl.textContent='Erreur : '+e.message; errEl.style.display='block'; }
-}
-
-// ═════════════════════════════════════════════════
-// SECTION ROADMAP — Kanban
-// ═════════════════════════════════════════════════
-async function dpRenderRoadmap(container) {
-  container.innerHTML = `
-    <p class="dp-page-title">🗺️ Roadmap</p>
-    <p class="dp-page-sub">Vue globale · tâches + évolutions par statut</p>
-    <div id="dp-roadmap-board"><div class="dp-empty"><div class="dp-empty-icon">⏳</div><p>Chargement…</p></div></div>`;
-
-  try {
-    var [taches, evols] = await Promise.all([
-      db.from('dsp_taches').select('*').order('created_at',{ascending:false}),
-      db.from('dsp_evolutions').select('*').order('created_at',{ascending:false})
-    ]);
-
-    var toKanban = function(s) {
-      if (['Nouvelle','En analyse','Acceptée','À faire'].includes(s)) return 'À faire';
-      if (['En développement','En cours','En correction','En staging'].includes(s)) return 'En cours';
-      if (['Déployée','Corrigé','Terminé'].includes(s)) return 'Terminé';
-      if (['Refusée','Ne sera pas corrigé'].includes(s)) return 'Annulé';
-      return 'À faire';
-    };
-
-    var allItems = [];
-    (taches.data || []).forEach(function(t){ allItems.push({type:'tache',titre:t.titre,statut:toKanban(t.statut),priorite:t.priorite,id:t.id}); });
-    (evols.data  || []).forEach(function(e){ allItems.push({type:'evol', titre:e.titre,statut:toKanban(e.statut),priorite:e.priorite,id:e.id}); });
-
-    var cols = [
-      {key:'À faire', icon:'📋', color:'#64748b'},
-      {key:'En cours',icon:'⚙️',  color:'#0369a1'},
-      {key:'Terminé', icon:'✅',  color:'#166534'},
-      {key:'Annulé',  icon:'❌',  color:'#9a3412'}
-    ];
-
-    var board = document.getElementById('dp-roadmap-board');
-    if (!board) return;
-    board.innerHTML = `<div class="dp-kanban">` +
-      cols.map(function(col){
-        var items = allItems.filter(function(i){ return i.statut === col.key; });
-        return `<div class="dp-kanban-col">
-          <div class="dp-kanban-col-head">
-            ${col.icon} ${col.key}
-            <span style="margin-left:auto;background:#e2e8f0;color:#6b7689;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">${items.length}</span>
-          </div>
-          ${items.length === 0
-            ? '<div class="dp-kanban-empty">Vide</div>'
-            : items.map(function(item){
-                return `<div class="dp-kanban-card">
-                  <div class="dp-kanban-card-title">${item.titre||'—'}</div>
-                  <div style="display:flex;gap:6px;align-items:center;">
-                    <span style="font-size:11px;">${item.type==='tache'?'📝':'💡'}</span>
-                    ${dpBadgePriorite(item.priorite)}
-                  </div>
-                </div>`;
-              }).join('')
-          }
-        </div>`;
-      }).join('') + `</div>`;
-  } catch(e) {
-    var board2 = document.getElementById('dp-roadmap-board');
-    if (board2) board2.innerHTML = `<div class="dp-empty"><div class="dp-empty-icon">⚠️</div><p>Exécute la migration SQL pour activer la roadmap</p></div>`;
-  }
-}
-
-// ═════════════════════════════════════════════════
-// HELPERS — badges avec point de couleur
-// ═════════════════════════════════════════════════
-function dpBadgeUrgence(u) {
-  var map = {
-    'Critique':   {bg:'#fee2e2',color:'#991b1b',dot:'#dc2626'},
-    'Majeur':     {bg:'#fff7ed',color:'#9a3412',dot:'#ea580c'},
-    'Mineur':     {bg:'#fefce8',color:'#854d0e',dot:'#ca8a04'},
-    'Cosmétique': {bg:'#eff6ff',color:'#1e40af',dot:'#3b82f6'}
-  };
-  var s = map[u] || {bg:'#f1f5f9',color:'#64748b',dot:'#94a3b8'};
-  return u ? `<span class="dp-badge" style="background:${s.bg};color:${s.color};"><span class="dp-badge-dot" style="background:${s.dot};"></span>${u}</span>` : '—';
-}
-
-function dpBadgeEnv(e) {
-  if (e === 'PROD')    return `<span class="dp-badge" style="background:#fee2e2;color:#991b1b;"><span class="dp-badge-dot" style="background:#dc2626;"></span>PROD</span>`;
-  if (e === 'Staging') return `<span class="dp-badge" style="background:#fef9c3;color:#854d0e;"><span class="dp-badge-dot" style="background:#ca8a04;"></span>Staging</span>`;
-  return '<span style="color:#9aa6ba;">—</span>';
-}
-
-function dpBadgeStatut(s) {
-  var map = {
-    'Nouveau':          {bg:'#f1f5f9',color:'#64748b'},
-    'Nouvelle':         {bg:'#f1f5f9',color:'#64748b'},
-    'En analyse':       {bg:'#eff6ff',color:'#1e40af'},
-    'En correction':    {bg:'#fff7ed',color:'#9a3412'},
-    'En staging':       {bg:'#f0fdf4',color:'#166534'},
-    'Corrigé':          {bg:'#dcfce7',color:'#166534'},
-    'En développement': {bg:'#fef9c3',color:'#854d0e'},
-    'Acceptée':         {bg:'#dcfce7',color:'#166534'},
-    'Refusée':          {bg:'#fee2e2',color:'#991b1b'},
-    'Déployée':         {bg:'#dcfce7',color:'#166534'},
-    'Ne sera pas corrigé':{bg:'#f1f5f9',color:'#64748b'}
-  };
-  var st = map[s] || {bg:'#f1f5f9',color:'#64748b'};
-  return s ? `<span class="dp-badge" style="background:${st.bg};color:${st.color};"><span class="dp-badge-dot" style="background:${st.color};"></span>${s}</span>` : '—';
-}
-
-function dpBadgeStatutTache(s) {
-  var map = {'À faire':{bg:'#f1f5f9',color:'#64748b'},'En cours':{bg:'#dbeafe',color:'#1e40af'},'Terminé':{bg:'#dcfce7',color:'#166534'}};
-  var st = map[s] || {bg:'#f1f5f9',color:'#64748b'};
-  return s ? `<span class="dp-badge" style="background:${st.bg};color:${st.color};"><span class="dp-badge-dot" style="background:${st.color};"></span>${s}</span>` : '—';
-}
-
-function dpBadgePriorite(p) {
-  var map = {'Haute':{bg:'#fff1f2',color:'#9f1239'},'Moyenne':{bg:'#fefce8',color:'#854d0e'},'Basse':{bg:'#f0fdf4',color:'#166534'}};
-  var st = map[p] || {bg:'#f1f5f9',color:'#64748b'};
-  return p ? `<span class="dp-badge" style="background:${st.bg};color:${st.color};font-size:11px;">${p}</span>` : '';
+})();
+</script>
+`;
 }
