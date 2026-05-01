@@ -73,6 +73,40 @@ function dpBadgeZone(z) {
   return '<span class="dp-zone">'+z+'</span>';
 }
 
+function dpAnciennete(createdAt) {
+  if (!createdAt) return '—';
+  var diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000*60*60*24));
+  return 'J+' + diff;
+}
+
+function dpInitials(nom) {
+  if (!nom) return '?';
+  var parts = String(nom).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0,2).toUpperCase();
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+}
+
+// Couleur stable par personne (charte: "color is per-person, kept stable")
+function dpAvatarColor(nom) {
+  if (!nom) return '#9aa6ba';
+  var palette = ['#1B3461','#4A7EC7','#3463aa','#16a34a','#d97706','#7c3aed','#0891b2','#e5195e'];
+  var hash = 0;
+  for (var i = 0; i < nom.length; i++) hash = (hash * 31 + nom.charCodeAt(i)) | 0;
+  return palette[Math.abs(hash) % palette.length];
+}
+
+function dpFmtDateShort(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+}
+
+function dpFmtDateTime(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+
+
+
 /* =========================================================
    ÉTAT DU MODULE
    ========================================================= */
@@ -371,73 +405,167 @@ function dpRenderDetailModal(box, type, data, comments) {
   var statut   = data.statut || etapes[0];
   var stepIdx  = etapes.indexOf(statut);
   var code     = data.code || (isBug ? 'BUG-?' : 'EVOL-?');
+  var prochaine = (stepIdx >= 0 && stepIdx < etapes.length - 1) ? etapes[stepIdx + 1] : null;
 
-  var progHTML = etapes.map(function(e,i){
+  // Bandeau infos clés (4 colonnes)
+  var bandeauHTML =
+    '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Statut</div><div>' + dpBadgeStatut(statut) + '</div></div>' +
+    (isBug
+      ? '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Urgence</div><div>' + dpBadgeUrgence(data.urgence) + '</div></div>' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Zone</div><div class="dp-bandeau__value">' + (data.zone||'—') + '</div></div>' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Env.</div><div>' + dpBadgeEnv(data.environnement) + '</div></div>'
+      : '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Soumis par</div><div class="dp-bandeau__value">' + (data.signale_par_nom||'—') + '</div></div>' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Créé le</div><div class="dp-bandeau__value">' + new Date(data.created_at).toLocaleDateString('fr-FR') + '</div></div>' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Ancienneté</div><div><span class="dp-bandeau__pill dp-bandeau__pill--ok">' + dpAnciennete(data.created_at) + '</span></div></div>'
+    );
+
+  // Ligne 2 du bandeau (uniquement pour les bugs)
+  var bandeau2HTML = isBug
+    ? '<div class="dp-bandeau">' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Signalé par</div><div class="dp-bandeau__value">' + (data.signale_par_nom||'—') + '</div></div>' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Créé le</div><div class="dp-bandeau__value">' + new Date(data.created_at).toLocaleDateString('fr-FR') + '</div></div>' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Ancienneté</div><div><span class="dp-bandeau__pill dp-bandeau__pill--ok">' + dpAnciennete(data.created_at) + '</span></div></div>' +
+        '<div class="dp-bandeau__col"><div class="dp-bandeau__label">Échéance</div><div class="dp-bandeau__value' + (data.date_echeance?'':' dp-bandeau__value--muted')+'">' + (data.date_echeance ? new Date(data.date_echeance).toLocaleDateString('fr-FR') : '—') + '</div></div>' +
+      '</div>'
+    : '';
+
+  // Avancement chips
+  var progressHTML = etapes.map(function(e, i) {
     var done = i < stepIdx, current = i === stepIdx;
-    var bg    = current ? 'var(--navy)' : done ? 'var(--ink-200)' : 'var(--ink-100)';
-    var border= (done||current) ? 'var(--navy)' : 'var(--ink-200)';
-    var color = current ? '#fff' : done ? 'var(--ink-600)' : 'var(--ink-400)';
-    var lcolor= (done||current) ? 'var(--ink-900)' : 'var(--ink-400)';
-    return '<div class="dp-prog-step">' +
-      '<div style="text-align:center">' +
-        '<div class="dp-prog-circle" style="background:'+bg+';border:2px solid '+border+';color:'+color+'">'+(done?'✓':i+1)+'</div>' +
-        '<div class="dp-prog-label" style="color:'+lcolor+'">'+e+'</div>' +
-      '</div>' +
-      (i<etapes.length-1?'<div class="dp-prog-line" style="background:'+(done?'var(--ink-400)':'var(--ink-200)')+'"></div>':'') +
+    var cls = done ? 'is-done' : current ? 'is-current' : '';
+    var icon = done ? '✓' : current ? '●' : (i+1);
+    var date = (i === 0) ? new Date(data.created_at).toLocaleDateString('fr-FR') : '';
+    var chip = '<div class="dp-step '+cls+'">' +
+      '<div class="dp-step__title"><span class="dp-step__ico">'+icon+'</span> '+e+'</div>' +
+      (date ? '<div class="dp-step__date">'+date+'</div>' : '') +
     '</div>';
+    return chip + (i < etapes.length - 1 ? '<div class="dp-step__chev">›</div>' : '');
   }).join('');
 
-  var infoHTML =
-    (isBug&&data.urgence?'<div><div class="dp-info-label">Urgence</div>'+dpBadgeUrgence(data.urgence)+'</div>':'') +
-    (isBug&&data.zone?'<div><div class="dp-info-label">Zone</div>'+dpBadgeZone(data.zone)+'</div>':'') +
-    (isBug&&data.environnement?'<div><div class="dp-info-label">Env.</div>'+dpBadgeEnv(data.environnement)+'</div>':'') +
-    '<div><div class="dp-info-label">Créé le</div><span style="font-weight:600">'+new Date(data.created_at).toLocaleDateString('fr-FR')+'</span></div>' +
-    (data.date_echeance?'<div><div class="dp-info-label">Échéance</div><span style="font-weight:600;color:var(--danger-700)">'+new Date(data.date_echeance).toLocaleDateString('fr-FR')+'</span></div>':'') +
-    (data.signale_par_nom?'<div><div class="dp-info-label">Signalé par</div><span style="font-weight:600">'+data.signale_par_nom+'</span></div>':'');
+  // Étape en cours / Workflow terminé
+  var currentHTML;
+  if (prochaine) {
+    currentHTML =
+      '<div class="dp-current">' +
+        '<div class="dp-current__icon">🕐</div>' +
+        '<div class="dp-current__text">' +
+          '<div class="dp-current__label">Étape en cours</div>' +
+          '<div class="dp-current__step">'+statut+'</div>' +
+        '</div>' +
+        '<button class="dp-btn dp-btn--primary" onclick="dpAvancerStatut(\''+type+'\','+data.id+',\''+prochaine+'\')">' +
+          '✓ Confirmer « '+prochaine+' »' +
+        '</button>' +
+      '</div>';
+  } else {
+    currentHTML =
+      '<div class="dp-current dp-current--done">' +
+        '<div class="dp-current__icon">✅</div>' +
+        '<div class="dp-current__text">' +
+          '<div class="dp-current__label">'+(isBug?'Bug corrigé':'Évolution déployée')+'</div>' +
+          '<div class="dp-current__step">Workflow terminé</div>' +
+        '</div>' +
+      '</div>';
+  }
 
-  var commentsHTML = comments.length
-    ? comments.map(function(c){
-        var d = new Date(c.created_at).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-        return '<div class="dp-comment"><div class="dp-comment__meta"><span class="dp-comment__author">'+(c.auteur_nom||'Admin')+'</span><span class="dp-comment__date">'+d+'</span></div><p class="dp-comment__text">'+c.contenu+'</p></div>';
+  // Événements / commentaires
+  var eventsHTML = comments.length
+    ? comments.map(function(c) {
+        var nom = c.auteur_nom || 'Admin';
+        return '<div class="dp-event">' +
+          '<div class="dp-avatar" style="background:'+dpAvatarColor(nom)+'">'+dpInitials(nom)+'</div>' +
+          '<div class="dp-event__body">' +
+            '<div class="dp-event__head">' +
+              '<span class="dp-event__author">'+nom+'</span>' +
+              '<span class="dp-event__tag">NOTE</span>' +
+              '<span class="dp-event__date">'+dpFmtDateTime(c.created_at)+'</span>' +
+            '</div>' +
+            '<p class="dp-event__text">'+c.contenu+'</p>' +
+          '</div>' +
+        '</div>';
       }).join('')
-    : '<div style="color:var(--ink-400);font-size:13px;text-align:center;padding:16px">Aucun commentaire</div>';
+    : '<div class="dp-events__empty">Aucun événement pour ce '+(isBug?'bug':'élément')+'</div>';
+
+  // Détails admin compacts pour bugs (urgence + échéance modifiables)
+  var detailsAdminHTML = isBug
+    ? '<div class="dp-section dp-admin-compact">' +
+        '<div class="dp-section__title">⚙️ Détails admin</div>' +
+        '<div class="dp-admin-compact__row">' +
+          '<div><label class="dp-form-label">Urgence</label><select class="dp-form-select" id="dp-det-urgence">'+
+            '<option value="">— Choisir —</option>'+
+            ['Critique','Majeur','Mineur','Cosmétique'].map(function(u){
+              return '<option'+(u===data.urgence?' selected':'')+'>'+u+'</option>';
+            }).join('') +
+          '</select></div>' +
+          '<div><label class="dp-form-label">Échéance</label><input type="date" class="dp-form-input" id="dp-det-echeance" value="'+(data.date_echeance||'')+'"></div>' +
+          '<button class="dp-btn dp-btn--ghost" onclick="dpSauvegarderDetailsBug('+data.id+')">Mettre à jour</button>' +
+        '</div>' +
+      '</div>'
+    : '';
+
+  // Commentaire admin (évolutions seulement)
+  var commAdminHTML = !isBug
+    ? '<div class="dp-section">' +
+        '<div class="dp-section__title">Commentaire admin</div>' +
+        '<textarea class="dp-form-input" id="dp-det-commentaire-admin" rows="2" style="resize:vertical">'+(data.commentaire_admin||'')+'</textarea>' +
+        '<button class="dp-btn dp-btn--ghost" style="margin-top:8px" onclick="dpSauvegarderDetail(\''+type+'\','+data.id+')">Mettre à jour</button>' +
+      '</div>'
+    : '';
 
   box.innerHTML =
-    '<div class="dp-modal-head">' +
-      '<div><span style="font-size:11px;font-weight:700;color:var(--ink-400);font-family:monospace">'+code+'</span>' +
-      '<h2 style="font-size:17px;font-weight:800;color:var(--ink-900);margin:4px 0 0">'+data.titre+'</h2></div>' +
-      '<button class="dp-modal-close" onclick="document.getElementById(\'dp-detail-modal\').remove()">✕</button>' +
+    // HEADER NAVY
+    '<div class="dp-mh">' +
+      '<div class="dp-mh__title">' +
+        '<span class="dp-mh__type">'+(isBug?'Bug':'Évolution')+'</span>' +
+        '<span class="dp-mh__sep">—</span>' +
+        '<span class="dp-mh__ref">'+code+'</span>' +
+      '</div>' +
+      '<button class="dp-mh__close" onclick="document.getElementById(\'dp-detail-modal\').remove()">✕</button>' +
     '</div>' +
-    '<div class="dp-modal-body">' +
 
-      '<div><div class="dp-info-label" style="margin-bottom:10px">Progression</div><div class="dp-prog-wrap">'+progHTML+'</div></div>' +
+    // TITRE
+    '<h2 class="dp-modal-title">'+data.titre+'</h2>' +
 
-      '<div class="dp-info-grid">'+infoHTML+'</div>' +
+    // BANDEAU 1
+    '<div class="dp-bandeau">'+bandeauHTML+'</div>' +
 
-      (data.description?'<div><div class="dp-info-label">Description</div><p style="font-size:13px;color:var(--ink-700);margin:0;line-height:1.6">'+data.description+'</p></div>':'')+
+    // BANDEAU 2 (bugs)
+    bandeau2HTML +
 
-      '<div class="dp-admin-box">' +
-        '<div class="dp-admin-box__title">⚙️ GESTION ADMIN</div>' +
-        '<div class="dp-form-row">' +
-          '<div><label class="dp-form-label">Statut</label>' +
-          '<select class="dp-form-select" id="dp-det-statut">'+
-            etapes.map(function(e){ return '<option'+(e===statut?' selected':'')+'>'+e+'</option>'; }).join('') +
-            (!isBug?'<option'+('Refusée'===statut?' selected':'')+'>Refusée</option>':'') +
-          '</select></div>' +
-          (isBug?'<div><label class="dp-form-label">Urgence</label><select class="dp-form-select" id="dp-det-urgence"><option value="">— Choisir —</option>'+['Critique','Majeur','Mineur','Cosmétique'].map(function(u){ return '<option'+(u===data.urgence?' selected':'')+'>'+u+'</option>'; }).join('')+'</select></div>':'')+
-          '<div><label class="dp-form-label">Échéance</label><input type="date" class="dp-form-input" id="dp-det-echeance" value="'+(data.date_echeance||'')+'"></div>' +
-        '</div>' +
-        (!isBug?'<div style="margin-top:10px"><label class="dp-form-label">Commentaire admin</label><textarea class="dp-form-input" id="dp-det-commentaire-admin" rows="2" style="resize:vertical" placeholder="Justification, retour…">'+(data.commentaire_admin||'')+'</textarea></div>':'')+
-        '<button onclick="dpSauvegarderDetail(\''+type+'\','+data.id+')" style="margin-top:12px;background:var(--navy);color:#fff;border:none;padding:9px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">💾 Sauvegarder</button>' +
+    // AVANCEMENT
+    '<div class="dp-progress">' +
+      '<div class="dp-progress__title">📊 Avancement</div>' +
+      '<div class="dp-progress__chips">'+progressHTML+'</div>' +
+    '</div>' +
+
+    // ÉTAPE EN COURS
+    currentHTML +
+
+    // DESCRIPTION
+    (data.description
+      ? '<div class="dp-section"><div class="dp-section__title">Description</div><p class="dp-section__text">'+data.description+'</p></div>'
+      : ''
+    ) +
+
+    // DÉTAILS ADMIN (bugs)
+    detailsAdminHTML +
+
+    // COMMENTAIRE ADMIN (évolutions)
+    commAdminHTML +
+
+    // ÉVÉNEMENTS
+    '<div class="dp-events">' +
+      '<div class="dp-events__title">📝 Événements ('+comments.length+')</div>' +
+      eventsHTML +
+      '<div class="dp-event-add">' +
+        '<input class="dp-form-input" id="dp-det-new-comment" placeholder="Ajouter un commentaire…" onkeydown="if(event.key===\'Enter\') dpAjouterCommentaire(\''+type+'\','+data.id+')">' +
+        '<button class="dp-btn dp-btn--primary" onclick="dpAjouterCommentaire(\''+type+'\','+data.id+')">Envoyer</button>' +
       '</div>' +
+    '</div>' +
 
-      '<div><div class="dp-info-label" style="margin-bottom:10px">Commentaires ('+comments.length+')</div>' +
-        '<div class="dp-comments-list">'+commentsHTML+'</div>' +
-        '<div class="dp-comment-input-row">' +
-          '<input class="dp-form-input" id="dp-det-new-comment" placeholder="Ajouter un commentaire…" onkeydown="if(event.key===\'Enter\') dpAjouterCommentaire(\''+type+'\','+data.id+')">' +
-          '<button onclick="dpAjouterCommentaire(\''+type+'\','+data.id+')" style="background:var(--navy);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Envoyer</button>' +
-        '</div>' +
-      '</div>' +
+    // FOOTER
+    '<div class="dp-mf">' +
+      '<div class="dp-mf__ref">'+code+'</div>' +
+      '<button class="dp-btn dp-btn--ghost" onclick="document.getElementById(\'dp-detail-modal\').remove()">Fermer</button>' +
     '</div>';
 }
 
@@ -463,6 +591,40 @@ window.dpSauvegarderDetail = async function(type, id) {
     if (typeof showNotif==='function') showNotif('Erreur : '+e.message,'error');
   }
 };
+
+window.dpAvancerStatut = async function(type, id, prochaine) {
+  var table = type === 'bug' ? 'dsp_bugs' : 'dsp_evolutions';
+  try {
+    var res = await db.from(table).update({statut: prochaine}).eq('id', id);
+    if (res.error) throw res.error;
+    if (typeof showNotif === 'function') showNotif('✅ Statut : ' + prochaine, 'success');
+    dpOuvrirDetail(type, id);
+    dpLoadStats();
+    dpLoadAQualifier();
+    if (type === 'bug') dpRenderBugs();
+  } catch(e) {
+    if (typeof showNotif === 'function') showNotif('Erreur : ' + e.message, 'error');
+  }
+};
+
+window.dpSauvegarderDetailsBug = async function(id) {
+  var urgence  = (document.getElementById('dp-det-urgence') ||{}).value || null;
+  var echeance = (document.getElementById('dp-det-echeance')||{}).value || null;
+  var payload = {};
+  if (urgence)  payload.urgence = urgence;
+  if (echeance) payload.date_echeance = echeance;
+  if (!Object.keys(payload).length) return;
+  try {
+    var res = await db.from('dsp_bugs').update(payload).eq('id', id);
+    if (res.error) throw res.error;
+    if (typeof showNotif === 'function') showNotif('✅ Détails mis à jour', 'success');
+    dpOuvrirDetail('bug', id);
+    dpRenderBugs();
+  } catch(e) {
+    if (typeof showNotif === 'function') showNotif('Erreur : ' + e.message, 'error');
+  }
+};
+
 
 window.dpAjouterCommentaire = async function(type, id) {
   var input   = document.getElementById('dp-det-new-comment');
@@ -895,6 +1057,189 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 .dp-coming-soon{text-align:center;padding:80px 40px;color:var(--ink-400)}
 .dp-coming-soon__icon{font-size:40px;margin-bottom:16px}
 .dp-coming-soon__title{font-size:15px;font-weight:600;color:var(--ink-500)}
+
+/* =========================================================
+   MODAL DÉTAIL — STYLE DVOL
+   ========================================================= */
+
+/* Modal box override pour permettre header navy flush */
+.dp-modal-box{padding:0;max-width:760px}
+
+/* Header navy flush au top */
+.dp-mh{
+  background:var(--navy);
+  color:#fff;
+  padding:14px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-radius:16px 16px 0 0
+}
+.dp-mh__title{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700}
+.dp-mh__type{letter-spacing:.02em}
+.dp-mh__sep{opacity:.5}
+.dp-mh__ref{
+  font-family:'SF Mono',ui-monospace,'Cascadia Mono',Menlo,monospace;
+  font-size:12px;font-weight:600;
+  background:rgba(255,255,255,.12);
+  padding:4px 10px;border-radius:6px;
+  letter-spacing:.04em
+}
+.dp-mh__close{
+  background:rgba(255,255,255,.12);
+  color:#fff;border:none;
+  width:30px;height:30px;border-radius:6px;
+  font-size:13px;cursor:pointer;
+  display:grid;place-items:center;
+  transition:background .12s
+}
+.dp-mh__close:hover{background:rgba(255,255,255,.22)}
+
+/* Titre principal */
+.dp-modal-title{
+  font-size:22px;font-weight:800;
+  color:var(--ink-900);
+  letter-spacing:-.01em;
+  padding:0 20px;margin:18px 0 14px
+}
+
+/* Bandeau infos clés (4 col) */
+.dp-bandeau{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:18px;
+  padding:14px 20px;
+  border-bottom:1px solid var(--ink-100)
+}
+.dp-bandeau:nth-of-type(2){border-bottom:1px solid var(--ink-100)}
+.dp-bandeau__col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.dp-bandeau__label{font-size:10px;font-weight:700;color:var(--ink-400);letter-spacing:.06em;text-transform:uppercase}
+.dp-bandeau__value{font-size:14px;font-weight:600;color:var(--ink-900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dp-bandeau__value--muted{color:var(--ink-400);font-weight:500}
+.dp-bandeau__pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 11px;border-radius:999px;
+  font-size:11px;font-weight:700;
+  width:fit-content
+}
+.dp-bandeau__pill::before{content:"●";font-size:7px}
+.dp-bandeau__pill--ok{background:var(--ok-100);color:var(--ok-700)}
+.dp-bandeau__pill--warn{background:var(--warn-100);color:var(--warn-700)}
+.dp-bandeau__pill--danger{background:var(--danger-100);color:var(--danger-700)}
+
+/* Avancement (chips horizontaux) */
+.dp-progress{padding:18px 20px;border-bottom:1px solid var(--ink-100)}
+.dp-progress__title{font-size:13px;font-weight:700;color:var(--ink-900);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.dp-progress__chips{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}
+.dp-step{
+  background:var(--ink-50);
+  border:1px solid var(--ink-200);
+  border-radius:10px;
+  padding:9px 13px;
+  display:flex;flex-direction:column;justify-content:center;
+  min-width:130px;flex:1
+}
+.dp-step__title{font-size:12.5px;font-weight:600;color:var(--ink-500);display:flex;align-items:center;gap:6px}
+.dp-step__ico{
+  display:inline-grid;place-items:center;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--ink-200);color:var(--ink-500);
+  font-size:10px;font-weight:800;flex-shrink:0
+}
+.dp-step__date{font-size:10.5px;color:var(--ink-400);margin-top:3px}
+.dp-step.is-done{background:var(--ok-50);border-color:#a0e0c0}
+.dp-step.is-done .dp-step__title{color:var(--ok-700)}
+.dp-step.is-done .dp-step__ico{background:var(--ok-700);color:#fff}
+.dp-step.is-current{background:var(--brand-50);border:1.5px solid var(--brand-500);box-shadow:0 0 0 3px rgba(74,126,199,.10)}
+.dp-step.is-current .dp-step__title{color:var(--navy);font-weight:700}
+.dp-step.is-current .dp-step__ico{background:var(--brand-500);color:#fff}
+.dp-step__chev{display:flex;align-items:center;color:var(--ink-300);font-size:18px;font-weight:700;flex-shrink:0;padding:0 1px}
+
+/* Étape en cours call-out */
+.dp-current{
+  background:var(--ink-50);
+  border:1px solid var(--ink-200);
+  border-radius:12px;
+  margin:18px 20px;padding:14px 16px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap
+}
+.dp-current__icon{
+  width:38px;height:38px;
+  background:var(--brand-100);color:var(--brand-700);
+  border-radius:10px;
+  display:grid;place-items:center;
+  font-size:17px;flex-shrink:0
+}
+.dp-current__text{flex:1;min-width:140px}
+.dp-current__label{font-size:10px;font-weight:700;color:var(--ink-500);letter-spacing:.06em;text-transform:uppercase}
+.dp-current__step{font-size:14px;font-weight:700;color:var(--ink-900);margin-top:2px}
+.dp-current--done{background:var(--ok-50);border-color:#a0e0c0}
+.dp-current--done .dp-current__icon{background:var(--ok-100);color:var(--ok-700)}
+
+/* Sections (description, etc.) */
+.dp-section{padding:14px 20px;border-bottom:1px solid var(--ink-100)}
+.dp-section:last-of-type{border-bottom:none}
+.dp-section__title{font-size:11px;font-weight:700;color:var(--ink-400);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.dp-section__text{font-size:13.5px;line-height:1.6;color:var(--ink-700);margin:0}
+
+/* Détails admin compacts */
+.dp-admin-compact__row{
+  display:grid;
+  grid-template-columns:1fr 1fr auto;
+  gap:10px;align-items:end
+}
+.dp-admin-compact__row .dp-btn{height:36px}
+
+/* Événements */
+.dp-events{padding:14px 20px 18px}
+.dp-events__title{font-size:13px;font-weight:700;color:var(--ink-900);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.dp-event{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--ink-100)}
+.dp-event:last-of-type{border-bottom:none}
+.dp-avatar{
+  width:34px;height:34px;border-radius:50%;
+  display:grid;place-items:center;
+  color:#fff;font-size:12px;font-weight:700;
+  flex-shrink:0;letter-spacing:.02em
+}
+.dp-event__body{flex:1;min-width:0}
+.dp-event__head{display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap}
+.dp-event__author{font-size:13px;font-weight:700;color:var(--ink-900)}
+.dp-event__tag{
+  background:var(--ink-100);color:var(--ink-600);
+  font-size:9.5px;font-weight:700;
+  padding:2px 6px;border-radius:4px;
+  letter-spacing:.05em
+}
+.dp-event__date{font-size:11px;color:var(--ink-400);margin-left:auto}
+.dp-event__text{font-size:13px;color:var(--ink-700);margin:0;line-height:1.5}
+.dp-events__empty{
+  text-align:center;padding:18px;
+  color:var(--ink-400);font-size:13px;
+  background:var(--ink-50);border-radius:8px
+}
+.dp-event-add{display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--ink-100)}
+
+/* Modal footer */
+.dp-mf{
+  border-top:1px solid var(--ink-100);
+  padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-radius:0 0 16px 16px
+}
+.dp-mf__ref{
+  font-family:'SF Mono',ui-monospace,'Cascadia Mono',Menlo,monospace;
+  font-size:11px;color:var(--ink-400);
+  letter-spacing:.04em
+}
+
+/* Mobile : bandeau passe en 2 col, chips en colonne */
+@media(max-width:720px){
+  .dp-bandeau{grid-template-columns:repeat(2,1fr)}
+  .dp-progress__chips{flex-direction:column;align-items:stretch}
+  .dp-step{min-width:0}
+  .dp-step__chev{display:none;transform:rotate(90deg);justify-content:center}
+  .dp-admin-compact__row{grid-template-columns:1fr}
+  .dp-current{flex-direction:column;align-items:stretch}
+  .dp-current .dp-btn{width:100%;justify-content:center}
+}
+
 @media(max-width:1100px){.dp-kpis{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.dp-kpis{grid-template-columns:1fr}.dp-page{padding:16px}}
 </style>
