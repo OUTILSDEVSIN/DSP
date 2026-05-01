@@ -488,7 +488,7 @@ function dpRenderDetailModal(box, type, data, comments) {
   // Détails admin compacts pour bugs (urgence + échéance modifiables)
   var detailsAdminHTML = isBug
     ? '<div class="dp-section dp-admin-compact">' +
-        '<div class="dp-section__title">⚙️ Détails admin</div>' +
+        '<div class="dp-section__title"><span class="dp-section__ico">⚙️</span> Détails admin</div>' +
         '<div class="dp-admin-compact__row">' +
           '<div><label class="dp-form-label">Urgence</label><select class="dp-form-select" id="dp-det-urgence">'+
             '<option value="">— Choisir —</option>'+
@@ -497,7 +497,7 @@ function dpRenderDetailModal(box, type, data, comments) {
             }).join('') +
           '</select></div>' +
           '<div><label class="dp-form-label">Échéance</label><input type="date" class="dp-form-input" id="dp-det-echeance" value="'+(data.date_echeance||'')+'"></div>' +
-          '<button class="dp-btn dp-btn--ghost" onclick="dpSauvegarderDetailsBug('+data.id+')">Mettre à jour</button>' +
+          '<button class="dp-btn dp-btn--ghost" onclick="dpSauvegarderDetailsBug('+data.id+')">🔄 Mettre à jour</button>' +
         '</div>' +
       '</div>'
     : '';
@@ -505,9 +505,9 @@ function dpRenderDetailModal(box, type, data, comments) {
   // Commentaire admin (évolutions seulement)
   var commAdminHTML = !isBug
     ? '<div class="dp-section">' +
-        '<div class="dp-section__title">Commentaire admin</div>' +
+        '<div class="dp-section__title"><span class="dp-section__ico">💬</span> Commentaire admin</div>' +
         '<textarea class="dp-form-input" id="dp-det-commentaire-admin" rows="2" style="resize:vertical">'+(data.commentaire_admin||'')+'</textarea>' +
-        '<button class="dp-btn dp-btn--ghost" style="margin-top:8px" onclick="dpSauvegarderDetail(\''+type+'\','+data.id+')">Mettre à jour</button>' +
+        '<button class="dp-btn dp-btn--ghost" style="margin-top:8px" onclick="dpSauvegarderDetail(\''+type+'\','+data.id+')">🔄 Mettre à jour</button>' +
       '</div>'
     : '';
 
@@ -533,7 +533,7 @@ function dpRenderDetailModal(box, type, data, comments) {
 
     // AVANCEMENT
     '<div class="dp-progress">' +
-      '<div class="dp-progress__title">📊 Avancement</div>' +
+      '<div class="dp-progress__title"><span class="dp-section__ico">📊</span> Avancement</div>' +
       '<div class="dp-progress__chips">'+progressHTML+'</div>' +
     '</div>' +
 
@@ -542,7 +542,7 @@ function dpRenderDetailModal(box, type, data, comments) {
 
     // DESCRIPTION
     (data.description
-      ? '<div class="dp-section"><div class="dp-section__title">Description</div><p class="dp-section__text">'+data.description+'</p></div>'
+      ? '<div class="dp-section"><div class="dp-section__title"><span class="dp-section__ico">📄</span> Description</div><p class="dp-section__text">'+data.description+'</p></div>'
       : ''
     ) +
 
@@ -554,11 +554,11 @@ function dpRenderDetailModal(box, type, data, comments) {
 
     // ÉVÉNEMENTS
     '<div class="dp-events">' +
-      '<div class="dp-events__title">📝 Événements ('+comments.length+')</div>' +
+      '<div class="dp-events__title"><span class="dp-section__ico">💬</span> Événements ('+comments.length+')</div>' +
       eventsHTML +
       '<div class="dp-event-add">' +
         '<input class="dp-form-input" id="dp-det-new-comment" placeholder="Ajouter un commentaire…" onkeydown="if(event.key===\'Enter\') dpAjouterCommentaire(\''+type+'\','+data.id+')">' +
-        '<button class="dp-btn dp-btn--primary" onclick="dpAjouterCommentaire(\''+type+'\','+data.id+')">Envoyer</button>' +
+        '<button class="dp-btn dp-btn--rose" onclick="dpAjouterCommentaire(\''+type+'\','+data.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Envoyer</button>' +
       '</div>' +
     '</div>' +
 
@@ -1147,9 +1147,9 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 .dp-step.is-done{background:var(--ok-50);border-color:#a0e0c0}
 .dp-step.is-done .dp-step__title{color:var(--ok-700)}
 .dp-step.is-done .dp-step__ico{background:var(--ok-700);color:#fff}
-.dp-step.is-current{background:var(--brand-50);border:1.5px solid var(--brand-500);box-shadow:0 0 0 3px rgba(74,126,199,.10)}
-.dp-step.is-current .dp-step__title{color:var(--navy);font-weight:700}
-.dp-step.is-current .dp-step__ico{background:var(--brand-500);color:#fff}
+.dp-step.is-current{background:#fff7fa;border:1.5px solid var(--rose);box-shadow:0 0 0 3px rgba(229,25,94,.10)}
+.dp-step.is-current .dp-step__title{color:var(--rose);font-weight:700}
+.dp-step.is-current .dp-step__ico{background:var(--rose);color:#fff}
 .dp-step__chev{display:flex;align-items:center;color:var(--ink-300);font-size:18px;font-weight:700;flex-shrink:0;padding:0 1px}
 
 /* Étape en cours call-out */
@@ -1162,7 +1162,7 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 }
 .dp-current__icon{
   width:38px;height:38px;
-  background:var(--brand-100);color:var(--brand-700);
+  background:#fce8ef;color:var(--rose);
   border-radius:10px;
   display:grid;place-items:center;
   font-size:17px;flex-shrink:0
@@ -1176,8 +1176,17 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 /* Sections (description, etc.) */
 .dp-section{padding:14px 20px;border-bottom:1px solid var(--ink-100)}
 .dp-section:last-of-type{border-bottom:none}
-.dp-section__title{font-size:11px;font-weight:700;color:var(--ink-400);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
-.dp-section__text{font-size:13.5px;line-height:1.6;color:var(--ink-700);margin:0}
+.dp-section__title{font-size:11px;font-weight:700;color:var(--ink-500);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.dp-section__ico{
+  display:inline-grid;place-items:center;
+  width:24px;height:24px;
+  background:#fce8ef;color:var(--rose);
+  border-radius:6px;
+  font-size:12px;line-height:1;
+  flex-shrink:0
+}
+.dp-progress__title .dp-section__ico,.dp-events__title .dp-section__ico{margin-right:0}
+.dp-section__text{font-size:13.5px;line-height:1.6;color:var(--ink-700);margin:0;background:var(--ink-50);border-left:3px solid var(--rose);border-radius:0 8px 8px 0;padding:12px 14px}
 
 /* Détails admin compacts */
 .dp-admin-compact__row{
