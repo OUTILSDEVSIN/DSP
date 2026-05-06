@@ -191,3 +191,48 @@
   /* ── Grille Dplane v5 — design compact et lisible ── */
   .dplane-grid { overflow-x:auto; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
 
+  /* ===== ÉVOL-003 — DISPATCH : Badges ancienneté & bannière ===== */
+  /* Badges affichés sur chaque dossier ancien dans la modale de proposition */
+  .badge-ancien {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+  .badge-ancien.critique {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+  }
+  .badge-ancien.alerte {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+  }
+  /* Mode sombre : on adoucit les fonds tout en gardant la lisibilité */
+  body.dark-mode .badge-ancien.critique {
+    background: #4a1a1a;
+    color: #fca5a5;
+    border-color: #6b2020;
+  }
+  body.dark-mode .badge-ancien.alerte {
+    background: #3b2a0a;
+    color: #fcd34d;
+    border-color: #5a3f10;
+  }
+  /* Bannière dossiers anciens : amélioration du rendu en mode sombre */
+  body.dark-mode #banniere-anciens {
+    background: #2a2410 !important;
+    border-color: #5a4310 !important;
+    color: #fcd34d;
+  }
+  body.dark-mode #banniere-anciens strong {
+    color: #fcd34d !important;
+  }
+  /* ===== FIN ÉVOL-003 ===== */
