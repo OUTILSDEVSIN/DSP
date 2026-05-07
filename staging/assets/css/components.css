@@ -236,3 +236,105 @@
     color: #fcd34d !important;
   }
   /* ===== FIN ÉVOL-003 ===== */
+
+  /* ===== ÉVOL-003 Lot 2 — DISPATCH : Layout 2 zones ===== */
+  /* La modale principale du dispatch occupe presque tout l'écran et est */
+  /* divisée en 2 zones : gauche (dossiers non attribués), droite (gestionnaires) */
+  .modal.dispatch-layout {
+    /* Override des paddings par défaut de .modal pour gérer le layout flex interne */
+    padding: 0 !important;
+    overflow: hidden;
+  }
+  .modal.dispatch-layout h2 {
+    margin: 0;
+  }
+  /* Zone gauche : carte dossier non attribué */
+  .dossier-libre-row {
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .dossier-libre-row:hover {
+    border-color: var(--rose);
+  }
+  .dossier-libre-row .btn-attrib-libre:hover {
+    filter: brightness(1.1);
+  }
+  /* Zone droite : bloc gestionnaire (scroll horizontal de la zone parente) */
+  .gest-block {
+    transition: box-shadow 0.15s;
+  }
+  .gest-block:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  /* La drop-zone est la liste interne d'un bloc gestionnaire (futur drag&drop ÉVOL-F) */
+  .drop-zone {
+    transition: background 0.15s;
+  }
+  /* Mode sombre : fonds adaptés pour le layout 2 zones */
+  body.dark-mode .modal.dispatch-layout #zone-libre {
+    background: #1a1f2b !important;
+  }
+  body.dark-mode .modal.dispatch-layout #zone-libre > div:first-child {
+    background: #232936 !important;
+    color: #e0e3ff !important;
+  }
+  body.dark-mode .gest-block {
+    background: #232936 !important;
+    border-color: #3a4150 !important;
+  }
+  body.dark-mode .gest-block > div:first-child {
+    background: #2a3140 !important;
+    border-color: #3a4150 !important;
+  }
+  body.dark-mode .dossier-libre-row {
+    background: #232936 !important;
+    border-color: #3a4150 !important;
+    color: #e0e3ff;
+  }
+  body.dark-mode .dossier-libre-row:hover {
+    border-color: var(--rose);
+  }
+  /* ===== FIN ÉVOL-003 Lot 2 ===== */
+
+  /* ===== ÉVOL-003 Lot 2 v2 — Cartes compactes + popup d'attribution ===== */
+  /* Carte compacte (1 ligne) avec effet hover et indication visuelle popup ouverte */
+  .dossier-libre-row {
+    cursor: default;
+  }
+  .dossier-libre-row.popup-open {
+    border-color: var(--rose) !important;
+    box-shadow: 0 0 0 2px rgba(255, 75, 134, 0.15);
+  }
+  .dossier-libre-row .btn-attrib-libre:hover {
+    filter: brightness(1.1);
+    transform: scale(1.05);
+  }
+  /* Popup d'attribution : positionnée juste sous la carte */
+  .popup-attrib {
+    animation: popup-fadein 0.12s ease-out;
+  }
+  @keyframes popup-fadein {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .popup-attrib-item {
+    transition: background 0.1s;
+  }
+  .popup-attrib-item:hover {
+    background: var(--gray-100) !important;
+  }
+  /* Mode sombre : popup */
+  body.dark-mode .popup-attrib {
+    background: #232936 !important;
+    border-color: #3a4150 !important;
+  }
+  body.dark-mode .popup-attrib > div:first-child {
+    color: #b8bcc7 !important;
+    border-bottom-color: #3a4150 !important;
+  }
+  body.dark-mode .popup-attrib-item {
+    color: #e0e3ff !important;
+  }
+  body.dark-mode .popup-attrib-item:hover {
+    background: #2a3140 !important;
+  }
+  /* ===== FIN ÉVOL-003 Lot 2 v2 ===== */
