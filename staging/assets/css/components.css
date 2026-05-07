@@ -338,3 +338,95 @@
     background: #2a3140 !important;
   }
   /* ===== FIN ÉVOL-003 Lot 2 v2 ===== */
+
+  /* ===== ÉVOL-003 Étape 2 — Modal préliminaire dossiers anciens ===== */
+  /* La carte d'un dossier ancien dans le modal préliminaire suit le même */
+  /* pattern UX que la carte de la zone gauche (popup au clic sur +).      */
+  .ancien-row {
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .ancien-row:hover {
+    border-color: var(--rose);
+  }
+  .ancien-row.popup-open {
+    border-color: var(--rose) !important;
+    box-shadow: 0 0 0 2px rgba(255, 75, 134, 0.15);
+  }
+  .ancien-row .btn-attrib-ancien:hover {
+    filter: brightness(1.1);
+    transform: scale(1.05);
+  }
+  .pre-assign-tag {
+    animation: tag-pop-in 0.2s ease-out;
+  }
+  @keyframes tag-pop-in {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  /* Mode sombre */
+  body.dark-mode .ancien-row {
+    background: #232936 !important;
+    border-color: #3a4150 !important;
+    color: #e0e3ff;
+  }
+  body.dark-mode #pre-dispatch-modal .modal {
+    background: #1a1f2b !important;
+    color: #e0e3ff !important;
+  }
+  body.dark-mode #pre-dispatch-modal .modal h2 {
+    color: #fcd34d !important;
+  }
+  body.dark-mode #liste-anciens {
+    background: #1a1f2b !important;
+  }
+  /* ===== FIN ÉVOL-003 Étape 2 ===== */
+
+  /* ===== ÉVOL-003 Étape 2 v2 — Modal préliminaire scénario C ===== */
+  /* Lignes gestionnaires cliquables avec animation au check */
+  .pre-gest-row {
+    transition: all 0.15s ease-out;
+    user-select: none;
+  }
+  .pre-gest-row:hover {
+    border-color: var(--rose) !important;
+    transform: translateX(2px);
+  }
+  .pre-gest-row .pre-gest-cb {
+    cursor: pointer;
+  }
+  .pre-gest-row .pre-gest-nb {
+    transition: border-color 0.1s;
+  }
+  .pre-gest-row .pre-gest-nb:focus {
+    outline: none;
+    border-color: var(--rose) !important;
+    box-shadow: 0 0 0 2px rgba(255, 75, 134, 0.15);
+  }
+  /* Aperçu live de la répartition */
+  #pre-recap {
+    transition: background 0.15s;
+  }
+  /* Mode sombre */
+  body.dark-mode .pre-gest-row {
+    background: #232936 !important;
+    border-color: #3a4150 !important;
+    color: #e0e3ff;
+  }
+  body.dark-mode .pre-gest-row[style*="background:#fff5f8"],
+  body.dark-mode .pre-gest-row[style*="background: #fff5f8"] {
+    background: #2d2236 !important;
+  }
+  body.dark-mode .pre-gest-row .pre-gest-nb {
+    background: #1a1f2b !important;
+    color: #e0e3ff !important;
+    border-color: #3a4150 !important;
+  }
+  body.dark-mode #pre-recap {
+    background: #232936 !important;
+    border-color: #3a4150 !important;
+    color: #b8bcc7 !important;
+  }
+  body.dark-mode details summary {
+    color: #b8bcc7 !important;
+  }
+  /* ===== FIN ÉVOL-003 Étape 2 v2 ===== */
