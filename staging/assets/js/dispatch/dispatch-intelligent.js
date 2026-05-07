@@ -1,5 +1,22 @@
 // ===== TICKET 1 -- DISPATCH INTELLIGENT =====
 
+/**
+ * Échappe les caractères HTML spéciaux pour éviter les injections et les
+ * affichages corrompus quand un prénom/nom contient < > & " ' (ÉVOL-003 Lot 2).
+ * Doit être appliquée à TOUTE valeur dynamique insérée dans une chaîne HTML.
+ * @param {string|number|null|undefined} str
+ * @returns {string} chaîne sécurisée pour innerHTML
+ */
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function showGestionnairesModal() {
     var gests = (allUsers||[]).filter(function(u) {
         return u.role === 'gestionnaire' || u.role === 'manager' || u.role === 'admin';
@@ -329,51 +346,141 @@ async function showPropositionModal() {
     var totalRoundRobin  = dossiersRestants.filter(function(d){ return dossiersAssigned.has(d.id) && !idsPreAssignes.includes(d.id); }).length;
     var totalLibresCount = dossiersLibres.length;
 
+    // ── ÉVOL-003 Lot 2 : Liste des dossiers NON attribués (zone gauche) ──
+    // Ces dossiers seront affichés à gauche de la modale ; le manager peut
+    // les attribuer manuellement à un gestionnaire via un select + bouton ✓.
+    var dossiersNonAttribues = dossiersLibres.filter(function(d){ return !dossiersAssigned.has(d.id); });
+
+    /**
+     * Génère le HTML d'une "carte dossier" COMPACTE affichée dans la zone gauche.
+     * Mode 1 ligne : [badge ancienneté] [ref sinistre] [bouton +].
+     * Le portefeuille/type/nature est dans l'attribut title (tooltip natif au survol).
+     * Le bouton + ouvre une popup positionnée juste en-dessous via togglePopupAttrib().
+     */
+    function renderLigneDossierLibre(d) {
+        var badge = getBadgeAnciennete(d);
+        // Tooltip = "PORTEFEUILLE · TYPE · NATURE" (échappé via escapeHtml)
+        var tooltip = escapeHtml((d.portefeuille || '?') + ' · ' + (d.type || '?') + ' · ' + (d.nature || '?'));
+        return '<div class="dossier-libre-row" data-dossier-id="' + escapeHtml(d.id) + '"'
+            + ' title="' + tooltip + '"'
+            + ' style="position:relative;display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;margin-bottom:4px;background:white;font-size:11px">'
+            + (badge || '')
+            + '<span style="font-family:monospace;font-weight:600;color:var(--navy);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(d.ref_sinistre || '') + '</span>'
+            + '<button class="btn-attrib-libre" data-dossier-id="' + escapeHtml(d.id) + '"'
+            + ' title="Attribuer à un gestionnaire"'
+            + ' style="width:22px;height:22px;padding:0;background:var(--rose);color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
+            + '</div>';
+    }
+
+    /**
+     * Génère le HTML de la popup d'attribution qui s'affiche au-dessus d'une carte
+     * de la zone gauche au clic du bouton +. Liste les gestionnaires actifs avec
+     * leur avatar coloré ; clic sur un nom = attribution.
+     */
+    function renderPopupAttrib(dossierId) {
+        var items = activeGest.map(function(g) {
+            var initiales = (((g.prenom || '')[0] || '') + ((g.nom || '')[0] || '')).toUpperCase();
+            return '<button class="popup-attrib-item" data-gest-id="' + escapeHtml(g.id) + '" data-dossier-id="' + escapeHtml(dossierId) + '"'
+                + ' style="width:100%;text-align:left;padding:5px 8px;background:transparent;border:none;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px;color:var(--navy)">'
+                + '<span style="width:20px;height:20px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">' + escapeHtml(initiales) + '</span>'
+                + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(g.prenom + ' ' + g.nom) + '</span>'
+                + '</button>';
+        }).join('');
+        return '<div class="popup-attrib" data-popup-for="' + escapeHtml(dossierId) + '"'
+            + ' style="position:absolute;top:calc(100% + 4px);right:0;width:200px;background:white;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:6px;z-index:100">'
+            + '<div style="font-size:10px;color:var(--gray-600);padding:3px 6px;border-bottom:1px solid var(--gray-200);margin-bottom:4px">Attribuer à&nbsp;:</div>'
+            + '<div style="display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto">' + items + '</div>'
+            + '</div>';
+    }
+
+    var listeLibresHTML = dossiersNonAttribues.length === 0
+        ? '<div style="padding:14px;text-align:center;color:var(--gray-600);font-size:12px">✅ Tous les dossiers sont attribués</div>'
+        : dossiersNonAttribues.map(renderLigneDossierLibre).join('');
+    // ── FIN zone gauche ──────────────────────────────────────────────
+
+    /**
+     * Génère le HTML d'une ligne dossier dans un bloc gestionnaire (zone droite).
+     * Extraite en fonction pour pouvoir être réutilisée lors d'attributions
+     * manuelles depuis la zone gauche.
+     */
+    function renderLigneDossierBloc(d, gestId) {
+        var badgeAncien = getBadgeAnciennete(d);
+        return '<div data-dossier-id="' + escapeHtml(d.id) + '" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;margin-bottom:4px;background:#f8f9fa">'
+            + '<input type="checkbox" class="dossier-sel-cb" data-gest-id="' + escapeHtml(gestId) + '" style="width:14px;height:14px;accent-color:var(--rose);cursor:pointer;flex-shrink:0">'
+            + (badgeAncien || '')
+            + '<div style="flex:1;min-width:0;overflow:hidden">'
+            + '<div style="font-family:monospace;font-weight:600;color:var(--navy);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(d.ref_sinistre || '') + '</div>'
+            + '<div style="font-size:10px;color:var(--gray-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml((d.portefeuille || '') + ' · ' + (d.type || '') + ' · ' + (d.nature || '')) + '</div>'
+            + '</div>'
+            + '<select data-dossier-move="' + escapeHtml(d.id) + '" data-current-gest="' + escapeHtml(gestId) + '" title="Déplacer vers..." style="font-size:10px;padding:1px 2px;border:1px solid var(--gray-300);border-radius:4px;cursor:pointer;max-width:60px;flex-shrink:0">'
+            + '<option value="">↔️</option>'
+            + activeGest.map(function(og){ return '<option value="' + escapeHtml(og.id) + '">' + escapeHtml(og.prenom + ' ' + og.nom) + '</option>'; }).join('')
+            + '</select>'
+            + '<button data-dossier-rm="' + escapeHtml(d.id) + '" title="Retirer" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;font-weight:700;padding:0 2px;flex-shrink:0">✕</button>'
+            + '</div>';
+    }
+
     var blocks = '';
     activeGest.forEach(function(g) {
         var prop = propData[String(g.id)];
         var dLines = '';
         prop.dossiers.forEach(function(d) {
-            var badgeAncien = getBadgeAnciennete(d); // ÉVOL-C : badge si dossier > 24h
-            dLines += '<div data-dossier-id="' + d.id + '" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;margin-bottom:4px;background:#f8f9fa">'
-                + '<input type="checkbox" class="dossier-sel-cb" data-gest-id="' + g.id + '" style="width:14px;height:14px;accent-color:var(--rose);cursor:pointer;flex-shrink:0">'
-                + (badgeAncien ? badgeAncien : '')
-                + '<span style="font-family:monospace;font-weight:600;color:var(--navy);font-size:12px">' + (d.ref_sinistre||'') + '</span>'
-                + '<span style="font-size:11px;color:var(--gray-600);flex:1">' + (d.portefeuille||'') + ' | ' + (d.type||'') + ' | ' + (d.nature||'') + '</span>'
-                + '<select data-dossier-move="' + d.id + '" data-current-gest="' + g.id + '" title="Déplacer vers..." style="font-size:11px;padding:2px 4px;border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;max-width:130px"><option value="">↔️ Déplacer</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
-                + '<button data-dossier-rm="' + d.id + '" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">✕</button>'
-                + '</div>';
+            dLines += renderLigneDossierBloc(d, g.id);
         });
         if (prop.dossiers.length === 0) {
-            dLines = '<div style="padding:12px;text-align:center;color:var(--gray-600);font-size:13px">⚠️ Aucun dossier éligible pour les habilitations de ce gestionnaire</div>';
+            dLines = '<div data-empty-msg style="padding:10px;text-align:center;color:var(--gray-600);font-size:11px">⚠️ Aucun dossier éligible</div>';
         }
-        blocks += '<div class="gest-block" data-gestid="' + g.id + '" style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px;background:white">'
-            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
-            + '<div>' + getBadgeProfil(g.id) + '<strong style="color:var(--navy)">' + g.prenom + ' ' + g.nom + '</strong>'
-            + ' <span class="badge-count" style="font-size:11px;color:var(--gray-600);background:var(--gray-100);padding:2px 8px;border-radius:10px">' + prop.dossiers.length + ' dossier(s)</span></div>'
-            + '<div style="display:flex;align-items:center;gap:6px">'
-            + '<label style="font-size:12px;color:var(--gray-600)" title="Le manager peut modifier ce Max à tout moment">Max :</label>'
-            + '<input type="number" class="nb-dossiers-input" data-gestid="' + g.id + '" value="' + getMaxDefaut(g.id) + '" min="0" max="50" style="width:55px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:13px">'
-            + '</div></div>'
-            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;background:#f0f4f8;border-radius:8px">'
-            + '<input type="checkbox" class="sel-all-block" data-gestid="' + g.id + '" style="width:14px;height:14px;accent-color:var(--rose);cursor:pointer" title="Tout sélectionner">'
-            + '<span style="font-size:12px;color:var(--gray-600)">Tout sélectionner</span>'
-            + '<span style="flex:1"></span>'
-            + '<select class="bulk-move-sel" data-gestid="' + g.id + '" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:6px;display:none"><option value="">↔️ Déplacer vers...</option>' + activeGest.map(function(og){ return '<option value="' + og.id + '|' + og.prenom + ' ' + og.nom + '">' + og.prenom + ' ' + og.nom + '</option>'; }).join('') + '</select>'
-            + '<button class="bulk-rm-btn" data-gestid="' + g.id + '" style="font-size:11px;padding:3px 10px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;display:none">🗑️ Supprimer sélection</button>'
+
+        // Initiales pour avatar (ex : "Jean Martin" → "JM")
+        var initiales = (((g.prenom || '')[0] || '') + ((g.nom || '')[0] || '')).toUpperCase();
+        var nomComplet = escapeHtml((g.prenom || '') + ' ' + (g.nom || ''));
+
+        blocks += '<div class="gest-block" data-gestid="' + escapeHtml(g.id) + '"'
+            + ' style="display:flex;flex-direction:column;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:white;overflow:hidden;min-height:200px;max-height:55vh">'
+            // En-tête bloc gestionnaire
+            + '<div style="padding:8px 10px;background:#f0f4f8;border-bottom:1px solid var(--gray-200)">'
+            + '<div style="display:flex;align-items:center;gap:8px">'
+            + '<div style="width:32px;height:32px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">' + escapeHtml(initiales) + '</div>'
+            + '<div style="flex:1;min-width:0">'
+            + '<div style="font-weight:700;color:var(--navy);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + nomComplet + '">'
+            + getBadgeProfil(g.id) + nomComplet + '</div>'
+            + '<div style="font-size:11px;color:var(--gray-600)">'
+            + '<span class="badge-count">' + prop.dossiers.length + '</span> dossier(s)'
             + '</div>'
-            + '<div class="dossiers-list-block" data-gestid="' + g.id + '">' + dLines + '</div>'
+            + '</div>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
+            + '<label style="font-size:11px;color:var(--gray-600)" title="Modifiable à tout moment">Max :</label>'
+            + '<input type="number" class="nb-dossiers-input" data-gestid="' + escapeHtml(g.id) + '" value="' + getMaxDefaut(g.id) + '" min="0" max="50" style="width:50px;padding:3px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:12px">'
+            + '</div>'
+            + '</div>'
+            // Barre multi-sélection
+            + '<div style="padding:5px 8px;background:#f0f4f8;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:6px">'
+            + '<input type="checkbox" class="sel-all-block" data-gestid="' + escapeHtml(g.id) + '" style="width:13px;height:13px;accent-color:var(--rose);cursor:pointer" title="Tout sélectionner">'
+            + '<span style="font-size:10px;color:var(--gray-600)">Tout</span>'
+            + '<span style="flex:1"></span>'
+            + '<select class="bulk-move-sel" data-gestid="' + escapeHtml(g.id) + '" style="font-size:10px;padding:2px 4px;border:1px solid var(--gray-300);border-radius:4px;display:none;max-width:80px">'
+            + '<option value="">↔️</option>'
+            + activeGest.map(function(og){ return '<option value="' + escapeHtml(og.id + '|' + og.prenom + ' ' + og.nom) + '">' + escapeHtml(og.prenom + ' ' + og.nom) + '</option>'; }).join('')
+            + '</select>'
+            + '<button class="bulk-rm-btn" data-gestid="' + escapeHtml(g.id) + '" style="font-size:10px;padding:2px 6px;background:#e74c3c;color:white;border:none;border-radius:4px;cursor:pointer;display:none">🗑️</button>'
+            + '</div>'
+            // Liste dossiers (scrollable)
+            + '<div class="dossiers-list-block drop-zone" data-gestid="' + escapeHtml(g.id) + '" style="flex:1;overflow-y:auto;padding:6px;min-height:120px">'
+            + dLines
+            + '</div>'
             + '</div>';
     });
 
     // ── ÉVOL-C : Construction de la bannière dossiers anciens ────────
+    // (Conservée à l'Étape 1 ; sera migrée vers le modal préliminaire à l'Étape 2)
     var banniereHTML = '';
     if (nbCritiques + nbAlertes > 0) {
         var optionsGests = '<option value="">Libre (algo)</option>'
             + activeGest.map(function(g) {
-                return '<option value="' + g.id + '">' + g.prenom + ' ' + g.nom + '</option>';
+                return '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.prenom + ' ' + g.nom) + '</option>';
             }).join('');
-        banniereHTML = '<div id="banniere-anciens" style="background:#fff8e1;border:1px solid #f0ad4e;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:12px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">'
+        banniereHTML = '<div id="banniere-anciens" style="background:#fff8e1;border:1px solid #f0ad4e;border-radius:var(--radius-md);padding:10px 14px;margin:0 12px 8px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">'
             + '<strong style="color:#856404;font-size:13px">⚠️ Dossiers anciens détectés</strong>'
             + (nbCritiques > 0
                 ? '<div style="display:flex;align-items:center;gap:8px;font-size:13px">'
@@ -392,26 +499,181 @@ async function showPropositionModal() {
     }
     // ── FIN ÉVOL-C bannière ──────────────────────────────────────────
 
-    modal.innerHTML = '<div class="modal" style="max-width:720px;width:95vw;max-height:88vh;overflow-y:auto">'
-        + '<h2>🚀 Proposition de dispatch intelligent</h2>'
+    // ── ÉVOL-003 Lot 2 : Nouveau layout 2 zones (gauche/droite) ──────
+    modal.innerHTML = '<div class="modal dispatch-layout" style="max-width:98vw;width:98vw;height:92vh;display:flex;flex-direction:column;padding:0">'
+        // En-tête
+        + '<div style="padding:14px 18px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
+        + '<h2 style="margin:0;font-size:18px">🚀 Proposition de dispatch intelligent</h2>'
+        + '<div id="global-dispatch-counter" style="font-size:12px;color:var(--gray-700);padding:6px 10px;background:#f5f5fb;border-radius:8px;border:1px solid #e0e3ff">'
+        + 'Total libres : <strong>' + totalLibresCount + '</strong> · Déjà prévus : <strong>' + (totalPreAssignes + totalRoundRobin) + '</strong> · Reste à attribuer : <strong>' + dossiersNonAttribues.length + '</strong>'
+        + '</div>'
+        + '</div>'
         + banniereHTML
-        + '<div id="global-dispatch-counter" style="font-size:12px;color:var(--gray-700);margin:-4px 0 8px 0;padding:6px 10px;background:#f5f5fb;border-radius:8px;border:1px solid #e0e3ff">'
-        + 'Total libres : <strong>' + totalLibresCount + '</strong> · Déjà prévus : <strong>0</strong> · Reste à attribuer : <strong>' + totalLibresCount + '</strong>'
+        // Corps splitté en 2 zones
+        + '<div style="display:flex;flex:1;gap:12px;padding:12px;overflow:hidden;min-height:0">'
+        // Zone gauche : dossiers non attribués
+        + '<div id="zone-libre" style="width:280px;min-width:240px;flex-shrink:0;display:flex;flex-direction:column;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:#f8f9fa;overflow:hidden">'
+        + '<div style="padding:10px 12px;border-bottom:1px solid var(--gray-200);font-weight:700;color:var(--navy);font-size:13px;background:white">'
+        + '📋 Non attribués — <span id="compteur-libres" style="background:#fff3cd;color:#856404;padding:1px 8px;border-radius:10px;font-size:11px">' + dossiersNonAttribues.length + '</span>'
         + '</div>'
-        + '<p style="color:var(--gray-600);font-size:13px;margin-bottom:16px">Dossiers filtrés par habilitations. Ajustez le nombre max ou supprimez des dossiers.</p>'
+        + '<div id="liste-dossiers-libres" style="flex:1;overflow-y:auto;padding:8px">'
+        + listeLibresHTML
+        + '</div>'
+        + '</div>'
+        // Zone droite : grille gestionnaires
+        // Zone droite : grille gestionnaires (multi-rangées auto-fit, ÉVOL-003 Lot 2)
+        + '<div id="zone-gestionnaires" style="flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:10px;align-content:start;padding-bottom:4px">'
         + blocks
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;border-top:1px solid var(--gray-200);padding-top:16px">'
-        + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--gray-700)">' 
-        + '<div id="global-dispatch-counter-footer"></div>'
-        + '<button id="btn-reeq" class="btn btn-light" style="padding:4px 10px;font-size:11px;align-self:flex-start">🔄 Rééquilibrer la proposition</button>'
         + '</div>'
-        + '<div style="display:flex;gap:12px;justify-content:flex-end">'
+        + '</div>'
+        // Footer
+        + '<div style="padding:12px 18px;border-top:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">'
+        + '<div style="display:flex;align-items:center;gap:12px">'
+        + '<button id="btn-reeq" class="btn btn-light" style="padding:5px 12px;font-size:12px">🔄 Rééquilibrer</button>'
+        + '<span id="global-dispatch-counter-footer" style="font-size:12px;color:var(--gray-700)"></span>'
+        + '</div>'
+        + '<div style="display:flex;gap:12px">'
         + '<button class="btn btn-secondary" id="btn-prop-cancel">Annuler</button>'
         + '<button class="btn btn-success" id="btn-do-dispatch" style="font-size:15px;padding:10px 32px;font-weight:700">✅ DISPATCH</button>'
-        + '</div></div></div>';
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    // ── FIN nouveau layout ──────────────────────────────────────────
 
     document.body.appendChild(modal);
     document.getElementById('btn-prop-cancel').onclick = function() { closeModal('proposition-modal'); };
+
+    // ── ÉVOL-003 Lot 2 : Mise à jour des compteurs (zone gauche + footer) ──
+    /**
+     * Met à jour tous les compteurs visibles. Délègue à recomputeGlobalCounters
+     * qui gère à la fois le footer (Total libres / Déjà prévus / Reste) ET
+     * le badge de la zone gauche. Les badges-count par bloc sont mis à jour
+     * via applyMaxToGest qui est appelée séparément.
+     */
+    function updateAllCompteurs() {
+        recomputeGlobalCounters();
+    }
+
+    /**
+     * Attribue un dossier de la zone gauche vers un gestionnaire (zone droite).
+     * - Retire la carte de la zone gauche
+     * - Ajoute une ligne dans le bloc gestionnaire
+     * - Auto-incrémente le Max si le bloc est plein (manager garde la main)
+     */
+    function attribuerDossierLibreVersGest(dossierId, gestId) {
+        var d = (allDossiers || []).find(function(x) { return String(x.id) === String(dossierId); });
+        if (!d) { showNotif('Dossier introuvable', 'error'); return; }
+
+        var block = modal.querySelector('.dossiers-list-block[data-gestid="' + gestId + '"]');
+        if (!block) { showNotif('Gestionnaire introuvable', 'error'); return; }
+
+        // Auto-incrément du Max si nécessaire (règle ÉVOL-B v4 : manager garde la main)
+        var maxInput = modal.querySelector('.nb-dossiers-input[data-gestid="' + gestId + '"]');
+        var maxVal = maxInput ? (parseInt(maxInput.value) || 0) : 0;
+        var nbActuel = block.querySelectorAll('[data-dossier-id]').length;
+        if (nbActuel >= maxVal && maxInput) {
+            maxInput.value = nbActuel + 1;
+        }
+
+        // Retirer la carte de la zone gauche
+        var rowLibre = document.querySelector('#liste-dossiers-libres [data-dossier-id="' + dossierId + '"]');
+        if (rowLibre) rowLibre.remove();
+
+        // Retirer le message "aucun dossier éligible" s'il existe
+        var emptyMsg = block.querySelector('[data-empty-msg]');
+        if (emptyMsg) emptyMsg.remove();
+
+        // Ajouter la ligne dans le bloc gestionnaire
+        block.insertAdjacentHTML('beforeend', renderLigneDossierBloc(d, gestId));
+
+        // Re-bind les nouveaux handlers (move + remove) sur la nouvelle ligne
+        bindMoveSelects();
+        bindDossierRemoveButtons();
+
+        // Mettre à jour les compteurs et l'affichage Max
+        applyMaxToGest(gestId);
+        updateAllCompteurs();
+    }
+
+    /**
+     * Rebind les boutons ✕ de suppression. Appelée à l'init et après chaque
+     * insertion de ligne pour que les nouveaux boutons soient fonctionnels.
+     */
+    function bindDossierRemoveButtons() {
+        modal.querySelectorAll('[data-dossier-rm]').forEach(function(btn) {
+            if (btn._boundRm) return; // évite le double-binding
+            btn._boundRm = true;
+            btn.onclick = function() {
+                var row = this.closest('[data-dossier-id]');
+                if (row) {
+                    var gestid = row.closest('.dossiers-list-block').dataset.gestid;
+                    row.remove();
+                    applyMaxToGest(gestid);
+                    updateAllCompteurs();
+                }
+            };
+        });
+    }
+
+    /**
+     * Ferme toute popup d'attribution actuellement ouverte.
+     */
+    function closeAllPopupsAttrib() {
+        modal.querySelectorAll('.popup-attrib').forEach(function(p) { p.remove(); });
+        modal.querySelectorAll('.dossier-libre-row.popup-open').forEach(function(row) {
+            row.classList.remove('popup-open');
+        });
+    }
+
+    /**
+     * Bind le bouton + de chaque carte dossier dans la zone gauche.
+     * Au clic, ouvre une popup juste sous la carte avec la liste des gestionnaires.
+     * Le click sur un gestionnaire dans la popup déclenche attribuerDossierLibreVersGest.
+     */
+    function bindAttribLibres() {
+        modal.querySelectorAll('.btn-attrib-libre').forEach(function(btn) {
+            if (btn._boundAttrib) return; // évite le double-binding
+            btn._boundAttrib = true;
+            btn.onclick = function(e) {
+                e.stopPropagation(); // évite que le click-outside ferme tout de suite
+                var dossierId = this.dataset.dossierId;
+                var row = this.closest('.dossier-libre-row');
+                if (!row) return;
+                // Si une popup est déjà ouverte sur cette carte, on la ferme (toggle)
+                if (row.classList.contains('popup-open')) {
+                    closeAllPopupsAttrib();
+                    return;
+                }
+                // Sinon : on ferme les autres popups, puis on ouvre celle-ci
+                closeAllPopupsAttrib();
+                row.classList.add('popup-open');
+                row.insertAdjacentHTML('beforeend', renderPopupAttrib(dossierId));
+                // Bind les boutons gestionnaires de la popup
+                var popup = row.querySelector('.popup-attrib');
+                if (popup) {
+                    popup.querySelectorAll('.popup-attrib-item').forEach(function(item) {
+                        item.onclick = function(ev) {
+                            ev.stopPropagation();
+                            var gid = this.dataset.gestId;
+                            var did = this.dataset.dossierId;
+                            closeAllPopupsAttrib();
+                            attribuerDossierLibreVersGest(did, gid);
+                        };
+                    });
+                }
+            };
+        });
+    }
+    bindAttribLibres();
+
+    // Click-outside : ferme toute popup d'attribution ouverte
+    // (handler attaché au modal pour ne pas polluer le document global)
+    modal.addEventListener('click', function(e) {
+        // Si le click est sur une popup ou un bouton +, on laisse les handlers locaux gérer
+        if (e.target.closest('.popup-attrib') || e.target.closest('.btn-attrib-libre')) return;
+        closeAllPopupsAttrib();
+    });
+    // ── FIN ÉVOL-003 Lot 2 ──────────────────────────────────────────
 
     // ── ÉVOL-C : Handler du bouton "Appliquer" de la bannière ────────
     // Quand le manager choisit un gestionnaire dans les selects critiques/alertes
@@ -491,8 +753,13 @@ async function showPropositionModal() {
                 return row.style.display !== 'none';
             }).length;
         });
-        var remaining = totalLibresCount - totalAssigned;
-        var txt = 'Total libres : <strong>' + totalLibresCount + '</strong> · Déjà prévus : <strong>' + totalAssigned + '</strong> · Reste à attribuer : <strong>' + Math.max(remaining,0) + '</strong>';
+        // ── ÉVOL-003 Lot 2 : compteur "Non attribués" basé sur la zone gauche ──
+        var listeLibres = document.getElementById('liste-dossiers-libres');
+        var nbLibres = listeLibres ? listeLibres.querySelectorAll('[data-dossier-id]').length : 0;
+        var spanLibres = document.getElementById('compteur-libres');
+        if (spanLibres) spanLibres.textContent = nbLibres;
+        // ──────────────────────────────────────────────────────────────────
+        var txt = 'Total libres : <strong>' + totalLibresCount + '</strong> · Déjà prévus : <strong>' + totalAssigned + '</strong> · Reste à attribuer : <strong>' + nbLibres + '</strong>';
         var top = modal.querySelector('#global-dispatch-counter');
         var bottom = modal.querySelector('#global-dispatch-counter-footer');
         if (top) top.innerHTML = txt;
@@ -507,7 +774,7 @@ async function showPropositionModal() {
         var rows = Array.from(block.querySelectorAll('[data-dossier-id]'));
         rows.forEach(function(row, idx){ row.style.display = idx < max ? '' : 'none'; });
         var badge = modal.querySelector('.gest-block[data-gestid="' + gestid + '"] .badge-count');
-        if (badge) badge.textContent = Math.min(max, rows.length) + ' dossier(s)';
+        if (badge) badge.textContent = Math.min(max, rows.length);
         recomputeGlobalCounters();
     }
 
@@ -515,16 +782,8 @@ async function showPropositionModal() {
         inp.addEventListener('input', function(){ applyMaxToGest(this.dataset.gestid); });
     });
 
-    modal.querySelectorAll('[data-dossier-rm]').forEach(function(btn) {
-        btn.onclick = function() {
-            var row = this.closest('[data-dossier-id]');
-            if (row) {
-                var gestid = row.closest('.dossiers-list-block').dataset.gestid;
-                row.remove();
-                applyMaxToGest(gestid);
-            }
-        };
-    });
+    // ── ÉVOL-003 Lot 2 : utilise bindDossierRemoveButtons (déclaré plus haut) ──
+    bindDossierRemoveButtons();
 
     // Logique déplacer un dossier vers un autre gestionnaire
     function bindMoveSelects() {
