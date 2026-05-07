@@ -17,6 +17,26 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+// ── ÉVOL-C utilitaires d'ancienneté (extraits au scope global pour ÉVOL-003 Étape 2) ──
+// Ces constantes et fonctions étaient initialement dans showPropositionModal.
+// Extraction nécessaire pour que showPreDispatchModal y accède aussi.
+var DISPATCH_SEUIL_CRITIQUE = 48; // heures
+var DISPATCH_SEUIL_ALERTE   = 24; // heures
+
+/**
+ * Calcule l'ancienneté en heures d'un dossier depuis sa date_etat (format DD/MM/YYYY).
+ * @returns {number|null} heures écoulées, ou null si date absente/invalide.
+ */
+function getAncienneteHeures(dossier) {
+    var s = dossier.date_etat;
+    if (!s) return null;
+    var p = s.split('/');
+    if (p.length !== 3) return null;
+    var d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+    if (isNaN(d.getTime())) return null;
+    return Math.floor((Date.now() - d.getTime()) / 3600000);
+}
+
 function showGestionnairesModal() {
     var gests = (allUsers||[]).filter(function(u) {
         return u.role === 'gestionnaire' || u.role === 'manager' || u.role === 'admin';
@@ -82,7 +102,357 @@ function showRepartitionModal() {
         var mode = document.querySelector('input[name="repart-mode"]:checked').value;
         closeModal('repart-modal');
         if (mode === 'manual') { showTab('attribution'); }
-        else { showPropositionModal(); }
+        // ÉVOL-003 Étape 2 : passage par le modal préliminaire avant la proposition
+        else { showPreDispatchModal(); }
+    };
+}
+
+// ============================================================================
+// ÉVOL-003 Étape 2 v2 : Modal préliminaire des dossiers anciens (Scénario C)
+// ============================================================================
+//
+// Workflow :
+//   1. Si aucun ancien (≥24h) → on saute le modal et lance directement la
+//      proposition automatique.
+//   2. Sinon, on affiche un modal listant les gestionnaires actifs sous forme
+//      de "pills" cliquables (multi-sélection). Quand un gestionnaire est coché,
+//      un input numérique apparaît pour ajuster combien d'anciens il recevra
+//      (plafonné à son Max du jour).
+//   3. Une zone repliable (<details>) montre la liste des dossiers concernés
+//      pour que le manager puisse vérifier ce qu'il y a dedans.
+//   4. Au clic "Continuer", on stocke les choix dans window.dispatchGestsPrioritaires
+//      sous la forme [{ id, nbAnciens }, ...] puis on lance la proposition
+//      automatique qui appliquera la pré-attribution prioritaire.
+//
+// Stockage : window.dispatchGestsPrioritaires = [{ id, nbAnciens }, ...]
+//            window.dispatchAnciensIds = ['id1', 'id2', ...]  (pour identifier
+//            les dossiers à pré-attribuer en priorité)
+// ============================================================================
+window.dispatchGestsPrioritaires = [];
+window.dispatchAnciensIds = [];
+
+/**
+ * Modal préliminaire — Scénario C avec capacités ajustables.
+ */
+async function showPreDispatchModal() {
+    // 1. Chargement des données
+    await loadDossiers();
+    await loadAllUsers();
+
+    // 2. Récupération des dossiers libres (même filtre que showPropositionModal)
+    var dossiersLibres = (allDossiers || []).filter(function(d) {
+        var s = (d.statut || '').toLowerCase();
+        return s === 'nonattribue' || s === '' || !d.gestionnaire || d.gestionnaire === '';
+    });
+
+    // 3. Détection des anciens (>24h)
+    var dossiersAnciens = dossiersLibres.filter(function(d) {
+        var h = getAncienneteHeures(d);
+        return h !== null && h > DISPATCH_SEUIL_ALERTE;
+    });
+
+    // 4. Si AUCUN ancien : reset et passage direct à la proposition
+    if (dossiersAnciens.length === 0) {
+        window.dispatchGestsPrioritaires = [];
+        window.dispatchAnciensIds = [];
+        showPropositionModal();
+        return;
+    }
+
+    // 5. Tri par ancienneté décroissante (les plus vieux d'abord)
+    dossiersAnciens.sort(function(a, b) {
+        return (getAncienneteHeures(b) || 0) - (getAncienneteHeures(a) || 0);
+    });
+
+    // 6. Mémorisation des IDs d'anciens (utilisés par showPropositionModal pour
+    //    identifier quels dossiers doivent passer dans la pré-attribution prioritaire)
+    window.dispatchAnciensIds = dossiersAnciens.map(function(d) { return d.id; });
+
+    // 7. Comptage critiques / alertes (pour le titre)
+    var nbCritiques = dossiersAnciens.filter(function(d) {
+        return (getAncienneteHeures(d) || 0) > DISPATCH_SEUIL_CRITIQUE;
+    }).length;
+    var nbAlertes = dossiersAnciens.length - nbCritiques;
+
+    // 8. Récupération des gestionnaires actifs (MÊME source que showPropositionModal)
+    var sess = window.safeSession || sessionStorage;
+    var activeIds = JSON.parse(sess.getItem('dispatch_gestionnaires') || '[]');
+    var actifs = (allUsers || []).filter(function(u) { return activeIds.includes(String(u.id)); });
+
+    if (actifs.length === 0) {
+        showNotif('Aucun gestionnaire actif sélectionné. Choisis-en au moins un.', 'warning');
+        return;
+    }
+
+    // 9. Récupération du Max par défaut de chaque gestionnaire
+    //    (même logique que getMaxDefaut dans showPropositionModal)
+    function getMaxJour(gestId) {
+        var key = 'dispatch_max_' + gestId;
+        var stored = sess.getItem(key);
+        if (stored !== null && stored !== '') {
+            var n = parseInt(stored, 10);
+            if (!isNaN(n) && n >= 0) return n;
+        }
+        return 15; // valeur par défaut DSP
+    }
+
+    // 10. Reset des choix précédents
+    window.dispatchGestsPrioritaires = [];
+
+    // 11. Construction du modal
+    var modal = document.createElement('div');
+    modal.id = 'pre-dispatch-modal';
+    modal.className = 'modal-overlay';
+
+    var totalAnciens = dossiersAnciens.length;
+
+    /**
+     * Génère la ligne d'un gestionnaire (pill cliquable + input nb anciens).
+     */
+    function renderLigneGest(g) {
+        var maxJour = getMaxJour(g.id);
+        var initiales = (((g.prenom || '')[0] || '') + ((g.nom || '')[0] || '')).toUpperCase();
+        return '<div class="pre-gest-row" data-gest-id="' + escapeHtml(g.id) + '" data-max-jour="' + maxJour + '"'
+            + ' style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--gray-300);border-radius:8px;background:white;cursor:pointer;transition:all 0.15s">'
+            + '<input type="checkbox" class="pre-gest-cb" data-gest-id="' + escapeHtml(g.id) + '" style="margin:0;flex-shrink:0;accent-color:var(--rose);width:16px;height:16px;cursor:pointer">'
+            + '<span style="width:24px;height:24px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">' + escapeHtml(initiales) + '</span>'
+            + '<span style="flex:1;font-size:13px;color:var(--navy)">' + escapeHtml(g.prenom + ' ' + g.nom) + '</span>'
+            // Zone "Max actuel" (visible quand non coché) ou "Anciens à recevoir" (visible quand coché)
+            + '<span class="pre-gest-info-uncheck" style="font-size:11px;color:var(--gray-600)">Max du jour : ' + maxJour + '</span>'
+            + '<span class="pre-gest-info-check" style="font-size:11px;color:var(--gray-700);display:none;align-items:center;gap:6px">'
+            +   'Anciens à recevoir : '
+            +   '<input type="number" class="pre-gest-nb" data-gest-id="' + escapeHtml(g.id) + '" value="0" min="0" max="' + maxJour + '"'
+            +     ' style="width:60px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px;text-align:center">'
+            +   '<span style="font-size:10px;color:var(--gray-500)">/ ' + maxJour + '</span>'
+            + '</span>'
+            + '</div>';
+    }
+
+    /**
+     * Génère la liste informative des dossiers anciens (zone repliable).
+     */
+    function renderListeDossiers() {
+        var rows = dossiersAnciens.map(function(d) {
+            var h = getAncienneteHeures(d) || 0;
+            var isCritique = h > DISPATCH_SEUIL_CRITIQUE;
+            var bg = isCritique ? '#fee2e2' : '#fef3c7';
+            var fg = isCritique ? '#991b1b' : '#92400e';
+            var infos = escapeHtml((d.portefeuille || '?') + ' · ' + (d.type || '?') + ' · ' + (d.nature || '?'));
+            return '<div style="padding:5px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;display:flex;align-items:center;gap:8px;background:white">'
+                + '<span style="background:' + bg + ';color:' + fg + ';padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;flex-shrink:0">+' + h + 'h</span>'
+                + '<span style="font-family:monospace;font-weight:600;color:var(--navy);flex-shrink:0">' + escapeHtml(d.ref_sinistre || '') + '</span>'
+                + '<span style="color:var(--gray-600);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + infos + '</span>'
+                + '</div>';
+        }).join('');
+        return rows;
+    }
+
+    modal.innerHTML = '<div class="modal" style="max-width:680px;width:92vw;max-height:88vh;display:flex;flex-direction:column;padding:0">'
+        // En-tête
+        + '<div style="padding:14px 18px;background:#fff8e1;border-bottom:1px solid #f0ad4e">'
+        + '<h2 style="margin:0;font-size:17px;color:#856404">⚠️ ' + totalAnciens + ' dossier(s) ancien(s) détecté(s)</h2>'
+        + '<p style="margin:4px 0 0;font-size:13px;color:var(--gray-700)">'
+        + (nbCritiques > 0 ? '<strong style="color:#991b1b">' + nbCritiques + ' critique(s) (>48h)</strong>' : '')
+        + (nbCritiques > 0 && nbAlertes > 0 ? ' · ' : '')
+        + (nbAlertes > 0 ? '<strong style="color:#92400e">' + nbAlertes + ' alerte(s) (>24h)</strong>' : '')
+        + '</p>'
+        + '</div>'
+        // Corps
+        + '<div style="flex:1;overflow-y:auto">'
+        + '<div style="padding:14px 18px;border-bottom:1px solid var(--gray-200)">'
+        + '<div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--navy)">Quels gestionnaires doivent les recevoir en priorité&nbsp;?</div>'
+        + '<div style="font-size:11px;color:var(--gray-600);margin-bottom:12px">Coche un ou plusieurs gestionnaires. Tu peux ajuster combien chacun recevra (plafonné à son Max du jour).</div>'
+        + '<div style="display:flex;flex-direction:column;gap:8px">'
+        + actifs.map(renderLigneGest).join('')
+        + '</div>'
+        // Aperçu live de la répartition prévue
+        + '<div id="pre-recap" style="margin-top:12px;padding:10px 12px;background:#f5f5fb;border:1px solid #e0e3ff;border-radius:6px;font-size:12px;color:var(--gray-700)">'
+        + '👉 <em>Aucun gestionnaire coché. Les ' + totalAnciens + ' anciens passeront en répartition automatique.</em>'
+        + '</div>'
+        + '</div>'
+        // Section repliable : liste des dossiers
+        + '<details style="border-bottom:1px solid var(--gray-200)">'
+        + '<summary style="padding:10px 18px;font-size:12px;color:var(--gray-700);cursor:pointer;user-select:none">📋 Voir le détail des ' + totalAnciens + ' dossiers concernés</summary>'
+        + '<div style="padding:0 18px 12px;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;background:#f8f9fa">'
+        + renderListeDossiers()
+        + '</div>'
+        + '</details>'
+        + '</div>'
+        // Footer
+        + '<div style="padding:12px 18px;border-top:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;background:white">'
+        + '<button class="btn btn-secondary" id="btn-pre-skip" title="Passer cette étape">Passer</button>'
+        + '<button class="btn btn-primary" id="btn-pre-continue" style="padding:8px 22px;font-weight:700">Continuer →</button>'
+        + '</div>'
+        + '</div>';
+
+    document.body.appendChild(modal);
+
+    // ── Logique de répartition par défaut ────────────────────────────
+    /**
+     * Calcule la répartition équitable plafonnée au Max parmi les gestionnaires
+     * cochés. Renvoie un objet { gestId: nbAnciensRecommandes }.
+     *
+     * Algorithme : on distribue les anciens un par un, à tour de rôle, en
+     * respectant le Max de chacun. Si un gestionnaire est saturé, il sort du
+     * tour. Si tous sont saturés, on s'arrête (les anciens restants iront en
+     * répartition automatique normale).
+     */
+    function calculerRepartition(gestsCoches) {
+        var rep = {};
+        gestsCoches.forEach(function(g) { rep[g.id] = 0; });
+        if (gestsCoches.length === 0) return rep;
+        var distribues = 0;
+        var nbBoucles = 0;
+        while (distribues < totalAnciens && nbBoucles < totalAnciens * 10) {
+            var distribueDansCetteBoucle = false;
+            for (var i = 0; i < gestsCoches.length; i++) {
+                var g = gestsCoches[i];
+                if (rep[g.id] < g.max) {
+                    rep[g.id]++;
+                    distribues++;
+                    distribueDansCetteBoucle = true;
+                    if (distribues >= totalAnciens) break;
+                }
+            }
+            if (!distribueDansCetteBoucle) break; // tous saturés
+            nbBoucles++;
+        }
+        return rep;
+    }
+
+    /**
+     * Met à jour visuellement une ligne gestionnaire (selon coché/décoché)
+     * et calcule/applique la valeur par défaut de l'input.
+     */
+    function refreshLignes() {
+        // Construction de la liste des gestionnaires cochés (avec leur max)
+        var gestsCoches = [];
+        modal.querySelectorAll('.pre-gest-cb').forEach(function(cb) {
+            if (cb.checked) {
+                var row = cb.closest('.pre-gest-row');
+                var max = parseInt(row.dataset.maxJour, 10) || 0;
+                gestsCoches.push({ id: cb.dataset.gestId, max: max });
+            }
+        });
+
+        // Calcul de la répartition équitable plafonnée
+        var rep = calculerRepartition(gestsCoches);
+
+        // Application visuelle
+        modal.querySelectorAll('.pre-gest-row').forEach(function(row) {
+            var cb = row.querySelector('.pre-gest-cb');
+            var infoUncheck = row.querySelector('.pre-gest-info-uncheck');
+            var infoCheck = row.querySelector('.pre-gest-info-check');
+            var input = row.querySelector('.pre-gest-nb');
+            if (cb.checked) {
+                row.style.borderColor = 'var(--rose)';
+                row.style.background = '#fff5f8';
+                infoUncheck.style.display = 'none';
+                infoCheck.style.display = 'inline-flex';
+                // Ne pas écraser une saisie manuelle si déjà éditée
+                if (!input.dataset.userEdited) {
+                    input.value = rep[cb.dataset.gestId] || 0;
+                }
+            } else {
+                row.style.borderColor = 'var(--gray-300)';
+                row.style.background = 'white';
+                infoUncheck.style.display = 'inline';
+                infoCheck.style.display = 'none';
+                input.value = 0;
+                delete input.dataset.userEdited;
+            }
+        });
+
+        refreshRecap();
+    }
+
+    /**
+     * Met à jour l'aperçu de la répartition prévue (zone bleue en bas).
+     */
+    function refreshRecap() {
+        var recap = modal.querySelector('#pre-recap');
+        if (!recap) return;
+        var coches = [];
+        var totalAttribues = 0;
+        modal.querySelectorAll('.pre-gest-cb').forEach(function(cb) {
+            if (!cb.checked) return;
+            var row = cb.closest('.pre-gest-row');
+            var input = row.querySelector('.pre-gest-nb');
+            var nb = parseInt(input.value, 10) || 0;
+            var nom = row.querySelector('span:nth-of-type(2)').textContent;
+            coches.push({ nom: nom, nb: nb });
+            totalAttribues += nb;
+        });
+        if (coches.length === 0) {
+            recap.innerHTML = '👉 <em>Aucun gestionnaire coché. Les ' + totalAnciens + ' anciens passeront en répartition automatique.</em>';
+            return;
+        }
+        var detail = coches.map(function(c) { return '<strong>' + escapeHtml(c.nom) + '</strong> : ' + c.nb; }).join(' · ');
+        var reste = totalAnciens - totalAttribues;
+        var resteTxt = '';
+        if (reste > 0) {
+            resteTxt = ' Les <strong>' + reste + ' ancien(s) restant(s)</strong> + autres dossiers passeront en répartition automatique.';
+        } else if (reste === 0) {
+            resteTxt = ' Tous les anciens sont pris en charge.';
+        }
+        recap.innerHTML = '✅ <strong>' + totalAttribues + ' dossier(s) ancien(s)</strong> seront pré-attribués (' + detail + ').' + resteTxt;
+    }
+
+    // ── Bind handlers ────────────────────────────────────────────────
+    // Click sur une row entière = toggle de la checkbox (sauf si on clique sur l'input)
+    modal.querySelectorAll('.pre-gest-row').forEach(function(row) {
+        row.onclick = function(e) {
+            // Ignore les clics sur l'input numérique ou la checkbox elle-même
+            if (e.target.tagName === 'INPUT') return;
+            var cb = this.querySelector('.pre-gest-cb');
+            cb.checked = !cb.checked;
+            refreshLignes();
+        };
+    });
+
+    // Click direct sur la checkbox
+    modal.querySelectorAll('.pre-gest-cb').forEach(function(cb) {
+        cb.onclick = function(e) {
+            e.stopPropagation();
+            refreshLignes();
+        };
+    });
+
+    // Modification manuelle d'un input "nb anciens"
+    modal.querySelectorAll('.pre-gest-nb').forEach(function(input) {
+        input.oninput = function() {
+            this.dataset.userEdited = 'true';
+            // Plafonner au max
+            var max = parseInt(this.max, 10) || 0;
+            var v = parseInt(this.value, 10) || 0;
+            if (v > max) this.value = max;
+            if (v < 0) this.value = 0;
+            refreshRecap();
+        };
+        input.onclick = function(e) { e.stopPropagation(); };
+    });
+
+    // Boutons Passer / Continuer
+    document.getElementById('btn-pre-skip').onclick = function() {
+        window.dispatchGestsPrioritaires = [];
+        modal.remove();
+        showPropositionModal();
+    };
+    document.getElementById('btn-pre-continue').onclick = function() {
+        // Collecte des choix : [{ id, nbAnciens }, ...]
+        var choix = [];
+        modal.querySelectorAll('.pre-gest-cb').forEach(function(cb) {
+            if (!cb.checked) return;
+            var row = cb.closest('.pre-gest-row');
+            var input = row.querySelector('.pre-gest-nb');
+            var nb = parseInt(input.value, 10) || 0;
+            if (nb > 0) {
+                choix.push({ id: cb.dataset.gestId, nbAnciens: nb });
+            }
+        });
+        window.dispatchGestsPrioritaires = choix;
+        modal.remove();
+        showPropositionModal();
     };
 }
 
@@ -168,22 +538,11 @@ async function showPropositionModal() {
     // ── FIN ÉVOL-B ───────────────────────────────────────────────────
 
     // ── ÉVOL-C : Détection des dossiers anciens ──────────────────────
-    var SEUIL_CRITIQUE = 48; // heures
-    var SEUIL_ALERTE   = 24; // heures
-
-    /**
-     * Calcule l'ancienneté en heures d'un dossier depuis sa date_etat (format DD/MM/YYYY).
-     * @returns {number|null} heures écoulées, ou null si date absente/invalide.
-     */
-    function getAncienneteHeures(dossier) {
-        var s = dossier.date_etat;
-        if (!s) return null;
-        var p = s.split('/');
-        if (p.length !== 3) return null;
-        var d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
-        if (isNaN(d.getTime())) return null;
-        return Math.floor((Date.now() - d.getTime()) / 3600000);
-    }
+    // Les utilitaires getAncienneteHeures et les seuils sont désormais
+    // déclarés au scope global (DISPATCH_SEUIL_CRITIQUE, DISPATCH_SEUIL_ALERTE)
+    // pour pouvoir être réutilisés par showPreDispatchModal (ÉVOL-003 Étape 2).
+    var SEUIL_CRITIQUE = DISPATCH_SEUIL_CRITIQUE;
+    var SEUIL_ALERTE   = DISPATCH_SEUIL_ALERTE;
 
     /**
      * Renvoie un badge HTML 🔴/🟠 selon l'ancienneté du dossier, ou chaîne vide.
@@ -254,8 +613,59 @@ async function showPropositionModal() {
 
     // ── PRÉ-ASSIGNATION HISTORIQUE ─────────────────────────────
     var idsPreAssignes = [];
+
+    // ── ÉVOL-003 Étape 2 v2 : Pré-attribution PRIORITAIRE des anciens ──
+    // Si le manager a coché des gestionnaires dans showPreDispatchModal,
+    // on répartit les dossiers anciens (>24h) entre eux en round-robin,
+    // en respectant à la fois :
+    //   1. Le nombre demandé pour chaque gestionnaire (window.dispatchGestsPrioritaires[i].nbAnciens)
+    //   2. Les habilitations (un dossier MIA va à un MIA-habilité)
+    //
+    // Si un dossier ancien ne peut être attribué à aucun gestionnaire choisi
+    // (aucun n'est habilité), il retombe dans le pool général (round-robin classique).
+    var gestsPrioritaires = window.dispatchGestsPrioritaires || [];
+    var anciensIds = window.dispatchAnciensIds || [];
+    if (gestsPrioritaires.length > 0 && anciensIds.length > 0) {
+        // Compteur de dossiers attribués par gestionnaire prioritaire
+        var compteurGest = {};
+        gestsPrioritaires.forEach(function(gp) { compteurGest[String(gp.id)] = 0; });
+
+        // Récupération des objets dossier correspondants (en respectant l'ordre :
+        // les plus anciens d'abord, déjà ordonnés dans dispatchAnciensIds)
+        var anciensDossiers = anciensIds
+            .map(function(id) { return dossiersLibres.find(function(x) { return String(x.id) === String(id); }); })
+            .filter(function(d) { return !!d; });
+
+        // Distribution round-robin : pour chaque ancien, on cherche le prochain
+        // gestionnaire prioritaire qui (a) n'a pas atteint son quota et (b) est habilité.
+        var rrIndex = 0;
+        anciensDossiers.forEach(function(d) {
+            var attribue = false;
+            // On essaie chaque gestionnaire prioritaire dans l'ordre rotatif
+            for (var tentative = 0; tentative < gestsPrioritaires.length; tentative++) {
+                var idx = (rrIndex + tentative) % gestsPrioritaires.length;
+                var gp = gestsPrioritaires[idx];
+                if (compteurGest[String(gp.id)] >= gp.nbAnciens) continue; // quota atteint
+                var gObj = activeGest.find(function(g) { return String(g.id) === String(gp.id); });
+                if (!gObj) continue;
+                if (!isEligible(d, gObj)) continue; // pas habilité
+                if (!propData[String(gp.id)]) continue;
+                propData[String(gp.id)].dossiers.push(d);
+                idsPreAssignes.push(d.id);
+                compteurGest[String(gp.id)]++;
+                attribue = true;
+                rrIndex = (idx + 1) % gestsPrioritaires.length; // avance le tour
+                break;
+            }
+            // Si aucun prioritaire ne convient → le dossier reste dans dossiersRestants
+            // et sera traité par le round-robin général plus loin.
+        });
+    }
+    // ── FIN pré-attribution prioritaire ─────────────────────────
+
     if (histoPropActif) {
         dossiersLibres.forEach(function(d) {
+            if (idsPreAssignes.includes(d.id)) return; // déjà pris par une pré-attribution prioritaire
             var hEntry = histoPropMap[d.ref_sinistre];
             if (!hEntry) return;
             var refGest = activeGest.find(function(g) {
@@ -352,23 +762,29 @@ async function showPropositionModal() {
     var dossiersNonAttribues = dossiersLibres.filter(function(d){ return !dossiersAssigned.has(d.id); });
 
     /**
-     * Génère le HTML d'une "carte dossier" COMPACTE affichée dans la zone gauche.
-     * Mode 1 ligne : [badge ancienneté] [ref sinistre] [bouton +].
-     * Le portefeuille/type/nature est dans l'attribut title (tooltip natif au survol).
-     * Le bouton + ouvre une popup positionnée juste en-dessous via togglePopupAttrib().
+     * Génère le HTML d'une "carte dossier" COMPACTE en zone gauche (v3).
+     * Format 2 lignes :
+     *   [badge] [ref_sinistre]                    [+]
+     *           [PORTEFEUILLE · TYPE · NATURE]
+     * Le bouton + ouvre une popup positionnée sous la carte via togglePopupAttrib().
      */
     function renderLigneDossierLibre(d) {
         var badge = getBadgeAnciennete(d);
-        // Tooltip = "PORTEFEUILLE · TYPE · NATURE" (échappé via escapeHtml)
-        var tooltip = escapeHtml((d.portefeuille || '?') + ' · ' + (d.type || '?') + ' · ' + (d.nature || '?'));
+        var infos = escapeHtml((d.portefeuille || '?') + ' · ' + (d.type || '?') + ' · ' + (d.nature || '?'));
         return '<div class="dossier-libre-row" data-dossier-id="' + escapeHtml(d.id) + '"'
-            + ' title="' + tooltip + '"'
             + ' style="position:relative;display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;margin-bottom:4px;background:white;font-size:11px">'
+            // Bloc central : 2 lignes (ref + infos métier)
+            + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">'
+            + '<div style="display:flex;align-items:center;gap:5px">'
             + (badge || '')
-            + '<span style="font-family:monospace;font-weight:600;color:var(--navy);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(d.ref_sinistre || '') + '</span>'
+            + '<span style="font-family:monospace;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(d.ref_sinistre || '') + '</span>'
+            + '</div>'
+            + '<div style="font-size:10px;color:var(--gray-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:2px">' + infos + '</div>'
+            + '</div>'
+            // Bouton + à droite (ouvre popup d'attribution)
             + '<button class="btn-attrib-libre" data-dossier-id="' + escapeHtml(d.id) + '"'
             + ' title="Attribuer à un gestionnaire"'
-            + ' style="width:22px;height:22px;padding:0;background:var(--rose);color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
+            + ' style="width:24px;height:24px;padding:0;background:var(--rose);color:white;border:none;border-radius:5px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
             + '</div>';
     }
 
@@ -399,24 +815,28 @@ async function showPropositionModal() {
     // ── FIN zone gauche ──────────────────────────────────────────────
 
     /**
-     * Génère le HTML d'une ligne dossier dans un bloc gestionnaire (zone droite).
-     * Extraite en fonction pour pouvoir être réutilisée lors d'attributions
-     * manuelles depuis la zone gauche.
+     * Génère le HTML d'une ligne dossier dans un bloc gestionnaire (zone droite, v3).
+     * Layout horizontal : [☐] [badge] [ref + infos métier (flex:1)] [select déplacer] [✕]
+     * Le select et le bouton ✕ sont alignés à droite avec une taille suffisante
+     * pour utiliser tout l'espace disponible (et non plus rikiki).
      */
     function renderLigneDossierBloc(d, gestId) {
         var badgeAncien = getBadgeAnciennete(d);
         return '<div data-dossier-id="' + escapeHtml(d.id) + '" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;margin-bottom:4px;background:#f8f9fa">'
-            + '<input type="checkbox" class="dossier-sel-cb" data-gest-id="' + escapeHtml(gestId) + '" style="width:14px;height:14px;accent-color:var(--rose);cursor:pointer;flex-shrink:0">'
+            + '<input type="checkbox" class="dossier-sel-cb" data-gest-id="' + escapeHtml(gestId) + '" style="width:14px;height:14px;accent-color:var(--rose);cursor:pointer;flex-shrink:0;margin:0">'
             + (badgeAncien || '')
-            + '<div style="flex:1;min-width:0;overflow:hidden">'
+            // Bloc central : ref + infos métier (prend tout l'espace dispo)
+            + '<div style="flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:1px">'
             + '<div style="font-family:monospace;font-weight:600;color:var(--navy);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(d.ref_sinistre || '') + '</div>'
-            + '<div style="font-size:10px;color:var(--gray-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml((d.portefeuille || '') + ' · ' + (d.type || '') + ' · ' + (d.nature || '')) + '</div>'
+            + '<div style="font-size:9px;color:var(--gray-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml((d.portefeuille || '') + ' · ' + (d.type || '') + ' · ' + (d.nature || '')) + '</div>'
             + '</div>'
-            + '<select data-dossier-move="' + escapeHtml(d.id) + '" data-current-gest="' + escapeHtml(gestId) + '" title="Déplacer vers..." style="font-size:10px;padding:1px 2px;border:1px solid var(--gray-300);border-radius:4px;cursor:pointer;max-width:60px;flex-shrink:0">'
+            // Select "déplacer vers" : largeur correcte pour voir le nom
+            + '<select data-dossier-move="' + escapeHtml(d.id) + '" data-current-gest="' + escapeHtml(gestId) + '" title="Déplacer vers..." style="font-size:10px;padding:3px 4px;border:1px solid var(--gray-300);border-radius:4px;cursor:pointer;flex-shrink:0;max-width:90px;background:white">'
             + '<option value="">↔️</option>'
             + activeGest.map(function(og){ return '<option value="' + escapeHtml(og.id) + '">' + escapeHtml(og.prenom + ' ' + og.nom) + '</option>'; }).join('')
             + '</select>'
-            + '<button data-dossier-rm="' + escapeHtml(d.id) + '" title="Retirer" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;font-weight:700;padding:0 2px;flex-shrink:0">✕</button>'
+            // Bouton ✕ : encadré et visible (au lieu de minuscule)
+            + '<button data-dossier-rm="' + escapeHtml(d.id) + '" title="Retirer" style="width:24px;height:24px;padding:0;background:white;border:1px solid var(--gray-300);color:#e74c3c;cursor:pointer;font-size:13px;font-weight:700;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center">✕</button>'
             + '</div>';
     }
 
@@ -472,31 +892,11 @@ async function showPropositionModal() {
             + '</div>';
     });
 
-    // ── ÉVOL-C : Construction de la bannière dossiers anciens ────────
-    // (Conservée à l'Étape 1 ; sera migrée vers le modal préliminaire à l'Étape 2)
-    var banniereHTML = '';
-    if (nbCritiques + nbAlertes > 0) {
-        var optionsGests = '<option value="">Libre (algo)</option>'
-            + activeGest.map(function(g) {
-                return '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.prenom + ' ' + g.nom) + '</option>';
-            }).join('');
-        banniereHTML = '<div id="banniere-anciens" style="background:#fff8e1;border:1px solid #f0ad4e;border-radius:var(--radius-md);padding:10px 14px;margin:0 12px 8px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">'
-            + '<strong style="color:#856404;font-size:13px">⚠️ Dossiers anciens détectés</strong>'
-            + (nbCritiques > 0
-                ? '<div style="display:flex;align-items:center;gap:8px;font-size:13px">'
-                  + '🔴 <strong>' + nbCritiques + '</strong> critique(s) (&gt;48h) → Priorité&nbsp;: '
-                  + '<select id="target-critiques" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--gray-300)">' + optionsGests + '</select>'
-                  + '</div>'
-                : '')
-            + (nbAlertes > 0
-                ? '<div style="display:flex;align-items:center;gap:8px;font-size:13px">'
-                  + '🟠 <strong>' + nbAlertes + '</strong> alerte(s) (&gt;24h) → Priorité&nbsp;: '
-                  + '<select id="target-alertes" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--gray-300)">' + optionsGests + '</select>'
-                  + '</div>'
-                : '')
-            + '<button id="btn-appliquer-cible" class="btn btn-warning" style="font-size:12px;padding:5px 12px" title="Forcer l\'attribution des anciens vers le gestionnaire choisi">✅ Appliquer</button>'
-            + '</div>';
-    }
+    // ── ÉVOL-C : Bannière "Dossiers anciens détectés" ────────────────
+    // Migrée vers showPreDispatchModal (ÉVOL-003 Étape 2) qui s'ouvre AVANT
+    // la modale de proposition. Les pré-attributions manuelles choisies dans
+    // ce modal préliminaire sont appliquées via window.dispatchGestsPrioritaires
+    // au moment du calcul de la proposition (cf. bloc PRÉ-ASSIGNATION MANUELLE).
     // ── FIN ÉVOL-C bannière ──────────────────────────────────────────
 
     // ── ÉVOL-003 Lot 2 : Nouveau layout 2 zones (gauche/droite) ──────
@@ -508,7 +908,7 @@ async function showPropositionModal() {
         + 'Total libres : <strong>' + totalLibresCount + '</strong> · Déjà prévus : <strong>' + (totalPreAssignes + totalRoundRobin) + '</strong> · Reste à attribuer : <strong>' + dossiersNonAttribues.length + '</strong>'
         + '</div>'
         + '</div>'
-        + banniereHTML
+        // (bannière supprimée : migrée vers showPreDispatchModal — ÉVOL-003 Étape 2)
         // Corps splitté en 2 zones
         + '<div style="display:flex;flex:1;gap:12px;padding:12px;overflow:hidden;min-height:0">'
         // Zone gauche : dossiers non attribués
@@ -675,67 +1075,12 @@ async function showPropositionModal() {
     });
     // ── FIN ÉVOL-003 Lot 2 ──────────────────────────────────────────
 
-    // ── ÉVOL-C : Handler du bouton "Appliquer" de la bannière ────────
-    // Quand le manager choisit un gestionnaire dans les selects critiques/alertes
-    // et clique Appliquer, on déplace les dossiers ciblés vers son bloc (force).
-    var btnAppliquer = document.getElementById('btn-appliquer-cible');
-    if (btnAppliquer) {
-        btnAppliquer.onclick = function() {
-            var targetCritId = (document.getElementById('target-critiques') || {}).value || '';
-            var targetAlertId = (document.getElementById('target-alertes') || {}).value || '';
-            if (!targetCritId && !targetAlertId) {
-                showNotif('Choisissez au moins un gestionnaire dans la bannière', 'info');
-                return;
-            }
-            var nbDeplaces = 0;
-
-            function deplacerVers(targetGestId, predicateAge) {
-                if (!targetGestId) return;
-                var targetBlock = modal.querySelector('.dossiers-list-block[data-gestid="' + targetGestId + '"]');
-                if (!targetBlock) return;
-                // Parcourir tous les dossiers de tous les blocs et déplacer ceux qui correspondent
-                modal.querySelectorAll('.dossiers-list-block [data-dossier-id]').forEach(function(row) {
-                    var sourceBlock = row.closest('.dossiers-list-block');
-                    if (!sourceBlock) return;
-                    if (sourceBlock.dataset.gestid === String(targetGestId)) return; // déjà chez la cible
-                    var dossierId = row.dataset.dossierId;
-                    var dossier = (allDossiers || []).find(function(x) { return String(x.id) === String(dossierId); });
-                    if (!dossier) return;
-                    var h = getAncienneteHeures(dossier) || 0;
-                    if (!predicateAge(h)) return;
-                    // Vérifier que le gestionnaire cible est habilité pour ce dossier
-                    var targetGest = activeGest.find(function(g) { return String(g.id) === String(targetGestId); });
-                    if (targetGest && !isEligible(dossier, targetGest)) return;
-                    // Déplacement physique du DOM
-                    targetBlock.appendChild(row);
-                    nbDeplaces++;
-                    // Si le Max du gestionnaire cible est dépassé, on l'incrémente
-                    var input = modal.querySelector('.nb-dossiers-input[data-gestid="' + targetGestId + '"]');
-                    if (input) {
-                        var nbActuel = targetBlock.querySelectorAll('[data-dossier-id]').length;
-                        var maxActuel = parseInt(input.value) || 0;
-                        if (nbActuel > maxActuel) input.value = nbActuel;
-                    }
-                });
-            }
-
-            deplacerVers(targetCritId, function(h) { return h > SEUIL_CRITIQUE; });
-            deplacerVers(targetAlertId, function(h) { return h > SEUIL_ALERTE && h <= SEUIL_CRITIQUE; });
-
-            // Réappliquer Max sur tous les blocs touchés + recompter
-            modal.querySelectorAll('.nb-dossiers-input').forEach(function(inp) {
-                applyMaxToGest(inp.dataset.gestid);
-            });
-            bindMoveSelects();
-
-            if (nbDeplaces > 0) {
-                showNotif('✅ ' + nbDeplaces + ' dossier(s) ancien(s) attribué(s) selon votre choix', 'success');
-            } else {
-                showNotif('Aucun dossier déplacé (vérifiez les habilitations du gestionnaire ciblé)', 'info');
-            }
-        };
-    }
-    // ── FIN ÉVOL-C handler bannière ──────────────────────────────────
+    // ── ÉVOL-C : Handler de la bannière SUPPRIMÉ ─────────────────────
+    // La bannière a été migrée vers showPreDispatchModal (ÉVOL-003 Étape 2).
+    // Les pré-attributions manuelles sont désormais gérées via
+    // window.dispatchGestsPrioritaires + window.dispatchAnciensIds, appliquées au moment du calcul de
+    // la proposition (cf. bloc PRÉ-ASSIGNATION MANUELLE plus haut).
+    // ── FIN ÉVOL-C ──────────────────────────────────────────────────
 
     // Bouton Rééquilibrer : relance showPropositionModal
     var btnReeq = document.getElementById('btn-reeq');
@@ -904,6 +1249,9 @@ async function showPropositionModal() {
             if (!r.error) ok++;
         }
         closeModal('proposition-modal');
+        // ÉVOL-003 Étape 2 : reset des pré-attribs pour la prochaine session de dispatch
+        window.dispatchGestsPrioritaires = [];
+        window.dispatchAnciensIds = [];
         showNotif(ok + ' dossier(s) dispatchés avec succès !', 'success');
         await auditLog('DISPATCH', ok + ' dossiers - dispatch intelligent');
         await loadDossiers();
