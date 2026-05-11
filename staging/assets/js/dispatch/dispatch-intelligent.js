@@ -221,9 +221,9 @@ async function showPreDispatchModal() {
             + '<span class="pre-gest-info-uncheck" style="font-size:11px;color:var(--gray-600)">Max du jour : ' + maxJour + '</span>'
             + '<span class="pre-gest-info-check" style="font-size:11px;color:var(--gray-700);display:none;align-items:center;gap:6px">'
             +   'Anciens à recevoir : '
-            +   '<input type="number" class="pre-gest-nb" data-gest-id="' + escapeHtml(g.id) + '" value="0" min="0" max="' + maxJour + '"'
+            +   '<input type="number" class="pre-gest-nb" data-gest-id="' + escapeHtml(g.id) + '" value="0" min="0"'
             +     ' style="width:60px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px;text-align:center">'
-            +   '<span style="font-size:10px;color:var(--gray-500)">/ ' + maxJour + '</span>'
+            +   '<span class="pre-gest-warning" data-gest-id="' + escapeHtml(g.id) + '" style="font-size:10px;color:var(--rose);font-weight:600;display:none">⚠️ dépasse Max (' + maxJour + ')</span>'
             + '</span>'
             + '</div>';
     }
@@ -289,33 +289,25 @@ async function showPreDispatchModal() {
 
     // ── Logique de répartition par défaut ────────────────────────────
     /**
-     * Calcule la répartition équitable plafonnée au Max parmi les gestionnaires
-     * cochés. Renvoie un objet { gestId: nbAnciensRecommandes }.
+     * Calcule la répartition équitable parmi les gestionnaires cochés.
+     * Renvoie un objet { gestId: nbAnciensRecommandes }.
      *
-     * Algorithme : on distribue les anciens un par un, à tour de rôle, en
-     * respectant le Max de chacun. Si un gestionnaire est saturé, il sort du
-     * tour. Si tous sont saturés, on s'arrête (les anciens restants iront en
-     * répartition automatique normale).
+     * Algorithme : distribution round-robin pure — chaque gestionnaire reçoit
+     * à tour de rôle un dossier ancien, jusqu'à épuisement du stock. Plus de
+     * plafond (le Max du jour est désormais une simple suggestion par défaut,
+     * cf. ÉVOL-003 Anomalie 1, fix 8 mai 2026). Si la valeur calculée dépasse
+     * le Max du jour, une alerte visuelle s'affiche sur la ligne (cf. refreshLignes).
      */
     function calculerRepartition(gestsCoches) {
         var rep = {};
         gestsCoches.forEach(function(g) { rep[g.id] = 0; });
         if (gestsCoches.length === 0) return rep;
         var distribues = 0;
-        var nbBoucles = 0;
-        while (distribues < totalAnciens && nbBoucles < totalAnciens * 10) {
-            var distribueDansCetteBoucle = false;
-            for (var i = 0; i < gestsCoches.length; i++) {
-                var g = gestsCoches[i];
-                if (rep[g.id] < g.max) {
-                    rep[g.id]++;
-                    distribues++;
-                    distribueDansCetteBoucle = true;
-                    if (distribues >= totalAnciens) break;
-                }
+        while (distribues < totalAnciens) {
+            for (var i = 0; i < gestsCoches.length && distribues < totalAnciens; i++) {
+                rep[gestsCoches[i].id]++;
+                distribues++;
             }
-            if (!distribueDansCetteBoucle) break; // tous saturés
-            nbBoucles++;
         }
         return rep;
     }
@@ -344,6 +336,8 @@ async function showPreDispatchModal() {
             var infoUncheck = row.querySelector('.pre-gest-info-uncheck');
             var infoCheck = row.querySelector('.pre-gest-info-check');
             var input = row.querySelector('.pre-gest-nb');
+            var warning = row.querySelector('.pre-gest-warning');
+            var maxJour = parseInt(row.dataset.maxJour, 10) || 0;
             if (cb.checked) {
                 row.style.borderColor = 'var(--rose)';
                 row.style.background = '#fff5f8';
@@ -353,6 +347,10 @@ async function showPreDispatchModal() {
                 if (!input.dataset.userEdited) {
                     input.value = rep[cb.dataset.gestId] || 0;
                 }
+                // Alerte visuelle si la valeur dépasse le Max du jour
+                if (warning) {
+                    warning.style.display = (parseInt(input.value, 10) > maxJour) ? 'inline' : 'none';
+                }
             } else {
                 row.style.borderColor = 'var(--gray-300)';
                 row.style.background = 'white';
@@ -360,6 +358,7 @@ async function showPreDispatchModal() {
                 infoCheck.style.display = 'none';
                 input.value = 0;
                 delete input.dataset.userEdited;
+                if (warning) warning.style.display = 'none';
             }
         });
 
@@ -422,11 +421,16 @@ async function showPreDispatchModal() {
     modal.querySelectorAll('.pre-gest-nb').forEach(function(input) {
         input.oninput = function() {
             this.dataset.userEdited = 'true';
-            // Plafonner au max
-            var max = parseInt(this.max, 10) || 0;
             var v = parseInt(this.value, 10) || 0;
-            if (v > max) this.value = max;
-            if (v < 0) this.value = 0;
+            // Plus de plafond (Anomalie 1, fix 8 mai 2026) — seul le bornage à 0 reste
+            if (v < 0) { this.value = 0; v = 0; }
+            // Affichage de l'alerte si la valeur dépasse le Max du jour
+            var row = this.closest('.pre-gest-row');
+            var maxJour = parseInt(row.dataset.maxJour, 10) || 0;
+            var warning = row.querySelector('.pre-gest-warning');
+            if (warning) {
+                warning.style.display = (v > maxJour) ? 'inline' : 'none';
+            }
             refreshRecap();
         };
         input.onclick = function(e) { e.stopPropagation(); };
@@ -871,7 +875,9 @@ async function showPropositionModal() {
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
             + '<label style="font-size:11px;color:var(--gray-600)" title="Modifiable à tout moment">Max :</label>'
-            + '<input type="number" class="nb-dossiers-input" data-gestid="' + escapeHtml(g.id) + '" value="' + getMaxDefaut(g.id) + '" min="0" max="50" style="width:50px;padding:3px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:12px">'
+            // Auto-majoration du Max si la pré-attribution prioritaire dépasse la valeur par défaut
+            // (Anomalie 1, fix 8 mai 2026 — la manager garde la main)
+            + '<input type="number" class="nb-dossiers-input" data-gestid="' + escapeHtml(g.id) + '" value="' + Math.max(getMaxDefaut(g.id), prop.dossiers.length) + '" min="0" max="50" style="width:50px;padding:3px;border:1px solid var(--gray-300);border-radius:6px;text-align:center;font-size:12px">'
             + '</div>'
             + '</div>'
             // Barre multi-sélection
