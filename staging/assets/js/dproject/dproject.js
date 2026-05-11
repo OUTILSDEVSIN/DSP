@@ -242,7 +242,8 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 .dp-upload-hint{font-size:11px;color:var(--ink-400);margin-top:2px}
 .dp-upload-count{font-size:11px;color:var(--ink-500);margin-top:4px;font-family:monospace}
 /* Grille de vignettes */
-.dp-thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+/* Grille de vignettes — fixée à 3 colonnes même si 1 seul fichier */
+.dp-thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,140px));gap:8px;justify-content:start;margin-top:8px}
 .dp-thumb{
   position:relative;aspect-ratio:1;
   border:1px solid var(--ink-200);border-radius:8px;
@@ -705,8 +706,8 @@ window.dpOuvrirFormulaireSignaler = function() {
   overlay.innerHTML =
     '<div class="dp-modal-box">' +
       '<div class="dp-modal-head">' +
-        '<div><div style="font-size:11px;font-weight:700;color:var(--ink-400);font-family:monospace">NOUVEAU BUG</div>' +
-        '<h2 style="font-size:17px;font-weight:800;color:var(--ink-900);margin:4px 0 0">Signaler un bug</h2></div>' +
+        '<div><div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.65);font-family:monospace;letter-spacing:.04em">NOUVEAU BUG</div>' +
+        '<h2 style="font-size:17px;font-weight:700;color:#fff;margin:4px 0 0">Signaler un bug</h2></div>' +
         '<button class="dp-modal-close" onclick="document.getElementById(\'dp-signaler-modal\').remove()">✕</button>' +
       '</div>' +
       '<div class="dp-modal-body">' +
@@ -851,14 +852,9 @@ window.dpSoumettreSignalement = async function() {
     return;
   }
 
-  // Génération du code BUG-XXX
-  var codeRes = await db.from('dsp_bugs').select('code').order('created_at',{ascending:false}).limit(1);
-  var lastCode = codeRes.data && codeRes.data[0] && codeRes.data[0].code ? codeRes.data[0].code : 'BUG-000';
-  var lastNum = parseInt(lastCode.replace('BUG-',''),10) || 0;
-  var newCode = 'BUG-' + String(lastNum+1).padStart(3,'0');
-
+  // NOTE: La colonne `code` est GENERATED ALWAYS par Postgres
+  // ('BUG-' || lpad(id, 3, '0')). On NE DOIT PAS l'inclure dans l'INSERT.
   var payload = {
-    code: newCode,
     titre: titre.trim(),
     description: desc.trim()||null,
     zone: zone,
@@ -869,7 +865,7 @@ window.dpSoumettreSignalement = async function() {
     signale_par_nom: currentUserData ? (currentUserData.prenom+' '+currentUserData.nom) : 'Admin'
   };
 
-  // Désactiver le bouton pendant l'upload
+  // Désactiver le bouton pendant le processus
   var submitBtn = document.getElementById('dp-sig-submit');
   if (submitBtn) {
     submitBtn.disabled = true;
@@ -879,26 +875,49 @@ window.dpSoumettreSignalement = async function() {
   }
 
   try {
-    // 1. Upload des captures vers Supabase Storage
+    // ── ÉTAPE 1 : INSERT du bug (Postgres génère le code automatiquement) ──
+    var insertRes = await db.from('dsp_bugs').insert(payload).select('id, code').single();
+    if (insertRes.error) throw insertRes.error;
+    var newBug = insertRes.data;
+    var bugCode = newBug.code; // ex: "BUG-003" (généré par Postgres)
+    var bugId = newBug.id;
+
+    // ── ÉTAPE 2 : Upload des captures (si présentes) ──
     var files = window._dpSelectedFiles || [];
     var uploadedPaths = [];
+    var uploadError = null;
     if (files.length > 0) {
-      uploadedPaths = await dpUploadScreenshots(files, newCode);
+      try {
+        uploadedPaths = await dpUploadScreenshots(files, bugCode);
+      } catch(uploadErr) {
+        uploadError = uploadErr;
+      }
     }
+
+    // ── ÉTAPE 3 : UPDATE du bug pour ajouter les chemins (si upload OK) ──
     if (uploadedPaths.length > 0) {
-      payload.screenshots = uploadedPaths;
+      var updRes = await db.from('dsp_bugs').update({screenshots: uploadedPaths}).eq('id', bugId);
+      if (updRes.error) {
+        // Le bug est créé mais on n'a pas pu attacher les captures
+        // → on les retire du bucket pour éviter les orphelins
+        await dpNettoyerOrphelins(uploadedPaths);
+        throw new Error('Bug créé mais erreur attachement captures : '+updRes.error.message);
+      }
     }
 
-    // 2. Insertion en DB
-    var res = await db.from('dsp_bugs').insert(payload);
-    if (res.error) throw res.error;
-
+    // ── Fin : succès (avec ou sans warning upload) ──
     document.getElementById('dp-signaler-modal').remove();
     window._dpSelectedFiles = []; // reset
-    if (typeof showNotif==='function') showNotif('✅ Bug '+newCode+' signalé !','success');
+    if (uploadError) {
+      if (typeof showNotif==='function') {
+        showNotif('Bug '+bugCode+' créé, mais erreur upload capture : '+uploadError.message,'warning');
+      }
+    } else {
+      if (typeof showNotif==='function') showNotif('✅ Bug '+bugCode+' signalé !','success');
+    }
     dpRenderBugs();
     dpLoadStats();
-    dpLoadAQualifier();
+    if (typeof dpLoadAQualifier==='function') dpLoadAQualifier();
   } catch(e) {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -907,6 +926,17 @@ window.dpSoumettreSignalement = async function() {
       submitBtn.textContent = 'Soumettre le bug';
     }
     if (typeof showNotif==='function') showNotif('Erreur : '+e.message,'error');
+  }
+};
+
+// ── Nettoyage des fichiers orphelins en cas d'échec ──────
+window.dpNettoyerOrphelins = async function(paths) {
+  try {
+    if (!paths || !paths.length) return;
+    await db.storage.from('bug-screenshots').remove(paths);
+  } catch(e) {
+    // best-effort, on ne propage pas l'erreur
+    console.warn('Nettoyage orphelins échoué:', e);
   }
 };
 
