@@ -180,13 +180,52 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
   background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
   color:#fff;padding:3px 9px;border-radius:6px;
 }
-.dp-modal-close{
+.dp-modal-head-actions{display:flex;align-items:center;gap:6px}
+.dp-modal-close,.dp-modal-edit{
   width:32px;height:32px;border-radius:8px;
   background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
   color:#fff;cursor:pointer;display:grid;place-items:center;
+  transition:background .15s ease;
 }
-.dp-modal-close:hover{background:rgba(255,255,255,.16)}
-.dp-modal-close svg{width:14px;height:14px}
+.dp-modal-close:hover,.dp-modal-edit:hover{background:rgba(255,255,255,.16)}
+.dp-modal-close svg,.dp-modal-edit svg{width:14px;height:14px}
+
+/* ---- Edit modal overlay (sur-modal d'édition) ---- */
+.dp-edit-overlay{
+  position:fixed;inset:0;z-index:10001;
+  background:rgba(15,23,42,.45);
+  backdrop-filter:blur(2px);
+  display:grid;place-items:center;padding:24px;
+  animation:dpFadein .18s ease;
+}
+@keyframes dpFadein{from{opacity:0}to{opacity:1}}
+@keyframes dpSlidein{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.dp-edit-modal{
+  width:min(440px,100%);
+  background:#fff;border:1px solid rgba(15,23,42,.08);
+  border-radius:18px;overflow:hidden;
+  box-shadow:0 10px 30px -8px rgba(15,23,42,.25),0 2px 6px rgba(15,23,42,.08);
+  animation:dpSlidein .2s ease;
+}
+.dp-edit-modal__head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;
+  background:linear-gradient(180deg,#22306e 0%,#1b2656 100%);
+  color:#fff;
+}
+.dp-edit-modal__title{font-size:14px;font-weight:700;letter-spacing:.01em}
+.dp-edit-modal__body{padding:20px}
+.dp-edit-modal__body .dp-form-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+  margin-bottom:16px;align-items:end;
+}
+.dp-edit-modal__body .dp-form-row--full{grid-template-columns:1fr}
+.dp-edit-modal__foot{
+  display:flex;justify-content:flex-end;gap:8px;
+  padding:12px 18px;
+  border-top:1px solid var(--ink-100);
+  background:var(--ink-50);
+}
 /* Modal body — scrollable */
 .dp-modal-body{overflow-y:auto;padding:22px 22px 8px;flex:1}
 .dp-modal-body::-webkit-scrollbar{width:10px}
@@ -803,9 +842,14 @@ function dpRenderDetailModal(box, type, data, comments) {
         '<span class="dp-modal-head-sep"></span>' +
         '<span class="dp-modal-head-code">'+code+'</span>' +
       '</div>' +
-      '<button class="dp-modal-close" onclick="document.getElementById(\'dp-detail-modal\').remove()">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
-      '</button>' +
+      '<div class="dp-modal-head-actions">' +
+        '<button class="dp-modal-edit" title="Modifier" onclick="dpOuvrirModalEdition(\''+type+'\','+data.id+')">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' +
+        '</button>' +
+        '<button class="dp-modal-close" onclick="document.getElementById(\'dp-detail-modal\').remove()">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
+        '</button>' +
+      '</div>' +
     '</div>' +
 
     // ── Body scrollable ──
@@ -814,14 +858,7 @@ function dpRenderDetailModal(box, type, data, comments) {
 
       metaHTML +
 
-      // Section avancement
-      '<div class="dp-section">' +
-        '<h3 class="dp-section-title"><span class="dp-section-ico">'+icoAvancement+'</span>Avancement</h3>' +
-        stepperHTML +
-        stepBarHTML +
-      '</div>' +
-
-      // Section description
+      // Section description (1ère position)
       (data.description
         ? '<div class="dp-section dp-section--rose">' +
             '<h3 class="dp-section-title dp-section-title--rose"><span class="dp-section-ico">'+icoDesc+'</span>Description</h3>' +
@@ -829,24 +866,14 @@ function dpRenderDetailModal(box, type, data, comments) {
           '</div>'
         : '') +
 
-      // Section admin
-      '<div class="dp-section dp-section--warn">' +
-        '<h3 class="dp-section-title dp-section-title--warn"><span class="dp-section-ico">'+icoAdmin+'</span>Détails admin</h3>' +
-        '<div class="dp-form-row">' +
-          '<div class="dp-field"><label class="dp-form-label" for="dp-det-urgence">Urgence</label>' +
-          '<select id="dp-det-urgence">'+(isBug?['Critique','Majeur','Mineur','Cosmétique'].map(function(u){ return '<option'+(u===data.urgence?' selected':'')+'>'+u+'</option>'; }).join(''):'')+
-          (!isBug?'<option>—</option>':'')+'</select></div>' +
-          '<div class="dp-field"><label class="dp-form-label" for="dp-det-echeance">Échéance</label>' +
-          '<input id="dp-det-echeance" type="date" value="'+(data.date_echeance||'')+'"></div>' +
-          '<button class="dp-btn dp-btn--ghost" onclick="dpSauvegarderDetail(\''+type+'\','+data.id+')">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>' +
-            'Mettre à jour' +
-          '</button>' +
-        '</div>' +
-        (!isBug?'<div style="margin-top:12px"><label class="dp-form-label">Commentaire admin</label><textarea class="dp-form-input" id="dp-det-commentaire-admin" rows="2" style="resize:vertical;height:auto;padding:10px" placeholder="Justification, retour…">'+(data.commentaire_admin||'')+'</textarea></div>':'')+
+      // Section avancement (2ème position)
+      '<div class="dp-section">' +
+        '<h3 class="dp-section-title"><span class="dp-section-ico">'+icoAvancement+'</span>Avancement</h3>' +
+        stepperHTML +
+        stepBarHTML +
       '</div>' +
 
-      // Section événements
+      // Section événements (3ème position)
       '<div class="dp-section">' +
         '<h3 class="dp-section-title dp-section-title--ok"><span class="dp-section-ico">'+icoEvents+'</span>Événements ('+comments.length+')</h3>' +
         '<div class="dp-events">'+eventsHTML+'</div>' +
@@ -863,6 +890,110 @@ function dpRenderDetailModal(box, type, data, comments) {
       '</button>' +
     '</div>';
 }
+
+window.dpOuvrirModalEdition = async function(type, id) {
+  // Récupérer les données actuelles pour pré-remplir
+  var table = type==='bug' ? 'dsp_bugs' : 'dsp_evolutions';
+  var res = await db.from(table).select('*').eq('id',id).single();
+  if (!res.data) {
+    if (typeof showNotif==='function') showNotif('Élément introuvable','error');
+    return;
+  }
+  var data = res.data;
+  var isBug = type === 'bug';
+
+  // Supprimer un overlay éventuel existant
+  var existing = document.getElementById('dp-edit-modal-overlay');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'dp-edit-modal-overlay';
+  overlay.className = 'dp-edit-overlay';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+
+  // Options urgence (bug uniquement)
+  var urgenceOptions = ['Critique','Majeur','Mineur','Cosmétique'].map(function(u){
+    return '<option'+(u===data.urgence?' selected':'')+'>'+u+'</option>';
+  }).join('');
+
+  // Options zone
+  var zones = ['Dispatch','Dplane','Dvol','Mes dossiers','Auth','Autre'];
+  var zoneOptions = zones.map(function(z){
+    return '<option'+(z===data.zone?' selected':'')+'>'+z+'</option>';
+  }).join('');
+
+  overlay.innerHTML =
+    '<div class="dp-edit-modal" onclick="event.stopPropagation()">' +
+      '<div class="dp-edit-modal__head">' +
+        '<span class="dp-edit-modal__title">Modifier '+(isBug?'le bug':'l\'évolution')+'</span>' +
+        '<button class="dp-modal-close" onclick="document.getElementById(\'dp-edit-modal-overlay\').remove()">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
+        '</button>' +
+      '</div>' +
+      '<div class="dp-edit-modal__body">' +
+        (isBug
+          ? '<div class="dp-form-row">' +
+              '<div class="dp-field">' +
+                '<label class="dp-form-label" for="dp-edit-urgence">Urgence</label>' +
+                '<select id="dp-edit-urgence">'+urgenceOptions+'</select>' +
+              '</div>' +
+              '<div class="dp-field">' +
+                '<label class="dp-form-label" for="dp-edit-echeance">Échéance</label>' +
+                '<input id="dp-edit-echeance" type="date" value="'+(data.date_echeance||'')+'">' +
+              '</div>' +
+            '</div>'
+          : '<div class="dp-form-row dp-form-row--full">' +
+              '<div class="dp-field">' +
+                '<label class="dp-form-label" for="dp-edit-echeance">Échéance</label>' +
+                '<input id="dp-edit-echeance" type="date" value="'+(data.date_echeance||'')+'">' +
+              '</div>' +
+            '</div>'
+        ) +
+        '<div class="dp-form-row dp-form-row--full">' +
+          '<div class="dp-field">' +
+            '<label class="dp-form-label" for="dp-edit-zone">Zone</label>' +
+            '<select id="dp-edit-zone">'+zoneOptions+'</select>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="dp-edit-modal__foot">' +
+        '<button class="dp-btn dp-btn--ghost" onclick="document.getElementById(\'dp-edit-modal-overlay\').remove()">Annuler</button>' +
+        '<button class="dp-btn dp-btn--primary" onclick="dpEnregistrerEdition(\''+type+'\','+id+')">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' +
+          'Enregistrer' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+};
+
+window.dpEnregistrerEdition = async function(type, id) {
+  var isBug = type === 'bug';
+  var table = isBug ? 'dsp_bugs' : 'dsp_evolutions';
+
+  var urgEl = document.getElementById('dp-edit-urgence');
+  var echEl = document.getElementById('dp-edit-echeance');
+  var zoneEl = document.getElementById('dp-edit-zone');
+
+  var payload = {};
+  if (isBug && urgEl) payload.urgence = urgEl.value;
+  if (echEl && echEl.value) payload.date_echeance = echEl.value;
+  if (zoneEl) payload.zone = zoneEl.value;
+
+  try {
+    var res = await db.from(table).update(payload).eq('id',id);
+    if (res.error) throw res.error;
+    if (typeof showNotif==='function') showNotif('✅ Modifications enregistrées','success');
+    // Fermer le modal d'édition et rafraîchir le modal de détail
+    var overlay = document.getElementById('dp-edit-modal-overlay');
+    if (overlay) overlay.remove();
+    dpOuvrirDetail(type, id);
+    dpRenderBugs();
+    dpLoadStats();
+  } catch(e) {
+    if (typeof showNotif==='function') showNotif('Erreur : '+e.message,'error');
+  }
+};
 
 window.dpConfirmerEtape = async function(type, id, nouveauStatut) {
   var table = type==='bug' ? 'dsp_bugs' : 'dsp_evolutions';
