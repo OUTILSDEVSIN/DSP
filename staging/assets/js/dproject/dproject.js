@@ -226,6 +226,71 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
   border-top:1px solid var(--ink-100);
   background:var(--ink-50);
 }
+
+/* ---- Upload zone (captures d'écran) ---- */
+.dp-upload-zone{
+  border:1px dashed var(--ink-300);border-radius:9px;
+  padding:18px;text-align:center;background:var(--ink-50);
+  cursor:pointer;transition:border-color .15s,background .15s;
+  margin-bottom:10px;
+}
+.dp-upload-zone:hover{border-color:var(--rose);background:#fef3f6}
+.dp-upload-zone.is-dragover{border-color:var(--rose);background:#fef3f6;border-style:solid}
+.dp-upload-zone.is-disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
+.dp-upload-ico{font-size:24px;color:var(--ink-400);line-height:1}
+.dp-upload-title{font-size:13px;color:var(--ink-700);margin-top:6px;font-weight:600}
+.dp-upload-hint{font-size:11px;color:var(--ink-400);margin-top:2px}
+.dp-upload-count{font-size:11px;color:var(--ink-500);margin-top:4px;font-family:monospace}
+/* Grille de vignettes */
+.dp-thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dp-thumb{
+  position:relative;aspect-ratio:1;
+  border:1px solid var(--ink-200);border-radius:8px;
+  background:var(--ink-50);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.dp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.dp-thumb__remove{
+  position:absolute;top:4px;right:4px;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(15,23,42,.7);border:none;color:#fff;
+  cursor:pointer;display:grid;place-items:center;font-size:11px;
+  transition:background .15s;
+}
+.dp-thumb__remove:hover{background:rgba(15,23,42,.9)}
+.dp-thumb__name{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(15,23,42,.75);color:#fff;
+  font-size:10px;padding:3px 6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-family:monospace;
+}
+/* Vignettes dans le modal de détail (cliquables pour ouvrir en grand) */
+.dp-screenshots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.dp-screenshot-thumb{
+  aspect-ratio:1;border:1px solid var(--ink-200);border-radius:8px;
+  overflow:hidden;cursor:pointer;background:var(--ink-50);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .12s,box-shadow .15s;
+}
+.dp-screenshot-thumb:hover{transform:scale(1.02);box-shadow:0 4px 12px -4px rgba(15,23,42,.2)}
+.dp-screenshot-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+/* Lightbox pour image agrandie */
+.dp-lightbox{
+  position:fixed;inset:0;z-index:10002;
+  background:rgba(0,0,0,.85);
+  display:flex;align-items:center;justify-content:center;
+  cursor:zoom-out;padding:40px;
+  animation:dpFadein .2s ease;
+}
+.dp-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.dp-lightbox__close{
+  position:absolute;top:20px;right:20px;
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+  color:#fff;cursor:pointer;display:grid;place-items:center;
+}
+.dp-lightbox__close svg{width:18px;height:18px}
 /* Modal body — scrollable */
 .dp-modal-body{overflow-y:auto;padding:22px 22px 8px;flex:1}
 .dp-modal-body::-webkit-scrollbar{width:10px}
@@ -629,6 +694,10 @@ function dpRenderBugsTable(bugs) {
 window.dpOuvrirFormulaireSignaler = function() {
   var existing = document.getElementById('dp-signaler-modal');
   if (existing) existing.remove();
+
+  // Reset du tableau de fichiers sélectionnés (en mémoire, pas encore uploadés)
+  window._dpSelectedFiles = [];
+
   var overlay = document.createElement('div');
   overlay.id = 'dp-signaler-modal';
   overlay.className = 'dp-modal-overlay';
@@ -656,6 +725,17 @@ window.dpOuvrirFormulaireSignaler = function() {
           '<select class="dp-form-select" id="dp-sig-env"><option>PROD</option><option>Staging</option></select></div>' +
         '</div>' +
 
+        '<div><label class="dp-form-label">Captures d\'écran (optionnel · 3 max · 5 Mo/fichier)</label>' +
+          '<div class="dp-upload-zone" id="dp-upload-zone" onclick="document.getElementById(\'dp-sig-file-input\').click()">' +
+            '<div class="dp-upload-ico">📷</div>' +
+            '<div class="dp-upload-title">Cliquer ou glisser-déposer</div>' +
+            '<div class="dp-upload-hint">PNG, JPG, JPEG, WebP, GIF</div>' +
+            '<div class="dp-upload-count" id="dp-upload-count">0/3 capture(s) sélectionnée(s)</div>' +
+          '</div>' +
+          '<input type="file" id="dp-sig-file-input" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" multiple style="display:none">' +
+          '<div class="dp-thumbs" id="dp-thumbs"></div>' +
+        '</div>' +
+
         '<div><label class="dp-form-label">Niveau d\'urgence *</label>' +
         '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="dp-sig-urgence-grid">' +
           ['Critique','Majeur','Mineur','Cosmétique'].map(function(u,i){
@@ -669,7 +749,7 @@ window.dpOuvrirFormulaireSignaler = function() {
 
         '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px;border-top:1px solid var(--ink-100)">' +
           '<button class="dp-btn dp-btn--ghost" onclick="document.getElementById(\'dp-signaler-modal\').remove()">Annuler</button>' +
-          '<button class="dp-btn dp-btn--rose" onclick="dpSoumettreSignalement()">Soumettre le bug</button>' +
+          '<button class="dp-btn dp-btn--rose" id="dp-sig-submit" onclick="dpSoumettreSignalement()">Soumettre le bug</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -684,6 +764,78 @@ window.dpOuvrirFormulaireSignaler = function() {
       lbl.style.borderColor='var(--rose)'; lbl.style.background='#fff7fa';
     });
   });
+
+  // Setup upload : input file + drag&drop
+  var fileInput = document.getElementById('dp-sig-file-input');
+  var uploadZone = document.getElementById('dp-upload-zone');
+  fileInput.addEventListener('change', function(e){ dpHandleFiles(e.target.files); });
+  uploadZone.addEventListener('dragover', function(e){
+    e.preventDefault();
+    uploadZone.classList.add('is-dragover');
+  });
+  uploadZone.addEventListener('dragleave', function(){
+    uploadZone.classList.remove('is-dragover');
+  });
+  uploadZone.addEventListener('drop', function(e){
+    e.preventDefault();
+    uploadZone.classList.remove('is-dragover');
+    dpHandleFiles(e.dataTransfer.files);
+  });
+};
+
+// ── Gestion des fichiers sélectionnés (en mémoire) ───────
+window.dpHandleFiles = function(fileList) {
+  if (!window._dpSelectedFiles) window._dpSelectedFiles = [];
+  var maxFiles = 3;
+  var maxSize = 5 * 1024 * 1024; // 5 Mo
+  var allowedTypes = ['image/png','image/jpeg','image/jpg','image/webp','image/gif'];
+
+  for (var i = 0; i < fileList.length; i++) {
+    var f = fileList[i];
+    if (window._dpSelectedFiles.length >= maxFiles) {
+      if (typeof showNotif==='function') showNotif('Maximum '+maxFiles+' captures','error');
+      break;
+    }
+    if (allowedTypes.indexOf(f.type) === -1) {
+      if (typeof showNotif==='function') showNotif('Format non supporté : '+f.name,'error');
+      continue;
+    }
+    if (f.size > maxSize) {
+      if (typeof showNotif==='function') showNotif('Fichier trop volumineux : '+f.name+' (max 5 Mo)','error');
+      continue;
+    }
+    window._dpSelectedFiles.push(f);
+  }
+  dpRenderThumbs();
+};
+
+window.dpRenderThumbs = function() {
+  var thumbsContainer = document.getElementById('dp-thumbs');
+  var countEl = document.getElementById('dp-upload-count');
+  var zone = document.getElementById('dp-upload-zone');
+  if (!thumbsContainer) return;
+
+  var files = window._dpSelectedFiles || [];
+  thumbsContainer.innerHTML = files.map(function(f, idx){
+    var url = URL.createObjectURL(f);
+    return '<div class="dp-thumb">' +
+      '<img src="'+url+'" alt="'+f.name+'">' +
+      '<button class="dp-thumb__remove" onclick="dpRemoveFile('+idx+')">✕</button>' +
+      '<div class="dp-thumb__name">'+f.name+'</div>' +
+    '</div>';
+  }).join('');
+
+  if (countEl) countEl.textContent = files.length+'/3 capture(s) sélectionnée(s)';
+  if (zone) {
+    if (files.length >= 3) zone.classList.add('is-disabled');
+    else zone.classList.remove('is-disabled');
+  }
+};
+
+window.dpRemoveFile = function(idx) {
+  if (!window._dpSelectedFiles) return;
+  window._dpSelectedFiles.splice(idx, 1);
+  dpRenderThumbs();
 };
 
 window.dpSoumettreSignalement = async function() {
@@ -717,17 +869,67 @@ window.dpSoumettreSignalement = async function() {
     signale_par_nom: currentUserData ? (currentUserData.prenom+' '+currentUserData.nom) : 'Admin'
   };
 
+  // Désactiver le bouton pendant l'upload
+  var submitBtn = document.getElementById('dp-sig-submit');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.6';
+    submitBtn.style.pointerEvents = 'none';
+    submitBtn.textContent = 'Envoi en cours…';
+  }
+
   try {
+    // 1. Upload des captures vers Supabase Storage
+    var files = window._dpSelectedFiles || [];
+    var uploadedPaths = [];
+    if (files.length > 0) {
+      uploadedPaths = await dpUploadScreenshots(files, newCode);
+    }
+    if (uploadedPaths.length > 0) {
+      payload.screenshots = uploadedPaths;
+    }
+
+    // 2. Insertion en DB
     var res = await db.from('dsp_bugs').insert(payload);
     if (res.error) throw res.error;
+
     document.getElementById('dp-signaler-modal').remove();
+    window._dpSelectedFiles = []; // reset
     if (typeof showNotif==='function') showNotif('✅ Bug '+newCode+' signalé !','success');
     dpRenderBugs();
     dpLoadStats();
     dpLoadAQualifier();
   } catch(e) {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      submitBtn.style.pointerEvents = 'auto';
+      submitBtn.textContent = 'Soumettre le bug';
+    }
     if (typeof showNotif==='function') showNotif('Erreur : '+e.message,'error');
   }
+};
+
+// ── Upload de captures vers Supabase Storage ─────────────
+// Reçoit un tableau de Files + le code du bug (ex: BUG-003)
+// Retourne un tableau de chemins (ex: ["BUG-003/1747234567-1.png", ...])
+window.dpUploadScreenshots = async function(files, bugCode) {
+  var paths = [];
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    // Génère un nom unique : timestamp + index + extension
+    var ext = (f.name.split('.').pop() || 'png').toLowerCase();
+    var fileName = Date.now()+'-'+i+'.'+ext;
+    var path = bugCode+'/'+fileName;
+    var res = await db.storage.from('bug-screenshots').upload(path, f, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: f.type
+    });
+    if (res.error) throw new Error('Upload échoué : '+res.error.message);
+    paths.push(path);
+  }
+  return paths;
 };
 
 // ── Détail bug ────────────────────────────────────────────
@@ -833,6 +1035,32 @@ function dpRenderDetailModal(box, type, data, comments) {
   var icoDesc       = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>';
   var icoAdmin      = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82 2 2 0 01-2.83 2.83 1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51A2 2 0 0110 21a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33 2 2 0 01-2.83-2.83 1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1A2 2 0 013 10a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82 2 2 0 012.83-2.83 1.65 1.65 0 001.82.33 1.65 1.65 0 001-1.51A2 2 0 0114 3a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33 2 2 0 012.83 2.83 1.65 1.65 0 00-.33 1.82 1.65 1.65 0 001.51 1A2 2 0 0121 14a1.65 1.65 0 00-1.51 1z"/></svg>';
   var icoEvents     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
+  var icoCapture    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+
+  // Section captures (uniquement bug pour l'instant, mais marche pour évolutions aussi)
+  var screenshots = data.screenshots || [];
+  var nbCaptures = screenshots.length;
+  var canAddMore = nbCaptures < 3;
+  var capturesHTML = '<div class="dp-section">' +
+    '<h3 class="dp-section-title" style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+      '<span style="display:flex;align-items:center;gap:8px">' +
+        '<span class="dp-section-ico">'+icoCapture+'</span>Captures ('+nbCaptures+'/3)' +
+      '</span>' +
+      (canAddMore
+        ? '<button class="dp-btn dp-btn--ghost" style="height:28px;font-size:11px;padding:0 10px" onclick="dpAjouterCaptureDetail(\''+type+'\','+data.id+')">+ Ajouter</button>'
+        : '') +
+    '</h3>' +
+    (nbCaptures > 0
+      ? '<div class="dp-screenshots" id="dp-screenshots-'+data.id+'">' +
+          '<div style="grid-column:1/-1;text-align:center;color:var(--ink-400);font-size:12px;padding:8px">Chargement des captures…</div>' +
+        '</div>'
+      : '<div style="color:var(--ink-400);font-size:13px;text-align:center;padding:16px">Aucune capture jointe</div>') +
+  '</div>';
+
+  // Si captures présentes : génère les URLs signées et les affiche après injection du HTML
+  if (nbCaptures > 0) {
+    setTimeout(function(){ dpAfficherCaptures(data.id, screenshots, type); }, 0);
+  }
 
   box.innerHTML =
     // ── Header gradient navy ──
@@ -866,7 +1094,10 @@ function dpRenderDetailModal(box, type, data, comments) {
           '</div>'
         : '') +
 
-      // Section avancement (2ème position)
+      // Section captures (entre description et avancement)
+      capturesHTML +
+
+      // Section avancement
       '<div class="dp-section">' +
         '<h3 class="dp-section-title"><span class="dp-section-ico">'+icoAvancement+'</span>Avancement</h3>' +
         stepperHTML +
@@ -993,6 +1224,103 @@ window.dpEnregistrerEdition = async function(type, id) {
   } catch(e) {
     if (typeof showNotif==='function') showNotif('Erreur : '+e.message,'error');
   }
+};
+
+// ── Affichage des captures avec URLs signées ─────────────
+window.dpAfficherCaptures = async function(bugId, paths, type) {
+  var container = document.getElementById('dp-screenshots-'+bugId);
+  if (!container) return;
+  try {
+    // Génère les URLs signées (valables 1h)
+    var signedUrls = [];
+    for (var i = 0; i < paths.length; i++) {
+      var res = await db.storage.from('bug-screenshots').createSignedUrl(paths[i], 3600);
+      if (res.error) {
+        signedUrls.push(null);
+      } else {
+        signedUrls.push(res.data.signedUrl);
+      }
+    }
+    container.innerHTML = signedUrls.map(function(url, idx){
+      if (!url) {
+        return '<div class="dp-screenshot-thumb" style="cursor:default;color:var(--ink-400);font-size:11px">⚠ Erreur</div>';
+      }
+      // On encode le path en base64 pour le passer dans onclick sans souci de quotes
+      var safePath = btoa(paths[idx]);
+      return '<div class="dp-screenshot-thumb" onclick="dpOuvrirLightbox(\''+url+'\')" title="Cliquer pour agrandir">' +
+        '<img src="'+url+'" alt="capture '+(idx+1)+'">' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    container.innerHTML = '<div style="grid-column:1/-1;color:var(--rose);font-size:12px;text-align:center;padding:8px">Erreur de chargement : '+e.message+'</div>';
+  }
+};
+
+// ── Lightbox (image en grand) ────────────────────────────
+window.dpOuvrirLightbox = function(url) {
+  var existing = document.getElementById('dp-lightbox');
+  if (existing) existing.remove();
+  var lb = document.createElement('div');
+  lb.id = 'dp-lightbox';
+  lb.className = 'dp-lightbox';
+  lb.onclick = function(){ lb.remove(); };
+  lb.innerHTML = '<button class="dp-lightbox__close" onclick="event.stopPropagation();document.getElementById(\'dp-lightbox\').remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button><img src="'+url+'" alt="capture">';
+  document.body.appendChild(lb);
+};
+
+// ── Ajout d'une capture depuis le modal de détail ────────
+window.dpAjouterCaptureDetail = async function(type, id) {
+  // Sélection d'un fichier via input
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg,image/jpg,image/webp,image/gif';
+  input.style.display = 'none';
+  input.onchange = async function(e) {
+    var f = e.target.files[0];
+    if (!f) return;
+
+    // Validations
+    var maxSize = 5 * 1024 * 1024;
+    var allowedTypes = ['image/png','image/jpeg','image/jpg','image/webp','image/gif'];
+    if (allowedTypes.indexOf(f.type) === -1) {
+      if (typeof showNotif==='function') showNotif('Format non supporté','error');
+      return;
+    }
+    if (f.size > maxSize) {
+      if (typeof showNotif==='function') showNotif('Fichier trop volumineux (max 5 Mo)','error');
+      return;
+    }
+
+    try {
+      // Récupérer les captures existantes pour vérifier la limite
+      var table = type==='bug' ? 'dsp_bugs' : 'dsp_evolutions';
+      var res = await db.from(table).select('code, screenshots').eq('id', id).single();
+      if (res.error) throw res.error;
+      var current = res.data.screenshots || [];
+      if (current.length >= 3) {
+        if (typeof showNotif==='function') showNotif('Limite de 3 captures atteinte','error');
+        return;
+      }
+      var code = res.data.code;
+
+      // Upload
+      if (typeof showNotif==='function') showNotif('Upload en cours…','info');
+      var paths = await dpUploadScreenshots([f], code);
+      var updated = current.concat(paths);
+
+      // Sauvegarde dans la DB
+      var updateRes = await db.from(table).update({screenshots: updated}).eq('id', id);
+      if (updateRes.error) throw updateRes.error;
+
+      if (typeof showNotif==='function') showNotif('✅ Capture ajoutée','success');
+      dpOuvrirDetail(type, id); // refresh
+    } catch(e) {
+      if (typeof showNotif==='function') showNotif('Erreur : '+e.message,'error');
+    }
+  };
+  document.body.appendChild(input);
+  input.click();
+  setTimeout(function(){ input.remove(); }, 1000);
 };
 
 window.dpConfirmerEtape = async function(type, id, nouveauStatut) {
