@@ -1,6 +1,7 @@
 /* =========================================================
    Dproject — Module gestion projet DSP
-   v2.0 — Design unifié + Supabase
+   v2.1 — Design unifié + Supabase
+   ✅ Correction : JS sorti de la template string innerHTML
    Onglet Bugs : ✅ fonctionnel
    Onglets Évolutions / Tâches / Roadmap : 🔜 à venir
    ========================================================= */
@@ -387,8 +388,18 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 
 </div>
 
-<script>
-(function(){
+`;
+
+  // ── Init après injection du HTML ────────────────────────
+  // Ces fonctions ont besoin que le DOM soit en place
+  dpRenderBugs();
+  dpLoadStats();
+  dpLoadAQualifier();
+}
+
+// =========================================================
+// FONCTIONS GLOBALES — accessibles depuis les onclick HTML
+// =========================================================
 
 // ── Helpers HTML ──────────────────────────────────────────
 function dpBadgeUrgence(u) {
@@ -906,13 +917,3 @@ window.dpAjouterCommentaire = async function(type, id) {
     if (typeof showNotif==='function') showNotif('Erreur : '+e.message,'error');
   }
 };
-
-// ── Init ──────────────────────────────────────────────────
-dpRenderBugs();
-dpLoadStats();
-dpLoadAQualifier();
-
-})();
-</script>
-`;
-}
