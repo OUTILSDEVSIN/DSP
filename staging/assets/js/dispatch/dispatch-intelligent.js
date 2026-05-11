@@ -75,7 +75,13 @@ function confirmGestionnaires() {
     if (checked.length === 0) { showNotif('Sélectionnez au moins un gestionnaire', 'error'); return; }
     safeSession.setItem('dispatch_gestionnaires', JSON.stringify(checked));
     closeModal('gest-modal');
-    showRepartitionModal();
+    // ÉVOL-003 Lot 2 (8 mai 2026) : bypass de showRepartitionModal + showPreDispatchModal.
+    // La nouvelle vue Kanban absorbe le choix de mode (auto/manuel) et la gestion
+    // des dossiers anciens directement dans le board (badges urgence, ajustement manuel).
+    // ── ROLLBACK ── commenter la ligne `showDispatchKanban()` ci-dessous et
+    //                décommenter `showRepartitionModal()` pour revenir au pipeline v1.
+    // showRepartitionModal();
+    showDispatchKanban();
 }
 
 function showRepartitionModal() {
@@ -1391,3 +1397,455 @@ async function doForceAttribution(dossierId) {
     await loadDossiers();
 }
 // ===== FIN ALERTE PRIORITAIRES =====
+
+
+/* ============================================================================
+ * ÉVOL-003 Lot 2 — DISPATCH KANBAN PLEIN ÉCRAN (en développement)
+ * ----------------------------------------------------------------------------
+ * Nouvelle vue plein écran qui remplace progressivement showPropositionModal().
+ * Inspirée du design "Proposition de dispatch intelligent" — Hi-fi Piste A
+ * (dessiné le 7 mai 2026, dossier "Proposition de dispatch intelligent design").
+ *
+ * Architecture (overlay modal plein écran sur la page Dispatch) :
+ *   ┌─ PageHeader ─────────────────────────────────────────────────────┐
+ *   │ 🚀 Proposition de Dispatch intelligent       Libres · Pré · Reste│
+ *   ├──────────────┬───────────────────────────────────────────────────┤
+ *   │ Non attribués│  Marie-France │  Julien │  Sophie │  …            │
+ *   │   (filtres)  │   (capacity)  │ (cap.)  │ (cap.)  │  → scroll-X   │
+ *   │              │               │         │         │               │
+ *   │  card · card │  card · card  │  card   │  card   │               │
+ *   ├──────────────┴───────────────────────────────────────────────────┤
+ *   │ ⚖ Rééquilibrer    74 libres · 35 pré · 48 reste    Annuler  ✓ DISPATCH│
+ *   └──────────────────────────────────────────────────────────────────┘
+ *
+ * Décisions :
+ *  - Stack : vanilla JS (l'app Dispatchis n'utilise pas React).
+ *  - IA : retirée (Option C, à ajouter plus tard si besoin).
+ *  - L'ancienne showPropositionModal() reste intacte pour rollback rapide.
+ *  - L'AppHeader Dispatchis (navy bar) existe déjà dans la page, on ne le re-rend pas ici.
+ *
+ * Découpage en lots :
+ *  ✅ Lot 2A : squelette (cette PR)
+ *  🔜 Lot 2B : colonne Non attribués + cards + filtres
+ *  🔜 Lot 2C : colonnes gestionnaires + capacity bar + tone dynamique
+ *  🔜 Lot 2D : footer + branchement logique métier (réutilise pipeline existant)
+ *  🔜 Lot 2E : densité (compact/comfortable) — optionnel
+ * ============================================================================ */
+
+async function showDispatchKanban() {
+    // 1. Chargement données (même contrat que showPropositionModal)
+    await loadDossiers();
+    await loadAllUsers();
+
+    // 2. Gestionnaires actifs (sélectionnés via showGestionnairesModal en amont)
+    var activeIds = JSON.parse(safeSession.getItem('dispatch_gestionnaires') || '[]');
+    var activeGest = (allUsers || []).filter(function(u) { return activeIds.includes(String(u.id)); });
+
+    if (activeGest.length === 0) {
+        showNotif('Aucun gestionnaire actif sélectionné.', 'warning');
+        return;
+    }
+
+    // 3. State du Kanban (closure — partagé entre les helpers de cette session)
+    //    Lot 2B : libres + filtres. Les pré-attribs (propData) arriveront en Lot 2C/2D.
+    var state = {
+        allLibres: kanbanExtractDossiersLibres(allDossiers),
+        propData: {},  // { gestId: [dossier, ...] } — sera peuplé au Lot 2C/2D
+        filters: { search: '', urgency: 'all', nature: 'all', prod: 'all' }
+    };
+    activeGest.forEach(function(g) { state.propData[String(g.id)] = []; });
+
+    // 4. Overlay plein écran
+    var overlay = document.createElement('div');
+    overlay.id = 'dispatch-kanban-overlay';
+    overlay.style.cssText = [
+        'position:fixed', 'inset:0', 'z-index:3000',
+        'background:var(--bg)', 'display:flex', 'flex-direction:column',
+        'overflow:hidden', 'font-family:var(--font-sans, "Inter", system-ui, sans-serif)'
+    ].join(';');
+
+    overlay.innerHTML = ''
+        + renderKanbanPageHeader()
+        + renderKanbanBody(activeGest)
+        + renderKanbanFooter();
+
+    document.body.appendChild(overlay);
+
+    // 5. Refresh — recalcule la zone libre et les stats du header
+    function refreshKanban() {
+        var filtered = kanbanApplyFilters(state.allLibres, state.filters);
+        var liste = document.getElementById('kanban-liste-libres');
+        if (liste) {
+            liste.innerHTML = filtered.length > 0
+                ? filtered.map(renderUnattribCard).join('')
+                : '<div style="text-align:center;padding:40px 10px;color:var(--gray-400);font-size:12px">Aucun dossier ne correspond aux filtres</div>';
+        }
+        // Compteur badge de la colonne
+        var badge = document.querySelector('[data-stat="libre-count"]');
+        if (badge) badge.textContent = filtered.length;
+        // Stats du header
+        var nbPre = Object.keys(state.propData).reduce(function(acc, k) { return acc + state.propData[k].length; }, 0);
+        var totalLibres = state.allLibres.length + nbPre; // libres initiaux = libres restants + pré-attribués
+        setKanbanStat('libres',    totalLibres);
+        setKanbanStat('preattrib', nbPre);
+        setKanbanStat('reste',     state.allLibres.length);
+    }
+
+    // 6. Bind filtres (recherche, pills urgence, selects)
+    bindKanbanFilters(state, refreshKanban);
+
+    // 7. Bind clic "+" sur cards (Lot 2B : placeholder, vraie attribution en Lot 2D)
+    var listeEl = document.getElementById('kanban-liste-libres');
+    if (listeEl) {
+        listeEl.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-action="attrib"]');
+            if (!btn) return;
+            showNotif('⏳ L\'attribution interactive arrive au Lot 2D', 'info');
+        });
+    }
+
+    // 8. Handlers footer
+    document.getElementById('btn-kanban-cancel').onclick = function() { overlay.remove(); };
+    overlay.tabIndex = -1;
+    overlay.focus();
+    overlay.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') overlay.remove();
+    });
+
+    // 9. Initial render
+    refreshKanban();
+}
+
+/* ── Helper pour MAJ d'une stat du header ─────────────────────────────── */
+function setKanbanStat(key, value) {
+    var el = document.querySelector('[data-stat="' + key + '"]');
+    if (el) el.textContent = value;
+}
+
+/* ── PageHeader (titre + 3 stats) ──────────────────────────────────────── */
+function renderKanbanPageHeader() {
+    return ''
+        + '<div style="background:#fff;padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:24px;flex-shrink:0">'
+        +   '<div style="display:flex;align-items:center;gap:14px;min-width:0">'
+        +     '<div style="width:40px;height:40px;border-radius:10px;background:var(--blue-100);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚀</div>'
+        +     '<div style="min-width:0">'
+        +       '<h1 style="font-size:20px;font-weight:800;color:var(--navy-deep, var(--navy));letter-spacing:-0.01em;margin:0">'
+        +         'Proposition de <span style="color:var(--rose)">D</span>ispatch intelligent'
+        +       '</h1>'
+        +       '<div style="font-size:12px;color:var(--gray-600);margin-top:2px">'
+        +         'Pré-attribution des dossiers libres · validation manuelle requise'
+        +       '</div>'
+        +     '</div>'
+        +   '</div>'
+        +   '<div id="kanban-stats" style="display:flex;align-items:center;gap:18px;flex-shrink:0">'
+        +     renderKanbanStat('libres',   'Libres',        '—', 'navy',    false)
+        +     '<span style="width:1px;height:30px;background:var(--border)"></span>'
+        +     renderKanbanStat('preattrib','Pré-attribués', '—', 'success', false)
+        +     '<span style="width:1px;height:30px;background:var(--border)"></span>'
+        +     renderKanbanStat('reste',    'Reste',         '—', 'rose',    true)
+        +   '</div>'
+        + '</div>';
+}
+
+function renderKanbanStat(key, label, value, tone, highlight) {
+    var colorMap = { navy: 'var(--navy)', success: 'var(--success)', rose: 'var(--rose)' };
+    var color = colorMap[tone] || colorMap.navy;
+    var wrapStyle = 'display:flex;flex-direction:column;align-items:flex-end';
+    if (highlight) {
+        wrapStyle += ';padding:4px 12px;background:var(--rose-soft);border-radius:8px;border:1px solid #fce8ef';
+    }
+    return ''
+        + '<div style="' + wrapStyle + '">'
+        +   '<span data-stat="' + key + '" style="font-size:22px;font-weight:800;color:' + color + ';line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">' + value + '</span>'
+        +   '<span style="font-size:10px;color:var(--gray-600);margin-top:3px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600">' + label + '</span>'
+        + '</div>';
+}
+
+/* ── Body (colonne Non attribués + colonnes gestionnaires) ────────────── */
+function renderKanbanBody(activeGest) {
+    return ''
+        + '<div style="flex:1;overflow:hidden;padding:16px;display:flex;gap:12px">'
+        // Colonne Non attribués (Lot 2B : header + filterbar + liste)
+        +   '<div id="kanban-zone-libre" style="width:300px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;overflow:hidden">'
+        +     '<div style="padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface-tint, var(--gray-50));display:flex;align-items:center;justify-content:space-between">'
+        +       '<div style="display:flex;align-items:center;gap:8px">'
+        +         '<span style="font-size:14px">📂</span>'
+        +         '<span style="font-size:13px;font-weight:700;color:var(--navy-deep, var(--navy))">Non attribués</span>'
+        +       '</div>'
+        +       '<span data-stat="libre-count" style="background:var(--rose);color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;font-variant-numeric:tabular-nums">0</span>'
+        +     '</div>'
+        +     renderKanbanFilterBar()
+        +     '<div id="kanban-liste-libres" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px"></div>'
+        +   '</div>'
+        // Colonnes gestionnaires (Lot 2C)
+        +   '<div id="kanban-zone-gests" style="flex:1;display:flex;gap:12px;overflow-x:auto;padding-bottom:4px">'
+        +     activeGest.map(function(g) {
+                  return renderKanbanGestPlaceholder(g);
+              }).join('')
+        +   '</div>'
+        + '</div>';
+}
+
+/* ── FilterBar (recherche + pills urgence + selects) ──────────────────── */
+function renderKanbanFilterBar() {
+    return ''
+        + '<div style="padding:10px 12px 8px;border-bottom:1px solid var(--border);background:var(--surface-tint, var(--gray-50));display:flex;flex-direction:column;gap:8px">'
+        // Recherche par N° dossier
+        +   '<div style="position:relative">'
+        +     '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--gray-400);pointer-events:none">🔍</span>'
+        +     '<input id="kanban-filter-search" type="text" placeholder="N° dossier…" autocomplete="off"'
+        +       ' style="width:100%;padding:7px 10px 7px 30px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;font-family:inherit;color:var(--navy);background:#fff;outline:none;font-variant-numeric:tabular-nums">'
+        +   '</div>'
+        // Pills urgence
+        +   '<div style="display:flex;gap:4px;flex-wrap:wrap">'
+        +     renderUrgencyPill('all', 'Toutes', null, true)
+        +     renderUrgencyPill('89',  '+89h',   'var(--rose)', false)
+        +     renderUrgencyPill('65',  '+65h',   'var(--rose)', false)
+        +     renderUrgencyPill('41',  '+41h',   '#d97706',     false)
+        +   '</div>'
+        // Selects nature / produit
+        +   '<div style="display:flex;gap:4px">'
+        +     '<select id="kanban-filter-nature" style="flex:1;padding:5px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:11px;font-family:inherit;background:#fff;color:var(--gray-700);cursor:pointer;outline:none">'
+        +       '<option value="all">Toutes natures</option>'
+        +       '<option value="MAT">MAT</option>'
+        +       '<option value="INC">INC</option>'
+        +       '<option value="VOL">VOL</option>'
+        +       '<option value="DDE">DDE</option>'
+        +     '</select>'
+        +     '<select id="kanban-filter-prod" style="flex:1;padding:5px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:11px;font-family:inherit;background:#fff;color:var(--gray-700);cursor:pointer;outline:none">'
+        +       '<option value="all">Tous types</option>'
+        +       '<option value="Auto">Auto</option>'
+        +       '<option value="Habitation">Habitation</option>'
+        +       '<option value="MRH">MRH</option>'
+        +     '</select>'
+        +   '</div>'
+        + '</div>';
+}
+
+function renderUrgencyPill(key, label, dotColor, active) {
+    var baseStyle = 'padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;transition:all 0.15s var(--ease-out, ease-out)';
+    var activeStyle  = ';border:1px solid var(--navy);background:var(--navy);color:#fff';
+    var passiveStyle = ';border:1px solid var(--gray-300);background:#fff;color:var(--gray-700)';
+    var style = baseStyle + (active ? activeStyle : passiveStyle);
+    var dot = (dotColor && !active)
+        ? '<span style="width:6px;height:6px;border-radius:50%;background:' + dotColor + '"></span>'
+        : '';
+    return '<button data-filter-urgency="' + key + '" data-active="' + (active ? '1' : '0') + '" style="' + style + '">' + dot + label + '</button>';
+}
+
+function renderKanbanGestPlaceholder(g) {
+    var initiales = (((g.prenom || '')[0] || '') + ((g.nom || '')[0] || '')).toUpperCase();
+    var nomComplet = escapeHtml((g.prenom || '') + ' ' + (g.nom || ''));
+    return ''
+        + '<div data-gestid="' + escapeHtml(g.id) + '" style="width:280px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;overflow:hidden">'
+        +   '<div style="padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface-tint, var(--gray-50))">'
+        +     '<div style="width:36px;height:36px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">' + escapeHtml(initiales) + '</div>'
+        +     '<div style="flex:1;min-width:0">'
+        +       '<div style="font-size:13px;font-weight:700;color:var(--navy-deep, var(--navy));overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + nomComplet + '</div>'
+        +       '<div style="font-size:11px;color:var(--gray-600);margin-top:1px">— en cours</div>'
+        +     '</div>'
+        +   '</div>'
+        +   '<div style="flex:1;padding:10px;text-align:center;color:var(--gray-400);font-size:11px;display:flex;align-items:center;justify-content:center;min-height:160px;border:1.5px dashed var(--gray-300);margin:10px;border-radius:8px">'
+        +     'Lot 2C<br>capacity bar + cards'
+        +   '</div>'
+        + '</div>';
+}
+
+/* ── Footer (actions globales + stats) ────────────────────────────────── */
+function renderKanbanFooter() {
+    return ''
+        + '<div style="background:#fff;padding:12px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;box-shadow:0 -1px 3px rgba(27,52,97,0.04)">'
+        +   '<button class="btn btn-secondary" id="btn-kanban-reequilibrer" style="font-size:13px" disabled title="Disponible au Lot 2D">⚖ Rééquilibrer</button>'
+        +   '<div style="display:flex;align-items:center;gap:14px;font-size:12px;color:var(--gray-600)">'
+        +     '<span style="color:var(--gray-400);font-style:italic">Lot 2D : stats live à venir</span>'
+        +   '</div>'
+        +   '<div style="display:flex;gap:8px">'
+        +     '<button class="btn btn-secondary" id="btn-kanban-cancel">Annuler</button>'
+        +     '<button class="btn btn-dispatch" id="btn-kanban-dispatch" disabled title="Disponible au Lot 2D">✓ Dispatch</button>'
+        +   '</div>'
+        + '</div>';
+}
+
+/* ============================================================================
+ * Lot 2B — Logique métier de la colonne "Non attribués"
+ * ----------------------------------------------------------------------------
+ * Helpers réutilisables pour extraire, trier, filtrer, et rendre les cards
+ * de dossiers libres dans le Kanban.
+ * ============================================================================ */
+
+/* ── Extraction des dossiers libres + tri par priorité métier ─────────── */
+/**
+ * Construit la liste triée des dossiers non attribués, prête à être affichée.
+ * Tri en cascade : priorité métier (OPTINEO > HAB/MRH > BDG) → ancienneté
+ * (critiques d'abord) → date_etat la plus ancienne en premier.
+ * Logique alignée sur showPropositionModal (ne pas dévier).
+ */
+function kanbanExtractDossiersLibres(allDossiers) {
+    var libres = (allDossiers || []).filter(function(d) {
+        var s = (d.statut || '').toLowerCase();
+        return s === 'nonattribue' || s === '' || !d.gestionnaire || d.gestionnaire === '';
+    });
+    libres.sort(function(a, b) {
+        // 1. Score prioritaire
+        var sDiff = kanbanPriScore(b) - kanbanPriScore(a);
+        if (sDiff !== 0) return sDiff;
+        // 2. Tranche d'ancienneté
+        var hA = getAncienneteHeures(a) || 0;
+        var hB = getAncienneteHeures(b) || 0;
+        var tierA = hA > DISPATCH_SEUIL_CRITIQUE ? 2 : hA > DISPATCH_SEUIL_ALERTE ? 1 : 0;
+        var tierB = hB > DISPATCH_SEUIL_CRITIQUE ? 2 : hB > DISPATCH_SEUIL_ALERTE ? 1 : 0;
+        if (tierB !== tierA) return tierB - tierA;
+        // 3. Date_etat ascendante
+        return hB - hA;
+    });
+    return libres;
+}
+
+function kanbanPriScore(d) {
+    var pf  = (d.portefeuille || '').toUpperCase();
+    var tp  = (d.type || '').toUpperCase();
+    var nat = (d.nature || '').toUpperCase();
+    var score = 0;
+    if (pf.includes('OPTINEO'))                          score += 4;
+    if (tp.includes('HABITATION') || tp.includes('MRH')) score += 2;
+    if (nat.includes('BDG'))                             score += 1;
+    return score;
+}
+
+/* ── Application des filtres FilterBar ────────────────────────────────── */
+function kanbanApplyFilters(libres, filters) {
+    return libres.filter(function(d) {
+        // Recherche par ref_sinistre
+        if (filters.search) {
+            var ref = (d.ref_sinistre || '').toLowerCase();
+            if (ref.indexOf(filters.search.toLowerCase()) === -1) return false;
+        }
+        // Urgence (4 buckets : all / 89 / 65 / 41)
+        if (filters.urgency !== 'all') {
+            var h = getAncienneteHeures(d) || 0;
+            if (filters.urgency === '89' && h < 80) return false;
+            if (filters.urgency === '65' && (h < 60 || h >= 80)) return false;
+            if (filters.urgency === '41' && (h < 30 || h >= 60)) return false;
+        }
+        // Nature (MAT/INC/VOL/DDE) — match exact, insensitive
+        if (filters.nature !== 'all') {
+            var n = (d.nature || '').toUpperCase();
+            if (n !== filters.nature.toUpperCase()) return false;
+        }
+        // Produit (Auto/Habitation/MRH) — match par inclusion sur d.type
+        if (filters.prod !== 'all') {
+            var t = (d.type || '').toUpperCase();
+            if (t.indexOf(filters.prod.toUpperCase()) === -1) return false;
+        }
+        return true;
+    });
+}
+
+/* ── Bind des handlers de la FilterBar ────────────────────────────────── */
+function bindKanbanFilters(state, refresh) {
+    // Recherche (debounce léger via input listener direct — assez rapide pour ~quelques centaines de dossiers)
+    var search = document.getElementById('kanban-filter-search');
+    if (search) {
+        search.oninput = function() {
+            state.filters.search = this.value;
+            refresh();
+        };
+        search.onfocus = function() {
+            this.style.borderColor = 'var(--blue-500)';
+            this.style.boxShadow = 'var(--shadow-focus, 0 0 0 3px rgba(74,126,199,0.18))';
+        };
+        search.onblur = function() {
+            this.style.borderColor = 'var(--gray-300)';
+            this.style.boxShadow = 'none';
+        };
+    }
+    // Pills urgence
+    document.querySelectorAll('[data-filter-urgency]').forEach(function(btn) {
+        btn.onclick = function() {
+            state.filters.urgency = this.dataset.filterUrgency;
+            // Re-style toutes les pills
+            document.querySelectorAll('[data-filter-urgency]').forEach(function(b) {
+                var isActive = b.dataset.filterUrgency === state.filters.urgency;
+                b.dataset.active = isActive ? '1' : '0';
+                if (isActive) {
+                    b.style.background = 'var(--navy)';
+                    b.style.borderColor = 'var(--navy)';
+                    b.style.color = '#fff';
+                    // Cacher la pastille de couleur quand actif
+                    var d = b.querySelector('span');
+                    if (d && d.style.borderRadius === '50%') d.style.display = 'none';
+                } else {
+                    b.style.background = '#fff';
+                    b.style.borderColor = 'var(--gray-300)';
+                    b.style.color = 'var(--gray-700)';
+                    var d2 = b.querySelector('span');
+                    if (d2 && d2.style.borderRadius === '50%') d2.style.display = '';
+                }
+            });
+            refresh();
+        };
+    });
+    // Selects
+    var selNature = document.getElementById('kanban-filter-nature');
+    if (selNature) selNature.onchange = function() { state.filters.nature = this.value; refresh(); };
+    var selProd = document.getElementById('kanban-filter-prod');
+    if (selProd) selProd.onchange = function() { state.filters.prod = this.value; refresh(); };
+}
+
+/* ── Rendu d'une card "Non attribué" ──────────────────────────────────── */
+/**
+ * Card horizontale compacte :
+ *   ┌──────────────────────────────────────┐
+ *   │  [badge +65h]  SINMIAA100016361      [+] │
+ *   │  Auto · MAT · OPTINEO                    │
+ *   └──────────────────────────────────────┘
+ */
+function renderUnattribCard(d) {
+    var h = getAncienneteHeures(d);
+    var badge = renderUrgencyBadge(h);
+    var ref = escapeHtml(d.ref_sinistre || '—');
+    var metaParts = [];
+    if (d.type) metaParts.push(escapeHtml(d.type));
+    if (d.nature) metaParts.push(escapeHtml(d.nature));
+    if (d.portefeuille) metaParts.push(escapeHtml(d.portefeuille));
+    var bullet = '<span style="display:inline-block;width:2px;height:2px;border-radius:50%;background:var(--gray-400);margin:0 4px;vertical-align:middle"></span>';
+    var meta = metaParts.join(bullet);
+
+    return ''
+        + '<div data-dossier-id="' + escapeHtml(d.id) + '" class="kanban-unattrib-card"'
+        +   ' style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 12px;box-shadow:var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06));display:flex;align-items:center;gap:8px;transition:all 0.18s var(--ease-out, ease-out)"'
+        +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md)\';this.style.transform=\'translateY(-1px)\'"'
+        +   ' onmouseleave="this.style.boxShadow=\'var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06))\';this.style.transform=\'none\'">'
+        +   '<div style="flex:1;min-width:0">'
+        +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
+        +       (badge || '')
+        +       '<span style="font-family:var(--font-mono, ui-monospace, monospace);font-size:11px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ref + '</span>'
+        +     '</div>'
+        +     (meta ? '<div style="font-size:10px;color:var(--gray-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</div>' : '')
+        +   '</div>'
+        +   '<button data-action="attrib" data-dossier-id="' + escapeHtml(d.id) + '" title="Attribuer"'
+        +     ' style="width:26px;height:26px;border-radius:6px;border:1px solid var(--blue-300);background:var(--blue-50);color:var(--blue-500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;padding:0;flex-shrink:0;transition:all 0.18s var(--ease-out, ease-out)"'
+        +     ' onmouseenter="this.style.background=\'var(--blue-500)\';this.style.color=\'#fff\'"'
+        +     ' onmouseleave="this.style.background=\'var(--blue-50)\';this.style.color=\'var(--blue-500)\'">+</button>'
+        + '</div>';
+}
+
+/* ── Badge urgence (3 tons : critical >= 60h, warning >= 30h, info >= 0h) ── */
+function renderUrgencyBadge(h) {
+    if (h === null || h === undefined) return '';
+    var palettes = {
+        critical: { bg: 'var(--rose-soft, #fce8ef)', fg: '#a8123f', dot: 'var(--rose)' },
+        warning:  { bg: '#fef3e2',                   fg: '#92540a', dot: '#d97706' },
+        info:     { bg: 'var(--blue-100)',            fg: 'var(--navy)', dot: 'var(--blue-500)' }
+    };
+    var tone = h >= 60 ? 'critical' : h >= 30 ? 'warning' : h >= 0 ? 'info' : null;
+    if (!tone) return '';
+    var p = palettes[tone];
+    return ''
+        + '<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:999px;background:' + p.bg + ';color:' + p.fg + ';font-size:10px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;flex-shrink:0">'
+        +   '<span style="width:6px;height:6px;border-radius:50%;background:' + p.dot + '"></span>'
+        +   '+' + h + 'h'
+        + '</span>';
+}
+
+/* ── FIN ÉVOL-003 Lot 2 — DISPATCH KANBAN ─────────────────────────────── */
