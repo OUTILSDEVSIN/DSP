@@ -230,18 +230,17 @@ async function renderMesDossiers() {
       if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
       return new Date(s);
     };
+    // ✅ FIX BUGS-002 (Bug 2) — tri stable uniquement par date_etat ascendant.
+    // Avant : priorité aux "récupérés en autonomie" via _recuperesSetMD (sessionStorage)
+    // → ordre instable au reload et après changement de statut.
+    // Maintenant : ordre 100% dicté par date_etat (BDD) → stable et permanent.
     mesDossiers.sort(function(a, b) {
-      // Les dossiers récupérés en autonomie restent en tête
-      var aR = _recuperesSetMD.has(a.id) ? 0 : 1;
-      var bR = _recuperesSetMD.has(b.id) ? 0 : 1;
-      if (aR !== bR) return aR - bR;
-      // Puis tri par date_etat ascendant
       var da = parseDateEtat(a.date_etat);
       var db2 = parseDateEtat(b.date_etat);
       if (!da && !db2) return 0;
-      if (!da) return 1;
+      if (!da) return 1;    // sans date → en dernier
       if (!db2) return -1;
-      return da - db2;
+      return da - db2;      // plus ancienne en premier
     });
 
     // Logique relances conservée pour les badges "🔄 Relancé" sur les lignes du tableau
@@ -273,7 +272,13 @@ async function renderMesDossiers() {
       const canSee = ['attribue','encours','ouvert','traite','relance','ouverture','refuse','gestion_vol'].includes(statut);
       if (!canSee) return;
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
-      const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
+      // ✅ FIX BUGS-002 (Bug 1) — surbrillance jaune uniquement le jour même.
+      // Avant : ligne jaune indéfiniment dès qu'un gestionnaire avait traité le dossier.
+      // Maintenant : on compare la date de traitement avec aujourd'hui.
+      const aujourdhuiMD = new Date().toISOString().split('T')[0];
+      const dejaTraiteParMoi = histoEntryMD
+        && histoEntryMD.gestionnaire === monNomMD
+        && histoEntryMD.date_traitement === aujourdhuiMD;
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
       // Badge troc en cours
       const enTroc = typeof isDossierEnTroc === 'function' && isDossierEnTroc(d.id);
