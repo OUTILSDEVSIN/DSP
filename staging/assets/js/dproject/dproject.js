@@ -692,7 +692,10 @@ function dpRenderBugsTable(bugs) {
     var idx = 0;
     for (var i=0; i<nom.length; i++) idx += nom.charCodeAt(i);
     var color = avatarColors[idx % avatarColors.length];
-    return '<div class="dp-who"><span class="dp-av" style="--av:'+color+'">'+initiales+'</span><span class="dp-who__name">'+nom+'</span></div>';
+    var avStyle = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:'+color+';color:#fff;font-size:10.5px;font-weight:600;flex-shrink:0';
+    var wrapStyle = 'display:inline-flex;align-items:center;gap:8px';
+    var nameStyle = 'font-size:12.5px;color:var(--ink-900)';
+    return '<div style="'+wrapStyle+'"><span style="'+avStyle+'">'+initiales+'</span><span style="'+nameStyle+'">'+nom+'</span></div>';
   }
   tbody.innerHTML = bugs.map(function(b) {
     return '<tr onclick="dpOuvrirDetail(\'bug\','+b.id+')">' +
