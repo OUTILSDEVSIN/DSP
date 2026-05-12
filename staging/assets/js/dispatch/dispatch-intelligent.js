@@ -1433,11 +1433,12 @@ async function doForceAttribution(dossierId) {
  * ============================================================================ */
 
 async function showDispatchKanban() {
-    // 1. Chargement données (même contrat que showPropositionModal)
+    // ── 1. Chargement données ────────────────────────────────────────────
+    //     Mêmes contrats que showPropositionModal pour rester aligné métier.
     await loadDossiers();
     await loadAllUsers();
 
-    // 2. Gestionnaires actifs (sélectionnés via showGestionnairesModal en amont)
+    // Gestionnaires actifs (sélectionnés via showGestionnairesModal en amont)
     var activeIds = JSON.parse(safeSession.getItem('dispatch_gestionnaires') || '[]');
     var activeGest = (allUsers || []).filter(function(u) { return activeIds.includes(String(u.id)); });
 
@@ -1446,33 +1447,61 @@ async function showDispatchKanban() {
         return;
     }
 
-    // 3. State du Kanban (closure — partagé entre les helpers de cette session)
-    //    Lot 2B : libres + filtres. Les pré-attribs (propData) arriveront en Lot 2C/2D.
+    // Habilitations gestionnaires (table habilitation_gestionnaires)
+    var habMap = await kanbanLoadHabMap();
+
+    // Max indicatif par gestionnaire selon planning Dplane du jour
+    var maxMap = await kanbanLoadMaxMap(activeGest);
+
+    // ── 2. State du Kanban ───────────────────────────────────────────────
+    //     allLibres   : dossiers libres restants (re-triés à chaque retour)
+    //     propData    : { gestId: [dossier, ...] } — pré-attribués
+    //     maxMap      : { gestId: max indicatif } — peut être ajusté plus tard
+    //     filters     : état FilterBar (search / urgency / nature / prod)
+    //     activeGest, habMap : pour re-render et popup d'attribution
+    var allLibresInitial = kanbanExtractDossiersLibres(allDossiers);
     var state = {
-        allLibres: kanbanExtractDossiersLibres(allDossiers),
-        propData: {},  // { gestId: [dossier, ...] } — sera peuplé au Lot 2C/2D
-        filters: { search: '', urgency: 'all', nature: 'all', prod: 'all' }
+        allLibres: allLibresInitial.slice(),
+        propData: {},
+        maxMap: maxMap,
+        filters: { search: '', urgency: 'all', nature: 'all', prod: 'all' },
+        activeGest: activeGest,
+        habMap: habMap
     };
     activeGest.forEach(function(g) { state.propData[String(g.id)] = []; });
 
-    // 4. Overlay plein écran
+    // ── 3. Pré-attribution automatique (round-robin équitable) ───────────
+    //     Adapté de showPropositionModal L.712-762. Respecte habilitations
+    //     et plafond maxMap[gestId]. Les dossiers placés en propData sont
+    //     retirés de state.allLibres pour éviter les doublons.
+    kanbanCalcPreAttrib(state);
+
+    // ── 4. Overlay plein écran ───────────────────────────────────────────
+    //     z-index 9999 pour passer au-dessus de tout (header, autres modales).
+    //     Background opaque explicite (#f4f7fc = --bg du DS) car les CSS vars
+    //     ne sont pas toutes déployées dans l'app — fallback sûr.
     var overlay = document.createElement('div');
     overlay.id = 'dispatch-kanban-overlay';
     overlay.style.cssText = [
-        'position:fixed', 'inset:0', 'z-index:3000',
-        'background:var(--bg)', 'display:flex', 'flex-direction:column',
-        'overflow:hidden', 'font-family:var(--font-sans, "Inter", system-ui, sans-serif)'
+        'position:fixed', 'inset:0', 'z-index:9999',
+        'background:#f4f7fc',
+        'display:flex', 'flex-direction:column',
+        'overflow:hidden',
+        'font-family:"Inter", "Segoe UI", system-ui, -apple-system, sans-serif'
     ].join(';');
 
     overlay.innerHTML = ''
         + renderKanbanPageHeader()
-        + renderKanbanBody(activeGest)
+        + renderKanbanBody(activeGest, state)
         + renderKanbanFooter();
 
     document.body.appendChild(overlay);
 
-    // 5. Refresh — recalcule la zone libre et les stats du header
+    // ── 5. Refresh ───────────────────────────────────────────────────────
+    //     Re-rend la liste des libres + chaque colonne gestionnaire +
+    //     les stats du header + le footer. Appelé après chaque mutation.
     function refreshKanban() {
+        // 5.1 — Colonne "Non attribués" + filtres
         var filtered = kanbanApplyFilters(state.allLibres, state.filters);
         var liste = document.getElementById('kanban-liste-libres');
         if (liste) {
@@ -1480,39 +1509,106 @@ async function showDispatchKanban() {
                 ? filtered.map(renderUnattribCard).join('')
                 : '<div style="text-align:center;padding:40px 10px;color:var(--gray-400);font-size:12px">Aucun dossier ne correspond aux filtres</div>';
         }
-        // Compteur badge de la colonne
         var badge = document.querySelector('[data-stat="libre-count"]');
         if (badge) badge.textContent = filtered.length;
-        // Stats du header
+
+        // 5.2 — Colonnes gestionnaires (capacity bar + cards + tone)
+        activeGest.forEach(function(g) {
+            var col = document.querySelector('[data-gestcol="' + g.id + '"]');
+            if (col) col.outerHTML = renderKanbanGestColumn(g, state);
+        });
+
+        // 5.3 — Stats header
         var nbPre = Object.keys(state.propData).reduce(function(acc, k) { return acc + state.propData[k].length; }, 0);
-        var totalLibres = state.allLibres.length + nbPre; // libres initiaux = libres restants + pré-attribués
+        var totalLibres = state.allLibres.length + nbPre;
         setKanbanStat('libres',    totalLibres);
         setKanbanStat('preattrib', nbPre);
         setKanbanStat('reste',     state.allLibres.length);
+
+        // 5.4 — Footer (bouton DISPATCH actif si au moins 1 pré-attrib)
+        var btnDispatch = document.getElementById('btn-kanban-dispatch');
+        if (btnDispatch) {
+            btnDispatch.disabled = nbPre === 0;
+            btnDispatch.title = nbPre === 0 ? 'Aucun dossier à dispatcher' : 'Valider ' + nbPre + ' attribution(s)';
+        }
+        var btnReeq = document.getElementById('btn-kanban-reequilibrer');
+        if (btnReeq) {
+            btnReeq.disabled = state.allLibres.length === 0;
+            btnReeq.title = state.allLibres.length === 0 ? 'Aucun dossier libre à répartir' : 'Relancer la pré-attribution sur les dossiers libres restants';
+        }
+        var footerStats = document.getElementById('kanban-footer-stats');
+        if (footerStats) footerStats.innerHTML = kanbanRenderFooterStats(state);
     }
 
-    // 6. Bind filtres (recherche, pills urgence, selects)
+    // ── 6. Bind filtres ──────────────────────────────────────────────────
     bindKanbanFilters(state, refreshKanban);
 
-    // 7. Bind clic "+" sur cards (Lot 2B : placeholder, vraie attribution en Lot 2D)
-    var listeEl = document.getElementById('kanban-liste-libres');
-    if (listeEl) {
-        listeEl.addEventListener('click', function(e) {
-            var btn = e.target.closest('[data-action="attrib"]');
-            if (!btn) return;
-            showNotif('⏳ L\'attribution interactive arrive au Lot 2D', 'info');
-        });
-    }
+    // ── 7. Bind interactions (délégation depuis l'overlay) ───────────────
+    //     · clic "+" sur UnattribCard       → popup d'attribution
+    //     · clic ✕ sur PreAttribCard        → retire et remet en libre
+    //     · clic outside popup              → close popup
+    overlay.addEventListener('click', function(e) {
+        // Attribution manuelle depuis card libre
+        var btnAttrib = e.target.closest('[data-action="attrib"]');
+        if (btnAttrib) {
+            e.stopPropagation();
+            kanbanOpenPopupAttrib(btnAttrib, state, refreshKanban);
+            return;
+        }
+        // Retour libre depuis card pré-attribuée
+        var btnRetour = e.target.closest('[data-action="retour-libre"]');
+        if (btnRetour) {
+            e.stopPropagation();
+            var dossierId = btnRetour.dataset.dossierId;
+            var fromGest  = btnRetour.dataset.gestId;
+            kanbanRetourLibre(state, fromGest, dossierId);
+            refreshKanban();
+            return;
+        }
+        // Item de popup d'attribution
+        var btnPopupItem = e.target.closest('[data-action="popup-attrib-item"]');
+        if (btnPopupItem) {
+            e.stopPropagation();
+            var dId = btnPopupItem.dataset.dossierId;
+            var gId = btnPopupItem.dataset.gestId;
+            kanbanAttribManuelle(state, gId, dId);
+            kanbanClosePopupAttrib();
+            refreshKanban();
+            return;
+        }
+        // Click ailleurs → ferme la popup ouverte
+        kanbanClosePopupAttrib();
+    });
 
-    // 8. Handlers footer
+    // ── 8. Handlers footer ───────────────────────────────────────────────
     document.getElementById('btn-kanban-cancel').onclick = function() { overlay.remove(); };
+
+    document.getElementById('btn-kanban-reequilibrer').onclick = function() {
+        // Re-lance la pré-attribution sur les dossiers libres restants.
+        // Les pré-attribs existantes (manuelles ou auto) sont conservées.
+        kanbanCalcPreAttrib(state);
+        refreshKanban();
+        showNotif('Rééquilibrage effectué', 'success');
+    };
+
+    document.getElementById('btn-kanban-dispatch').onclick = function() {
+        kanbanDoDispatch(state, overlay);
+    };
+
     overlay.tabIndex = -1;
     overlay.focus();
     overlay.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') overlay.remove();
+        if (e.key === 'Escape') {
+            // Si une popup d'attrib est ouverte, on la ferme d'abord
+            if (document.getElementById('kanban-popup-attrib')) {
+                kanbanClosePopupAttrib();
+                return;
+            }
+            overlay.remove();
+        }
     });
 
-    // 9. Initial render
+    // ── 9. Initial render ────────────────────────────────────────────────
     refreshKanban();
 }
 
@@ -1525,11 +1621,11 @@ function setKanbanStat(key, value) {
 /* ── PageHeader (titre + 3 stats) ──────────────────────────────────────── */
 function renderKanbanPageHeader() {
     return ''
-        + '<div style="background:#fff;padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:24px;flex-shrink:0">'
+        + '<div style="background:#fff;padding:18px 24px;border-bottom:1px solid var(--border, #e4eaf2);display:flex;align-items:center;justify-content:space-between;gap:24px;flex-shrink:0">'
         +   '<div style="display:flex;align-items:center;gap:14px;min-width:0">'
-        +     '<div style="width:40px;height:40px;border-radius:10px;background:var(--blue-100);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚀</div>'
+        +     '<div style="width:40px;height:40px;border-radius:10px;background:var(--blue-100, #e9f0fa);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚀</div>'
         +     '<div style="min-width:0">'
-        +       '<h1 style="font-size:20px;font-weight:800;color:var(--navy-deep, var(--navy));letter-spacing:-0.01em;margin:0">'
+        +       '<h1 style="font-size:20px;font-weight:800;color:var(--navy-deep, #122446);letter-spacing:-0.01em;margin:0">'
         +         'Proposition de <span style="color:var(--rose)">D</span>ispatch intelligent'
         +       '</h1>'
         +       '<div style="font-size:12px;color:var(--gray-600);margin-top:2px">'
@@ -1539,9 +1635,9 @@ function renderKanbanPageHeader() {
         +   '</div>'
         +   '<div id="kanban-stats" style="display:flex;align-items:center;gap:18px;flex-shrink:0">'
         +     renderKanbanStat('libres',   'Libres',        '—', 'navy',    false)
-        +     '<span style="width:1px;height:30px;background:var(--border)"></span>'
+        +     '<span style="width:1px;height:30px;background:var(--border, #e4eaf2)"></span>'
         +     renderKanbanStat('preattrib','Pré-attribués', '—', 'success', false)
-        +     '<span style="width:1px;height:30px;background:var(--border)"></span>'
+        +     '<span style="width:1px;height:30px;background:var(--border, #e4eaf2)"></span>'
         +     renderKanbanStat('reste',    'Reste',         '—', 'rose',    true)
         +   '</div>'
         + '</div>';
@@ -1562,25 +1658,25 @@ function renderKanbanStat(key, label, value, tone, highlight) {
 }
 
 /* ── Body (colonne Non attribués + colonnes gestionnaires) ────────────── */
-function renderKanbanBody(activeGest) {
+function renderKanbanBody(activeGest, state) {
     return ''
         + '<div style="flex:1;overflow:hidden;padding:16px;display:flex;gap:12px">'
-        // Colonne Non attribués (Lot 2B : header + filterbar + liste)
-        +   '<div id="kanban-zone-libre" style="width:300px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;overflow:hidden">'
-        +     '<div style="padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface-tint, var(--gray-50));display:flex;align-items:center;justify-content:space-between">'
+        // Colonne Non attribués
+        +   '<div id="kanban-zone-libre" style="width:300px;flex-shrink:0;background:#fff;border:1px solid var(--border, #e4eaf2);border-radius:12px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;overflow:hidden">'
+        +     '<div style="padding:12px 14px;border-bottom:1px solid var(--border, #e4eaf2);background:var(--surface-tint, #f8fafd);display:flex;align-items:center;justify-content:space-between">'
         +       '<div style="display:flex;align-items:center;gap:8px">'
         +         '<span style="font-size:14px">📂</span>'
-        +         '<span style="font-size:13px;font-weight:700;color:var(--navy-deep, var(--navy))">Non attribués</span>'
+        +         '<span style="font-size:13px;font-weight:700;color:var(--navy-deep, #122446)">Non attribués</span>'
         +       '</div>'
         +       '<span data-stat="libre-count" style="background:var(--rose);color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;font-variant-numeric:tabular-nums">0</span>'
         +     '</div>'
         +     renderKanbanFilterBar()
         +     '<div id="kanban-liste-libres" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px"></div>'
         +   '</div>'
-        // Colonnes gestionnaires (Lot 2C)
+        // Colonnes gestionnaires (Lot 2C+ étendu)
         +   '<div id="kanban-zone-gests" style="flex:1;display:flex;gap:12px;overflow-x:auto;padding-bottom:4px">'
         +     activeGest.map(function(g) {
-                  return renderKanbanGestPlaceholder(g);
+                  return renderKanbanGestColumn(g, state);
               }).join('')
         +   '</div>'
         + '</div>';
@@ -1589,7 +1685,7 @@ function renderKanbanBody(activeGest) {
 /* ── FilterBar (recherche + pills urgence + selects) ──────────────────── */
 function renderKanbanFilterBar() {
     return ''
-        + '<div style="padding:10px 12px 8px;border-bottom:1px solid var(--border);background:var(--surface-tint, var(--gray-50));display:flex;flex-direction:column;gap:8px">'
+        + '<div style="padding:10px 12px 8px;border-bottom:1px solid var(--border, #e4eaf2);background:var(--surface-tint, #f8fafd);display:flex;flex-direction:column;gap:8px">'
         // Recherche par N° dossier
         +   '<div style="position:relative">'
         +     '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--gray-400);pointer-events:none">🔍</span>'
@@ -1633,37 +1729,145 @@ function renderUrgencyPill(key, label, dotColor, active) {
     return '<button data-filter-urgency="' + key + '" data-active="' + (active ? '1' : '0') + '" style="' + style + '">' + dot + label + '</button>';
 }
 
-function renderKanbanGestPlaceholder(g) {
+/* ── Colonne gestionnaire (Lot 2C+ étendu) ─────────────────────────────
+ * Structure :
+ *  ┌────────────────────────────────────────┐
+ *  │ [avatar] Marie-France F.    [n / max] │   <- header (avatar coloré)
+ *  │ Tone (Disponible / En cours / …)       │
+ *  │ ████████░░░░░░░░░░░░░░░░  8 / 20      │   <- capacity bar
+ *  ├────────────────────────────────────────┤
+ *  │ [PreAttribCard]  ✕                     │
+ *  │ [PreAttribCard]  ✕                     │
+ *  │   …                                    │
+ *  └────────────────────────────────────────┘
+ */
+function renderKanbanGestColumn(g, state) {
+    var gid = String(g.id);
     var initiales = (((g.prenom || '')[0] || '') + ((g.nom || '')[0] || '')).toUpperCase();
     var nomComplet = escapeHtml((g.prenom || '') + ' ' + (g.nom || ''));
+    var couleur = kanbanGestColor(gid);
+    var dossiers = (state.propData && state.propData[gid]) || [];
+    var nbPre  = dossiers.length;
+    var maxIndic = (state.maxMap && state.maxMap[gid] != null) ? state.maxMap[gid] : 15;
+    var tone   = kanbanGestTone(nbPre, maxIndic);
+
+    // Cards pré-attribuées (ou état vide)
+    var cardsHTML = nbPre > 0
+        ? dossiers.map(function(d) { return renderPreAttribCard(d, gid); }).join('')
+        : '<div style="flex:1;padding:24px 10px;text-align:center;color:var(--gray-400);font-size:11px;border:1.5px dashed var(--gray-300);border-radius:8px;margin:4px;display:flex;align-items:center;justify-content:center;min-height:90px">Glissez ou ajoutez<br>des dossiers ici</div>';
+
     return ''
-        + '<div data-gestid="' + escapeHtml(g.id) + '" style="width:280px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;overflow:hidden">'
-        +   '<div style="padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface-tint, var(--gray-50))">'
-        +     '<div style="width:36px;height:36px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">' + escapeHtml(initiales) + '</div>'
-        +     '<div style="flex:1;min-width:0">'
-        +       '<div style="font-size:13px;font-weight:700;color:var(--navy-deep, var(--navy));overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + nomComplet + '</div>'
-        +       '<div style="font-size:11px;color:var(--gray-600);margin-top:1px">— en cours</div>'
+        + '<div data-gestcol="' + escapeHtml(g.id) + '" style="width:280px;flex-shrink:0;background:#fff;border:1px solid var(--border, #e4eaf2);border-radius:12px;box-shadow:var(--shadow-sm, 0 1px 3px rgba(27,52,97,0.07));display:flex;flex-direction:column;overflow:hidden;max-height:100%">'
+        // Header colonne
+        +   '<div style="padding:12px 14px;border-bottom:1px solid var(--border, #e4eaf2);background:var(--surface-tint, #f8fafd)">'
+        +     '<div style="display:flex;align-items:center;gap:10px">'
+        +       '<div style="width:36px;height:36px;border-radius:50%;background:' + couleur + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.1)">' + escapeHtml(initiales) + '</div>'
+        +       '<div style="flex:1;min-width:0">'
+        +         '<div style="font-size:13px;font-weight:700;color:var(--navy-deep, #122446);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + nomComplet + '">' + nomComplet + '</div>'
+        +         '<div style="font-size:11px;color:' + tone.color + ';margin-top:1px;font-weight:600">' + tone.icon + ' ' + tone.label + '</div>'
+        +       '</div>'
+        +       '<div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0">'
+        +         '<span style="font-size:13px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;line-height:1">' + nbPre + '</span>'
+        +         '<span style="font-size:9px;color:var(--gray-500);font-variant-numeric:tabular-nums">/ ' + maxIndic + '</span>'
+        +       '</div>'
         +     '</div>'
+        // Capacity bar
+        +     renderCapacityBar(nbPre, maxIndic, tone)
         +   '</div>'
-        +   '<div style="flex:1;padding:10px;text-align:center;color:var(--gray-400);font-size:11px;display:flex;align-items:center;justify-content:center;min-height:160px;border:1.5px dashed var(--gray-300);margin:10px;border-radius:8px">'
-        +     'Lot 2C<br>capacity bar + cards'
+        // Liste cards pré-attribuées
+        +   '<div data-gestcol-list="' + escapeHtml(g.id) + '" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;min-height:120px">'
+        +     cardsHTML
         +   '</div>'
         + '</div>';
 }
 
-/* ── Footer (actions globales + stats) ────────────────────────────────── */
+/* ── Card de dossier pré-attribué (colonne gestionnaire) ──────────────── */
+function renderPreAttribCard(d, gestId) {
+    var h = getAncienneteHeures(d);
+    var badge = renderUrgencyBadge(h);
+    var ref = escapeHtml(d.ref_sinistre || '—');
+    var metaParts = [];
+    if (d.type) metaParts.push(escapeHtml(d.type));
+    if (d.nature) metaParts.push(escapeHtml(d.nature));
+    if (d.portefeuille) metaParts.push(escapeHtml(d.portefeuille));
+    var bullet = '<span style="display:inline-block;width:2px;height:2px;border-radius:50%;background:var(--gray-400);margin:0 4px;vertical-align:middle"></span>';
+    var meta = metaParts.join(bullet);
+
+    return ''
+        + '<div data-dossier-id="' + escapeHtml(d.id) + '"'
+        +   ' style="background:#fff;border:1px solid var(--border, #e4eaf2);border-left:3px solid var(--blue-500, #4A7EC7);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;transition:all 0.18s ease-out"'
+        +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md, 0 4px 16px rgba(27,52,97,0.10))\';this.style.transform=\'translateY(-1px)\'"'
+        +   ' onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">'
+        +   '<div style="flex:1;min-width:0">'
+        +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
+        +       (badge || '')
+        +       '<span style="font-family:var(--font-mono, ui-monospace, monospace);font-size:11px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ref + '</span>'
+        +     '</div>'
+        +     (meta ? '<div style="font-size:10px;color:var(--gray-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</div>' : '')
+        +   '</div>'
+        +   '<button data-action="retour-libre" data-dossier-id="' + escapeHtml(d.id) + '" data-gest-id="' + escapeHtml(gestId) + '" title="Retirer (retour dans Non attribués)"'
+        +     ' style="width:24px;height:24px;border-radius:5px;border:1px solid var(--gray-300, #cdd6e3);background:#fff;color:var(--gray-500, #6b7689);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;padding:0;flex-shrink:0;transition:all 0.15s ease-out"'
+        +     ' onmouseenter="this.style.background=\'#fce8ef\';this.style.borderColor=\'var(--rose)\';this.style.color=\'var(--rose)\'"'
+        +     ' onmouseleave="this.style.background=\'#fff\';this.style.borderColor=\'var(--gray-300, #cdd6e3)\';this.style.color=\'var(--gray-500, #6b7689)\'">✕</button>'
+        + '</div>';
+}
+
+/* ── Capacity bar (proposés / max indicatif) ───────────────────────────
+ * Single track avec teinte dynamique. Si dépassement (nb > max), la barre
+ * passe à 100 % et change de couleur (tone "plein").
+ */
+function renderCapacityBar(nb, max, tone) {
+    if (!max || max <= 0) {
+        // Cas "0 préo" : on affiche un message au lieu d'une barre
+        return '<div style="margin-top:8px;font-size:10px;color:var(--gray-500);font-style:italic;text-align:center">Pas de préouvertures aujourd\'hui</div>';
+    }
+    var pct = Math.min(100, Math.round((nb / max) * 100));
+    var barColor = tone.color;
+    return ''
+        + '<div style="margin-top:8px">'
+        +   '<div style="height:6px;background:var(--gray-100, #f1f4f9);border-radius:999px;overflow:hidden">'
+        +     '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:999px;transition:width 0.3s ease-out"></div>'
+        +   '</div>'
+        + '</div>';
+}
+
+/* ── Footer (actions globales + stats live) ───────────────────────────── */
 function renderKanbanFooter() {
     return ''
-        + '<div style="background:#fff;padding:12px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;box-shadow:0 -1px 3px rgba(27,52,97,0.04)">'
-        +   '<button class="btn btn-secondary" id="btn-kanban-reequilibrer" style="font-size:13px" disabled title="Disponible au Lot 2D">⚖ Rééquilibrer</button>'
-        +   '<div style="display:flex;align-items:center;gap:14px;font-size:12px;color:var(--gray-600)">'
-        +     '<span style="color:var(--gray-400);font-style:italic">Lot 2D : stats live à venir</span>'
+        + '<div style="background:#fff;padding:12px 24px;border-top:1px solid var(--border, #e4eaf2);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;box-shadow:0 -1px 3px rgba(27,52,97,0.04)">'
+        +   '<button class="btn btn-secondary" id="btn-kanban-reequilibrer" style="font-size:13px" title="Relancer la pré-attribution sur les dossiers libres restants">⚖ Rééquilibrer</button>'
+        +   '<div id="kanban-footer-stats" style="display:flex;align-items:center;gap:14px;font-size:12px;color:var(--gray-600);flex:1;justify-content:center">'
+        // Contenu rempli par kanbanRenderFooterStats() lors du refresh
         +   '</div>'
         +   '<div style="display:flex;gap:8px">'
         +     '<button class="btn btn-secondary" id="btn-kanban-cancel">Annuler</button>'
-        +     '<button class="btn btn-dispatch" id="btn-kanban-dispatch" disabled title="Disponible au Lot 2D">✓ Dispatch</button>'
+        +     '<button class="btn btn-primary" id="btn-kanban-dispatch" style="background:var(--rose);border-color:var(--rose);color:#fff;font-weight:700" disabled>✓ Dispatch</button>'
         +   '</div>'
         + '</div>';
+}
+
+/* ── Contenu live du footer (stats) ────────────────────────────────────
+ * Affiche : "X libres · Y pré-attribués · Z reste · capacité Q/R"
+ */
+function kanbanRenderFooterStats(state) {
+    var nbPre = Object.keys(state.propData).reduce(function(acc, k) { return acc + state.propData[k].length; }, 0);
+    var nbReste = state.allLibres.length;
+    var nbInitial = nbPre + nbReste;
+    var capUtil = nbPre;
+    var capTotal = (state.activeGest || []).reduce(function(acc, g) {
+        var m = (state.maxMap && state.maxMap[String(g.id)] != null) ? state.maxMap[String(g.id)] : 0;
+        return acc + m;
+    }, 0);
+    var sep = '<span style="color:var(--gray-300, #cdd6e3)">·</span>';
+    return ''
+        + '<span><strong style="color:var(--navy);font-weight:700">' + nbInitial + '</strong> libres au départ</span>'
+        + sep
+        + '<span><strong style="color:var(--success, #16a34a);font-weight:700">' + nbPre + '</strong> pré-attribué' + (nbPre > 1 ? 's' : '') + '</span>'
+        + sep
+        + '<span><strong style="color:' + (nbReste > 0 ? 'var(--rose)' : 'var(--gray-500)') + ';font-weight:700">' + nbReste + '</strong> reste à attribuer</span>'
+        + (capTotal > 0
+            ? sep + '<span>Capacité <strong style="color:var(--navy)">' + capUtil + ' / ' + capTotal + '</strong></span>'
+            : '');
 }
 
 /* ============================================================================
@@ -1751,7 +1955,7 @@ function bindKanbanFilters(state, refresh) {
             refresh();
         };
         search.onfocus = function() {
-            this.style.borderColor = 'var(--blue-500)';
+            this.style.borderColor = 'var(--blue-500, #4A7EC7)';
             this.style.boxShadow = 'var(--shadow-focus, 0 0 0 3px rgba(74,126,199,0.18))';
         };
         search.onblur = function() {
@@ -1813,7 +2017,7 @@ function renderUnattribCard(d) {
 
     return ''
         + '<div data-dossier-id="' + escapeHtml(d.id) + '" class="kanban-unattrib-card"'
-        +   ' style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 12px;box-shadow:var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06));display:flex;align-items:center;gap:8px;transition:all 0.18s var(--ease-out, ease-out)"'
+        +   ' style="background:#fff;border:1px solid var(--border, #e4eaf2);border-radius:8px;padding:9px 12px;box-shadow:var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06));display:flex;align-items:center;gap:8px;transition:all 0.18s var(--ease-out, ease-out)"'
         +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md)\';this.style.transform=\'translateY(-1px)\'"'
         +   ' onmouseleave="this.style.boxShadow=\'var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06))\';this.style.transform=\'none\'">'
         +   '<div style="flex:1;min-width:0">'
@@ -1824,9 +2028,9 @@ function renderUnattribCard(d) {
         +     (meta ? '<div style="font-size:10px;color:var(--gray-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</div>' : '')
         +   '</div>'
         +   '<button data-action="attrib" data-dossier-id="' + escapeHtml(d.id) + '" title="Attribuer"'
-        +     ' style="width:26px;height:26px;border-radius:6px;border:1px solid var(--blue-300);background:var(--blue-50);color:var(--blue-500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;padding:0;flex-shrink:0;transition:all 0.18s var(--ease-out, ease-out)"'
-        +     ' onmouseenter="this.style.background=\'var(--blue-500)\';this.style.color=\'#fff\'"'
-        +     ' onmouseleave="this.style.background=\'var(--blue-50)\';this.style.color=\'var(--blue-500)\'">+</button>'
+        +     ' style="width:26px;height:26px;border-radius:6px;border:1px solid var(--blue-300, #b8cfeb);background:var(--blue-50, #f4f7fc);color:var(--blue-500, #4A7EC7);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;padding:0;flex-shrink:0;transition:all 0.18s var(--ease-out, ease-out)"'
+        +     ' onmouseenter="this.style.background=\'var(--blue-500, #4A7EC7)\';this.style.color=\'#fff\'"'
+        +     ' onmouseleave="this.style.background=\'var(--blue-50)\';this.style.color=\'var(--blue-500, #4A7EC7)\'">+</button>'
         + '</div>';
 }
 
@@ -1836,7 +2040,7 @@ function renderUrgencyBadge(h) {
     var palettes = {
         critical: { bg: 'var(--rose-soft, #fce8ef)', fg: '#a8123f', dot: 'var(--rose)' },
         warning:  { bg: '#fef3e2',                   fg: '#92540a', dot: '#d97706' },
-        info:     { bg: 'var(--blue-100)',            fg: 'var(--navy)', dot: 'var(--blue-500)' }
+        info:     { bg: 'var(--blue-100)',            fg: 'var(--navy)', dot: 'var(--blue-500, #4A7EC7)' }
     };
     var tone = h >= 60 ? 'critical' : h >= 30 ? 'warning' : h >= 0 ? 'info' : null;
     if (!tone) return '';
@@ -1848,4 +2052,339 @@ function renderUrgencyBadge(h) {
         + '</span>';
 }
 
-/* ── FIN ÉVOL-003 Lot 2 — DISPATCH KANBAN ─────────────────────────────── */
+/* ============================================================================
+ * Lot 2C+ étendu — Logique métier complète du Kanban
+ * ----------------------------------------------------------------------------
+ * Helpers : chargement habilitations, calcul Max Dplane, pré-attribution
+ * round-robin, popup d'attribution manuelle, retour libre, dispatch DB.
+ * ============================================================================ */
+
+/* ── Charge la table habilitation_gestionnaires en map { user_id: hab } ── */
+async function kanbanLoadHabMap() {
+    try {
+        var res = await db.from('habilitation_gestionnaires').select('*');
+        var map = {};
+        if (res.data) res.data.forEach(function(h) { map[String(h.user_id)] = h; });
+        return map;
+    } catch (e) {
+        console.warn('[Kanban] Erreur chargement habilitations :', e);
+        return {};
+    }
+}
+
+/* ── Charge le planning Dplane du jour et calcule maxMap { gestId: max } ──
+ * Règles ÉVOL-B v4 :
+ *   - Préouvertures journée entière → 25
+ *   - Préouvertures demi-journée    → 15
+ *   - Pas de Préouvertures          → 0
+ *   - Aucun planning saisi          → 15 (fallback)
+ */
+async function kanbanLoadMaxMap(activeGest) {
+    var maxMap = {};
+    var todayStr = new Date().toISOString().split('T')[0];
+    try {
+        var res = await db
+            .from('dplane_planning')
+            .select('gestionnaire_id, creneau, dplane_activites(code)')
+            .eq('jour', todayStr)
+            .is('deleted_at', null)
+            .eq('is_brouillon', false);
+        var dplaneMap = {};
+        if (res && res.data) {
+            res.data.forEach(function(row) {
+                var code = row.dplane_activites ? row.dplane_activites.code : null;
+                var key = String(row.gestionnaire_id);
+                if (!dplaneMap[key]) dplaneMap[key] = [];
+                dplaneMap[key].push({ creneau: row.creneau, code: code });
+            });
+        }
+        activeGest.forEach(function(g) {
+            var entries = dplaneMap[String(g.id)];
+            if (!entries || entries.length === 0) { maxMap[String(g.id)] = 15; return; }
+            var preos = entries.filter(function(e) { return e.code === 'PREOUVERTURES'; });
+            if (preos.length === 0) { maxMap[String(g.id)] = 0; return; }
+            var journee = preos.some(function(e) { return e.creneau === 'journee'; });
+            maxMap[String(g.id)] = journee ? 25 : 15;
+        });
+    } catch (e) {
+        console.warn('[Kanban] Erreur chargement Dplane :', e);
+        activeGest.forEach(function(g) { maxMap[String(g.id)] = 15; }); // fallback
+    }
+    return maxMap;
+}
+
+/* ── Vérifie qu'un dossier est habilité pour un gestionnaire ──────────── */
+function kanbanIsEligible(d, g, habMap) {
+    var hab = habMap[String(g.id)];
+    if (!hab) return true; // pas d'habilitation = pas de restriction
+    var pf  = hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
+    var tp  = hab.type         && hab.type.length         > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); })         : null;
+    var nat = hab.nature       && hab.nature.length       > 0 ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); })       : null;
+    var dPf  = (d.portefeuille || '').toUpperCase().trim();
+    var dTp  = (d.type         || '').toUpperCase().trim();
+    var dNat = (d.nature       || '').toUpperCase().trim();
+    var okPf  = !pf  || pf.length  === 0 || pf.some(function(p){ return dPf.includes(p); });
+    var okTp  = !tp  || tp.length  === 0 || tp.some(function(p){ return dTp.includes(p); });
+    var okNat = !nat || nat.length === 0 || nat.some(function(p){ return dNat.includes(p); });
+    return okPf && okTp && okNat;
+}
+
+/* ── Pré-attribution automatique (round-robin équitable) ──────────────
+ * Mute state : déplace des dossiers de state.allLibres vers state.propData[gestId]
+ * Respecte habilitations (kanbanIsEligible) et plafond state.maxMap[gestId].
+ * Ne touche pas aux pré-attribs déjà présentes (rééquilibrage non destructif).
+ */
+function kanbanCalcPreAttrib(state) {
+    var activeGest = state.activeGest;
+    var habMap = state.habMap;
+    var maxMap = state.maxMap;
+    if (!activeGest || activeGest.length === 0) return;
+
+    // Index des libres restants par id (pour suppression rapide)
+    var assignedIds = new Set();
+    var libres = state.allLibres.slice(); // copie locale, déjà triée
+
+    var keepGoing = true;
+    while (keepGoing) {
+        keepGoing = false;
+        for (var gi = 0; gi < activeGest.length; gi++) {
+            var g = activeGest[gi];
+            var gid = String(g.id);
+            var nbCurrent = state.propData[gid].length;
+            var maxG = maxMap[gid] != null ? maxMap[gid] : 15;
+            if (nbCurrent >= maxG) continue;
+            // Trouver le 1er libre éligible non encore pris
+            var found = null;
+            for (var di = 0; di < libres.length; di++) {
+                var d = libres[di];
+                if (assignedIds.has(d.id)) continue;
+                if (kanbanIsEligible(d, g, habMap)) { found = d; break; }
+            }
+            if (found) {
+                state.propData[gid].push(found);
+                assignedIds.add(found.id);
+                keepGoing = true;
+            }
+        }
+    }
+
+    // Retirer les assignés de state.allLibres
+    state.allLibres = state.allLibres.filter(function(d) { return !assignedIds.has(d.id); });
+}
+
+/* ── Attribution manuelle (depuis popup +) ────────────────────────────── */
+function kanbanAttribManuelle(state, gestId, dossierId) {
+    var idx = state.allLibres.findIndex(function(d) { return String(d.id) === String(dossierId); });
+    if (idx === -1) return;
+    var d = state.allLibres[idx];
+    state.allLibres.splice(idx, 1);
+    if (!state.propData[String(gestId)]) state.propData[String(gestId)] = [];
+    state.propData[String(gestId)].push(d);
+}
+
+/* ── Retour libre (depuis ✕ d'une PreAttribCard) ──────────────────────── */
+function kanbanRetourLibre(state, gestId, dossierId) {
+    var arr = state.propData[String(gestId)];
+    if (!arr) return;
+    var idx = arr.findIndex(function(d) { return String(d.id) === String(dossierId); });
+    if (idx === -1) return;
+    var d = arr[idx];
+    arr.splice(idx, 1);
+    // Re-insertion triée dans allLibres (réutilise tri métier)
+    state.allLibres.push(d);
+    state.allLibres = kanbanExtractDossiersLibres(state.allLibres);
+}
+
+/* ── Popup d'attribution manuelle ──────────────────────────────────────
+ * S'ouvre au clic du "+" sur une UnattribCard. Liste les gestionnaires
+ * actifs ; ceux NON habilités sont affichés avec un badge "🚫 Non habilité"
+ * et un clic dessus émet une notif d'avertissement.
+ */
+function kanbanOpenPopupAttrib(btnAttrib, state, refresh) {
+    // Ferme une éventuelle popup ouverte ailleurs
+    kanbanClosePopupAttrib();
+
+    var dossierId = btnAttrib.dataset.dossierId;
+    var dossier = state.allLibres.find(function(d) { return String(d.id) === String(dossierId); });
+    if (!dossier) return;
+
+    var items = state.activeGest.map(function(g) {
+        var gid = String(g.id);
+        var eligible = kanbanIsEligible(dossier, g, state.habMap);
+        var nbCurrent = state.propData[gid].length;
+        var maxG = state.maxMap[gid] != null ? state.maxMap[gid] : 15;
+        var couleur = kanbanGestColor(gid);
+        var initiales = (((g.prenom || '')[0] || '') + ((g.nom || '')[0] || '')).toUpperCase();
+        var nomComplet = escapeHtml((g.prenom || '') + ' ' + (g.nom || ''));
+        var hint = eligible
+            ? '<span style="font-size:10px;color:var(--gray-500);font-variant-numeric:tabular-nums">' + nbCurrent + ' / ' + maxG + '</span>'
+            : '<span style="font-size:9px;color:var(--rose);font-weight:700">🚫 Non habilité</span>';
+        var disabled = eligible ? '' : ' data-not-eligible="1"';
+        var opacity = eligible ? '1' : '0.55';
+        return ''
+            + '<button data-action="popup-attrib-item" data-dossier-id="' + escapeHtml(dossierId) + '" data-gest-id="' + escapeHtml(g.id) + '"' + disabled
+            +   ' style="width:100%;text-align:left;padding:6px 8px;background:transparent;border:none;border-radius:6px;cursor:' + (eligible ? 'pointer' : 'not-allowed') + ';font-size:12px;display:flex;align-items:center;gap:8px;color:var(--navy);opacity:' + opacity + ';transition:background 0.12s ease-out"'
+            +   ' onmouseenter="if(this.dataset.notEligible){return}this.style.background=\'var(--blue-50, #f4f7fc)\'"'
+            +   ' onmouseleave="this.style.background=\'transparent\'">'
+            +   '<span style="width:22px;height:22px;border-radius:50%;background:' + couleur + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">' + escapeHtml(initiales) + '</span>'
+            +   '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">' + nomComplet + '</span>'
+            +   hint
+            + '</button>';
+    }).join('');
+
+    // Position : à droite de la card, ou en dessous si pas de place
+    var rect = btnAttrib.getBoundingClientRect();
+    var popup = document.createElement('div');
+    popup.id = 'kanban-popup-attrib';
+    popup.style.cssText = [
+        'position:fixed',
+        'top:' + (rect.bottom + 6) + 'px',
+        'left:' + Math.max(8, rect.right - 240) + 'px',
+        'width:240px',
+        'background:#fff',
+        'border:1px solid var(--border, #e4eaf2)',
+        'border-radius:10px',
+        'box-shadow:var(--shadow-lg, 0 12px 32px rgba(27,52,97,0.14))',
+        'padding:6px',
+        'z-index:10000'
+    ].join(';');
+    popup.innerHTML = ''
+        + '<div style="font-size:10px;color:var(--gray-600);padding:4px 8px;border-bottom:1px solid var(--border, #e4eaf2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">'
+        +   'Attribuer ce dossier à :'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto">'
+        +   items
+        + '</div>';
+    document.body.appendChild(popup);
+
+    // Bloque les clics sur items non éligibles (au cas où)
+    popup.addEventListener('click', function(e) {
+        var item = e.target.closest('[data-action="popup-attrib-item"]');
+        if (item && item.dataset.notEligible === '1') {
+            e.stopPropagation();
+            showNotif('Ce gestionnaire n\'est pas habilité pour ce dossier', 'warning');
+        }
+    }, true);
+}
+
+function kanbanClosePopupAttrib() {
+    var p = document.getElementById('kanban-popup-attrib');
+    if (p) p.remove();
+}
+
+/* ── Tone dynamique colonne gestionnaire ───────────────────────────────
+ *   nb / max ratio → label + couleur + icône
+ *   0%       → Disponible (vert clair)
+ *   1-49%    → Disponible (vert)
+ *   50-79%   → En cours (bleu)
+ *   80-99%   → Chargé (orange)
+ *   ≥100%    → Plein (rose)
+ *   max=0    → Pas de Préo (gris)
+ */
+function kanbanGestTone(nb, max) {
+    if (!max || max <= 0) {
+        return { label: 'Pas de préo', color: 'var(--gray-500, #6b7689)', icon: '○' };
+    }
+    var pct = (nb / max) * 100;
+    if (pct >= 100) return { label: 'Plein',     color: 'var(--rose)',                  icon: '●' };
+    if (pct >= 80)  return { label: 'Chargé',    color: '#d97706',                       icon: '●' };
+    if (pct >= 50)  return { label: 'En cours',  color: 'var(--blue-500, #4A7EC7)',     icon: '●' };
+    if (pct > 0)    return { label: 'Disponible',color: 'var(--success, #16a34a)',      icon: '●' };
+    return                 { label: 'Disponible',color: 'var(--success, #16a34a)',      icon: '○' };
+}
+
+/* ── Couleur d'avatar gestionnaire (palette stable basée sur l'id) ───── */
+function kanbanGestColor(gestId) {
+    var palette = [
+        '#4A7EC7', // cobalt
+        '#1B3461', // navy
+        '#8b5cf6', // violet
+        '#f59e0b', // orange
+        '#16a34a', // green
+        '#ec4899', // pink
+        '#06b6d4', // cyan
+        '#ef4444', // red
+        '#84cc16', // lime
+        '#a855f7'  // purple
+    ];
+    var hash = 0;
+    var s = String(gestId);
+    for (var i = 0; i < s.length; i++) {
+        hash = ((hash << 5) - hash) + s.charCodeAt(i);
+        hash |= 0;
+    }
+    return palette[Math.abs(hash) % palette.length];
+}
+
+/* ── DISPATCH final : écriture en base + audit + reload ────────────────
+ * Boucle sur state.propData et update chaque dossier en DB.
+ * Affiche un loader sur le bouton, puis ferme l'overlay et rafraîchit la page.
+ */
+async function kanbanDoDispatch(state, overlay) {
+    var btn = document.getElementById('btn-kanban-dispatch');
+    if (!btn) return;
+    btn.disabled = true;
+    var origTxt = btn.innerHTML;
+    btn.innerHTML = '<span style="display:inline-block;animation:spin 0.8s linear infinite">⏳</span> Dispatch en cours…';
+    btn.style.opacity = '0.85';
+
+    // Construit la liste des updates à effectuer
+    var assignments = [];
+    state.activeGest.forEach(function(g) {
+        var arr = state.propData[String(g.id)];
+        if (!arr || arr.length === 0) return;
+        var nom = (g.prenom || '') + ' ' + (g.nom || '');
+        arr.forEach(function(d) {
+            assignments.push({ dossierId: d.id, nom: nom });
+        });
+    });
+
+    if (assignments.length === 0) {
+        showNotif('Aucun dossier à dispatcher', 'warning');
+        btn.disabled = false;
+        btn.innerHTML = origTxt;
+        btn.style.opacity = '1';
+        return;
+    }
+
+    var ok = 0, ko = 0;
+    for (var i = 0; i < assignments.length; i++) {
+        var a = assignments[i];
+        try {
+            var r = await db.from('dossiers').update({
+                gestionnaire:   a.nom,
+                statut:         'attribue',
+                verrouille:     true,
+                dispatched_at:  new Date().toISOString()
+            }).eq('id', a.dossierId);
+            if (r && !r.error) ok++;
+            else ko++;
+        } catch (e) {
+            console.error('[Kanban] Erreur update dossier ' + a.dossierId, e);
+            ko++;
+        }
+    }
+
+    // Audit + reset pré-attribs anciens (héritage de showPropositionModal)
+    try {
+        await auditLog('DISPATCH', ok + ' dossiers - dispatch intelligent (Kanban)');
+    } catch (e) { /* non bloquant */ }
+    window.dispatchGestsPrioritaires = [];
+    window.dispatchAnciensIds = [];
+
+    // Ferme l'overlay et notif
+    if (overlay && overlay.remove) overlay.remove();
+    if (ko === 0) {
+        showNotif(ok + ' dossier(s) dispatché(s) avec succès !', 'success');
+    } else {
+        showNotif(ok + ' OK / ' + ko + ' échec(s) — vérifier la console', 'warning');
+    }
+
+    // Reload + redraw dashboard
+    try {
+        await loadDossiers();
+        if (typeof renderDashboard === 'function') renderDashboard();
+    } catch (e) { /* non bloquant */ }
+}
+
+/* ── FIN ÉVOL-003 Lot 2C+ étendu — DISPATCH KANBAN ─────────────────────── */
