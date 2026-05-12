@@ -445,6 +445,10 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/></svg>
         Proposer une évolution
       </button>
+      <button class="dp-btn dp-btn--rose" disabled title="Bientôt disponible" style="opacity:0.5;cursor:not-allowed">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Nouvelle tâche
+      </button>
     </div>
   </div>
 
@@ -461,17 +465,17 @@ table.dp-t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 
   <!-- Tabs -->
   <div class="dp-tabs" role="tablist">
-    <button class="is-active" data-tab="bugs" onclick="dpSwitchTab('bugs')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6V4a4 4 0 018 0v2"/><rect x="4" y="6" width="16" height="14" rx="3"/></svg>
-      Bugs <span class="dp-count" id="dp-count-bugs">—</span>
+    <button data-tab="taches" onclick="dpSwitchTab('taches')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Tâches
     </button>
     <button data-tab="evolutions" onclick="dpSwitchTab('evolutions')">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/></svg>
       Évolutions
     </button>
-    <button data-tab="taches" onclick="dpSwitchTab('taches')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-      Tâches
+    <button class="is-active" data-tab="bugs" onclick="dpSwitchTab('bugs')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6V4a4 4 0 018 0v2"/><rect x="4" y="6" width="16" height="14" rx="3"/></svg>
+      Bugs <span class="dp-count" id="dp-count-bugs">—</span>
     </button>
     <button data-tab="roadmap" onclick="dpSwitchTab('roadmap')">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -636,15 +640,14 @@ window.dpRenderBugs = async function() {
       '<div class="dp-toolbar">' +
         '<div class="dp-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="dp-bugs-search" placeholder="Rechercher…" oninput="dpFilterBugs()"></div>' +
         '<select class="dp-select" id="dp-bugs-urgence" onchange="dpFilterBugs()"><option value="">Toute urgence</option><option>Critique</option><option>Majeur</option><option>Mineur</option><option>Cosmétique</option></select>' +
-        '<select class="dp-select" id="dp-bugs-env" onchange="dpFilterBugs()"><option value="">Tous env.</option><option>PROD</option><option>Staging</option></select>' +
-        '<select class="dp-select" id="dp-bugs-statut" onchange="dpFilterBugs()"><option value="">Tous statuts</option><option>Nouveau</option><option>En analyse</option><option>En correction</option><option>En staging</option><option>Corrigé</option></select>' +
+        '<select class="dp-select" id="dp-bugs-env" onchange="dpFilterBugs()"><option value="">Tous environnements</option><option>PROD</option><option>Staging</option></select>' +
         '<button class="dp-btn dp-btn--rose" onclick="dpOuvrirFormulaireSignaler()">+ Signaler un bug</button>' +
       '</div>' +
     '</div>' +
     '<div style="overflow-x:auto">' +
       '<table class="dp-t">' +
-        '<thead><tr><th>ID</th><th>Titre</th><th>Urgence</th><th>Zone</th><th>Env.</th><th>Statut</th></tr></thead>' +
-        '<tbody id="dp-bugs-tbody"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--ink-400)">Chargement…</td></tr></tbody>' +
+        '<thead><tr><th>ID</th><th>Titre</th><th>Urgence</th><th>Zone</th><th>Env.</th><th>Statut</th><th>Signalé par</th></tr></thead>' +
+        '<tbody id="dp-bugs-tbody"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--ink-400)">Chargement…</td></tr></tbody>' +
       '</table>' +
     '</div>' +
   '</div>';
@@ -655,7 +658,7 @@ window.dpRenderBugs = async function() {
     dpRenderBugsTable(_dpBugsData);
   } catch(e) {
     var tbody = document.getElementById('dp-bugs-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--rose)">Erreur de chargement</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--rose)">Erreur de chargement</td></tr>';
   }
 };
 
@@ -676,17 +679,30 @@ function dpRenderBugsTable(bugs) {
   var tbody = document.getElementById('dp-bugs-tbody');
   if (!tbody) return;
   if (!bugs.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--ink-400)">Aucun bug trouvé</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--ink-400)">Aucun bug trouvé</td></tr>';
     return;
+  }
+  // Palette de couleurs stables pour les avatars (déterministe : même nom = même couleur)
+  var avatarColors = ['#4f63d2','#be3a4c','#0e6b70','#128087','#5b3bb8','#d97706','#16a34a','#9333ea'];
+  function dpAvatar(nom) {
+    if (!nom) return '<span style="color:var(--ink-400);font-size:12px">—</span>';
+    var parts = nom.trim().split(/\s+/);
+    var initiales = (parts[0]||'').charAt(0).toUpperCase() + (parts[1]||'').charAt(0).toUpperCase();
+    if (!initiales) initiales = nom.charAt(0).toUpperCase();
+    var idx = 0;
+    for (var i=0; i<nom.length; i++) idx += nom.charCodeAt(i);
+    var color = avatarColors[idx % avatarColors.length];
+    return '<div class="dp-who"><span class="dp-av" style="--av:'+color+'">'+initiales+'</span><span class="dp-who__name">'+nom+'</span></div>';
   }
   tbody.innerHTML = bugs.map(function(b) {
     return '<tr onclick="dpOuvrirDetail(\'bug\','+b.id+')">' +
       '<td><span class="dp-ref dp-ref--bug">'+(b.code||'BUG-?')+'</span></td>' +
-      '<td><div class="dp-title-cell">'+b.titre+'</div>'+(b.description?'<div class="dp-desc">'+b.description.substring(0,70)+'…</div>':'')+'</td>' +
+      '<td><div class="dp-title-cell">'+b.titre+'</div>'+(b.description?'<div class="dp-desc" style="border:none;background:none;padding:0;font-size:11.5px;color:var(--ink-500);margin-top:2px;line-height:1.4">'+b.description.substring(0,70)+'…</div>':'')+'</td>' +
       '<td>'+dpBadgeUrgence(b.urgence)+'</td>' +
       '<td>'+dpBadgeZone(b.zone)+'</td>' +
       '<td>'+dpBadgeEnv(b.environnement)+'</td>' +
       '<td>'+dpBadgeStatut(b.statut)+'</td>' +
+      '<td>'+dpAvatar(b.signale_par_nom)+'</td>' +
     '</tr>';
   }).join('');
 }
