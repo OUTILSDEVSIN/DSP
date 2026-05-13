@@ -18,7 +18,11 @@
    ========================================================= */
 
 (function() {
-  var BASE = 'staging/assets/js/dproject/';
+   // Détecte automatiquement le dossier de ce loader
+   var scripts = document.getElementsByTagName('script');
+   var thisScript = scripts[scripts.length - 1];
+  var BASE = thisScript.src.replace(/[^/]+$/, '');
+   
   var FILES = [
     'dproject-core.js',
     'dproject-bugs.js',
