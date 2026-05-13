@@ -245,24 +245,29 @@ function dpRenderDetailModal(box, type, data, comments) {
   var icoEvents     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
   var icoCapture    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>';
 
-  // Section captures (uniquement bug pour l'instant, mais marche pour évolutions aussi)
+  // Section captures (repliable, repliée par défaut)
   var screenshots = data.screenshots || [];
   var nbCaptures = screenshots.length;
   var canAddMore = nbCaptures < 3;
-  var capturesHTML = '<div class="dp-section">' +
-    '<h3 class="dp-section-title" style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+  var chevronCapturesIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  var capturesHTML = '<div class="dp-section dp-captures-section" data-open="false">' +
+    '<h3 class="dp-section-title" style="display:flex;justify-content:space-between;align-items:center;width:100%" onclick="dpToggleCaptures(this)">' +
       '<span style="display:flex;align-items:center;gap:8px">' +
-        '<span class="dp-section-ico">'+icoCapture+'</span>Captures ('+nbCaptures+'/3)' +
+        '<span class="dp-section-ico">'+icoCapture+'</span>Captures' +
+        '<span class="dp-captures-count-pill">'+nbCaptures+'/3</span>' +
+        '<span class="dp-captures-toggle-ico">'+chevronCapturesIco+'</span>' +
       '</span>' +
       (canAddMore
-        ? '<button class="dp-btn dp-btn--ghost" style="height:28px;font-size:11px;padding:0 10px" onclick="dpAjouterCaptureDetail(\''+type+'\','+data.id+')">+ Ajouter</button>'
+        ? '<button class="dp-btn dp-btn--ghost" style="height:28px;font-size:11px;padding:0 10px" onclick="event.stopPropagation();dpAjouterCaptureDetail(\''+type+'\','+data.id+')">+ Ajouter</button>'
         : '') +
     '</h3>' +
-    (nbCaptures > 0
-      ? '<div class="dp-screenshots" id="dp-screenshots-'+data.id+'">' +
-          '<div style="grid-column:1/-1;text-align:center;color:var(--ink-400);font-size:12px;padding:8px">Chargement des captures…</div>' +
-        '</div>'
-      : '<div style="color:var(--ink-400);font-size:13px;text-align:center;padding:16px">Aucune capture jointe</div>') +
+    '<div class="dp-captures-content">' +
+      (nbCaptures > 0
+        ? '<div class="dp-screenshots" id="dp-screenshots-'+data.id+'">' +
+            '<div style="grid-column:1/-1;text-align:center;color:var(--ink-400);font-size:12px;padding:8px">Chargement des captures…</div>' +
+          '</div>'
+        : '<div style="color:var(--ink-400);font-size:13px;text-align:center;padding:16px">Aucune capture jointe</div>') +
+    '</div>' +
   '</div>';
 
   // Si captures présentes : génère les URLs signées et les affiche après injection du HTML
@@ -322,13 +327,21 @@ function dpRenderDetailModal(box, type, data, comments) {
 
     // ── Composer footer ──
     '<div class="dp-composer">' +
-      '<input id="dp-det-new-comment" placeholder="Ajouter un commentaire…" onkeydown="if(event.key===\'Enter\') dpAjouterCommentaire(\''+type+'\','+data.id+')">' +
-      '<button class="dp-btn dp-btn--rose" onclick="dpAjouterCommentaire(\''+type+'\','+data.id+')">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>' +
-        'Envoyer' +
+      '<input id="dp-det-new-comment" placeholder="Consigner un événement (ex. relance par e-mail)…" onkeydown="if(event.key===\'Enter\') dpAjouterCommentaire(\''+type+'\','+data.id+')">' +
+      '<button class="dp-btn dp-btn--primary" onclick="dpAjouterCommentaire(\''+type+'\','+data.id+')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>' +
+        'Ajouter' +
       '</button>' +
     '</div>';
 }
+
+// ── Toggle section captures (repliable) ─────────────────
+window.dpToggleCaptures = function(headerEl) {
+  var section = headerEl.closest('.dp-captures-section');
+  if (!section) return;
+  var isOpen = section.getAttribute('data-open') === 'true';
+  section.setAttribute('data-open', isOpen ? 'false' : 'true');
+};
 
 // ── Modal d'édition (générique) ──────────────────────────
 window.dpOuvrirModalEdition = async function(type, id) {
