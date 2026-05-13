@@ -15,14 +15,19 @@
 
    Le main est chargé EN DERNIER car il dépend des helpers
    des autres fichiers (badges, modals, etc.).
+
+   Le chemin de base est DÉDUIT AUTOMATIQUEMENT du <script>
+   qui a chargé ce fichier → fonctionne en prod ET en staging
+   sans modification.
    ========================================================= */
 
 (function() {
-   // Détecte automatiquement le dossier de ce loader
-   var scripts = document.getElementsByTagName('script');
-   var thisScript = scripts[scripts.length - 1];
-  var BASE = thisScript.src.replace(/[^/]+$/, '');
-   
+  // Détecte le chemin du dossier où vit ce loader
+  // (= même dossier que les autres fichiers dproject-*.js)
+  var scripts = document.getElementsByTagName('script');
+  var thisScript = scripts[scripts.length - 1];  // le dernier exécuté = nous
+  var BASE = thisScript.src.replace(/[^/]+$/, '');  // retire "dproject.js"
+
   var FILES = [
     'dproject-core.js',
     'dproject-bugs.js',
@@ -32,19 +37,17 @@
     'dproject-main.js'
   ];
 
-  // Charge un script et retourne une Promise résolue quand il est prêt
   function loadScript(src) {
     return new Promise(function(resolve, reject) {
       var s = document.createElement('script');
       s.src = src;
-      s.async = false;       // Préserve l'ordre d'exécution
+      s.async = false;
       s.onload = function() { resolve(src); };
       s.onerror = function() { reject(new Error('Échec chargement : ' + src)); };
       document.head.appendChild(s);
     });
   }
 
-  // Chaîne les chargements en séquence
   var chain = Promise.resolve();
   FILES.forEach(function(file) {
     chain = chain.then(function() { return loadScript(BASE + file); });
@@ -52,11 +55,8 @@
 
   chain
     .then(function() {
-      // Tous les modules sont chargés → on peut déclencher l'init
-      // dprojectInit existe maintenant car défini dans dproject-main.js
       if (typeof dprojectInit === 'function') {
-        window.dprojectInit = dprojectInit;  // expose pour switchTool
-        // Si on est déjà sur l'onglet Dproject quand le loader finit, on init
+        window.dprojectInit = dprojectInit;
         if (document.getElementById('dproject-content')) {
           dprojectInit();
         }
