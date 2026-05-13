@@ -6,8 +6,8 @@ async function actionMesDossiers(id, action) {
   // Bloquer si dossier en troc actif
   if (typeof isDossierEnTroc === 'function' && isDossierEnTroc(id)) {
     showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc.', 'error');
-    await loadDossiers();
-    renderMesDossiers();
+    // ✅ FIX BUGS-002-v3 (3/3) — un seul loadDossiers (celui dans renderMesDossiers)
+    await renderMesDossiers();
     return;
   }
 
@@ -21,8 +21,7 @@ async function actionMesDossiers(id, action) {
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
     await auditLog('REOUVERTURE_DOSSIER', 'Dossier réouvert -- id:' + id);
     showNotif('🔄 Dossier réouvert.', 'success');
-    await loadDossiers();
-    renderMesDossiers();
+    await renderMesDossiers();
     return;
   }
 
@@ -57,8 +56,7 @@ async function actionMesDossiers(id, action) {
   // Si Gestion VOL → basculer vers DVOL + ouvrir formulaire de création pré-rempli
   if (action === 'gestion_vol') {
     const refSin = d ? (d.ref_sinistre || '') : '';
-    await loadDossiers();
-    renderMesDossiers();
+    await renderMesDossiers();
     // Basculer vers l'écran DVOL
     if (typeof switchTool === 'function') switchTool('dvol');
     // Attendre que l'écran DVOL soit rendu, puis ouvrir le formulaire pré-rempli
@@ -70,8 +68,7 @@ async function actionMesDossiers(id, action) {
     return; // On a déjà fait loadDossiers + renderMesDossiers, pas besoin de le refaire
   }
 
-  await loadDossiers();
-  renderMesDossiers();
+  await renderMesDossiers();
 }
 // ===== FIN TRAITEMENT DOSSIER =====
 
@@ -230,17 +227,16 @@ async function renderMesDossiers() {
       if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
       return new Date(s);
     };
-    // ✅ FIX BUGS-002 (Bug 2) — tri stable uniquement par date_etat ascendant.
-    // Avant : priorité aux "récupérés en autonomie" via _recuperesSetMD (sessionStorage)
-    // → ordre instable au reload et après changement de statut.
-    // Maintenant : ordre 100% dicté par date_etat (BDD) → stable et permanent.
+    // ✅ FIX BUGS-002-v3 (1/3) — tri 100% déterministe.
+    // Critère 1 : date_etat ascendant | Critère 2 : ref_sinistre alphabétique
     mesDossiers.sort(function(a, b) {
       var da = parseDateEtat(a.date_etat);
       var db2 = parseDateEtat(b.date_etat);
-      if (!da && !db2) return 0;
-      if (!da) return 1;    // sans date → en dernier
+      if (!da && !db2) return (a.ref_sinistre || '').localeCompare(b.ref_sinistre || '');
+      if (!da) return 1;
       if (!db2) return -1;
-      return da - db2;      // plus ancienne en premier
+      if (da.getTime() !== db2.getTime()) return da - db2;
+      return (a.ref_sinistre || '').localeCompare(b.ref_sinistre || '');
     });
 
     // Logique relances conservée pour les badges "🔄 Relancé" sur les lignes du tableau
@@ -272,13 +268,12 @@ async function renderMesDossiers() {
       const canSee = ['attribue','encours','ouvert','traite','relance','ouverture','refuse','gestion_vol'].includes(statut);
       if (!canSee) return;
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
-      // ✅ FIX BUGS-002 (Bug 1) — surbrillance jaune uniquement le jour même.
-      // Avant : ligne jaune indéfiniment dès qu'un gestionnaire avait traité le dossier.
-      // Maintenant : on compare la date de traitement avec aujourd'hui.
+      // ✅ FIX BUGS-002-v3 (2/3) — jaune uniquement le jour même
       const aujourdhuiMD = new Date().toISOString().split('T')[0];
       const dejaTraiteParMoi = histoEntryMD
         && histoEntryMD.gestionnaire === monNomMD
-        && histoEntryMD.date_traitement === aujourdhuiMD;
+        && histoEntryMD.date_traitement
+        && histoEntryMD.date_traitement.slice(0,10) === aujourdhuiMD;
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
       // Badge troc en cours
       const enTroc = typeof isDossierEnTroc === 'function' && isDossierEnTroc(d.id);
