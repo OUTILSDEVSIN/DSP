@@ -24,11 +24,11 @@ var DISPATCH_SEUIL_CRITIQUE = 48; // heures
 var DISPATCH_SEUIL_ALERTE   = 24; // heures
 
 /**
- * Calcule l'ancienneté en heures d'un dossier depuis sa date_etat (format DD/MM/YYYY).
+ * Calcule l'ancienneté en heures d'un dossier depuis sa date_creation (format DD/MM/YYYY).
  * @returns {number|null} heures écoulées, ou null si date absente/invalide.
  */
 function getAncienneteHeures(dossier) {
-    var s = dossier.date_etat;
+    var s = dossier.date_creation;
     if (!s) return null;
     var p = s.split('/');
     if (p.length !== 3) return null;
@@ -603,15 +603,15 @@ async function showPropositionModal() {
         if (tierB !== tierA) return tierB - tierA;
         // ── FIN ÉVOL-C tri ───────────────────────────────────────────
 
-        // - Tri tertiaire : plus ancienne date_etat en premier -
+        // - Tri tertiaire : plus ancienne date_creation en premier -
         var parseDE = function(s) {
                 if (!s) return null;
                 var p = s.split('/');
                 if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
                 return new Date(s);
         };
-        var da = parseDE(a.date_etat);
-        var db = parseDE(b.date_etat);
+        var da = parseDE(a.date_creation);
+        var db = parseDE(b.date_creation);
         if (!da && !db) return 0;
         if (!da) return 1; // null va en dernier
         if (!db) return -1;
@@ -693,7 +693,9 @@ async function showPropositionModal() {
             var pf2  = hab2 ? (hab2.portefeuille && hab2.portefeuille.length > 0 ? hab2.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
             var tp2  = hab2 ? (hab2.type && hab2.type.length > 0 ? hab2.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
             var nat2 = hab2 ? (hab2.nature && hab2.nature.length > 0 ? hab2.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
-            var okPf2  = !pf2  || pf2.length  === 0 || pf2.some(function(p){ return (d.portefeuille||'').toUpperCase().includes(p); });
+            // AMÉLIO-02 (14/05/2026) : === au lieu de .includes() pour éviter
+            // les faux positifs (ex: 'MIAU' qui matcherait 'MIA' avec includes).
+            var okPf2  = !pf2  || pf2.length  === 0 || pf2.some(function(p){ return (d.portefeuille||'').toUpperCase().trim() === p; });
             var okTp2  = !tp2  || tp2.length  === 0 || tp2.some(function(p){ return (d.type||'').toUpperCase().includes(p); });
             var okNat2 = !nat2 || nat2.length === 0 || nat2.some(function(p){ return (d.nature||'').toUpperCase().includes(p); });
             if (!okPf2 || !okTp2 || !okNat2) return;
@@ -726,7 +728,12 @@ async function showPropositionModal() {
         var dPf  = (d.portefeuille||'').toUpperCase().trim();
         var dTp  = normalizeType(d.type);
         var dNat = (d.nature||'').toUpperCase().trim();
-        var okPf  = !pf  || pf.length  === 0 || pf.some(function(p){ return dPf.includes(p); });
+        // AMÉLIO-02 (14/05/2026) : portefeuille en === pour éviter les
+        // faux positifs (ex: 'MIAU' qui matcherait 'MIA' avec .includes()).
+        // type et nature gardent .includes() : ils sont normalisés en amont
+        // (normalizeType + uppercase) et certaines valeurs métier multi-mots
+        // peuvent nécessiter l'inclusion.
+        var okPf  = !pf  || pf.length  === 0 || pf.some(function(p){ return dPf === p; });
         var okTp  = !tp  || tp.length  === 0 || tp.some(function(p){ return dTp.includes(p); });
         var okNat = !nat || nat.length === 0 || nat.some(function(p){ return dNat.includes(p); });
         return okPf && okTp && okNat;
@@ -1322,7 +1329,8 @@ async function checkPrioritairesNonAttribues(activeGest, habMap, histoPropMap, h
             if (!hab) return true;
             var pf  = hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase(); }) : null;
             var tp  = hab.type && hab.type.length > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase(); }) : null;
-            var okPf = !pf || pf.some(function(p){ return (d.portefeuille||'').toUpperCase().includes(p); });
+            // AMÉLIO-02 (14/05/2026) : portefeuille en === (cf. isEligible principale)
+            var okPf = !pf || pf.some(function(p){ return (d.portefeuille||'').toUpperCase().trim() === p; });
             var okTp = !tp || tp.some(function(p){ return (d.type||'').toUpperCase().includes(p); });
             return okPf && okTp;
         });
@@ -2090,7 +2098,7 @@ function kanbanRenderFooterStats(state) {
 /**
  * Construit la liste triée des dossiers non attribués, prête à être affichée.
  * Tri en cascade : priorité métier (OPTINEO > HAB/MRH > BDG) → ancienneté
- * (critiques d'abord) → date_etat la plus ancienne en premier.
+ * (critiques d'abord) → date_creation la plus ancienne en premier.
  * Logique alignée sur showPropositionModal (ne pas dévier).
  */
 function kanbanExtractDossiersLibres(allDossiers) {
@@ -2108,7 +2116,7 @@ function kanbanExtractDossiersLibres(allDossiers) {
         var tierA = hA > DISPATCH_SEUIL_CRITIQUE ? 2 : hA > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         var tierB = hB > DISPATCH_SEUIL_CRITIQUE ? 2 : hB > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         if (tierB !== tierA) return tierB - tierA;
-        // 3. Date_etat ascendante
+        // 3. Date_creation ascendante
         return hB - hA;
     });
     return libres;
@@ -2336,7 +2344,8 @@ function kanbanIsEligible(d, g, habMap) {
     var dPf  = (d.portefeuille || '').toUpperCase().trim();
     var dTp  = (d.type         || '').toUpperCase().trim();
     var dNat = (d.nature       || '').toUpperCase().trim();
-    var okPf  = !pf  || pf.length  === 0 || pf.some(function(p){ return dPf.includes(p); });
+    // AMÉLIO-02 (14/05/2026) : portefeuille en === (kanbanIsEligible, idem isEligible)
+    var okPf  = !pf  || pf.length  === 0 || pf.some(function(p){ return dPf === p; });
     var okTp  = !tp  || tp.length  === 0 || tp.some(function(p){ return dTp.includes(p); });
     var okNat = !nat || nat.length === 0 || nat.some(function(p){ return dNat.includes(p); });
     return okPf && okTp && okNat;
