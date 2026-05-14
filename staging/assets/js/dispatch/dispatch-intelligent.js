@@ -2116,7 +2116,7 @@ function kanbanExtractDossiersLibres(allDossiers) {
         var tierA = hA > DISPATCH_SEUIL_CRITIQUE ? 2 : hA > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         var tierB = hB > DISPATCH_SEUIL_CRITIQUE ? 2 : hB > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         if (tierB !== tierA) return tierB - tierA;
-        // 3. Date_etat ascendante
+        // 3. Date_creation ascendante
         return hB - hA;
     });
     return libres;
