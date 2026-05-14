@@ -90,7 +90,7 @@ async function renderAttribution() {
   if (window._fGestionnaire) filtered = filtered.filter(d => (d.gestionnaire||'') === window._fGestionnaire);
   if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
 
-  // Tri par date_etat ascendant (plus ancienne en tete), nulls en dernier
+  // Tri par date_creation ascendant (plus ancienne en tete), nulls en dernier
   var parseDateEtat = function(s) {
     if (!s) return null;
     // Format dd/mm/yyyy
@@ -99,8 +99,8 @@ async function renderAttribution() {
     return new Date(s);
   };
   filtered.sort(function(a, b) {
-    var da = parseDateEtat(a.date_etat);
-    var db2 = parseDateEtat(b.date_etat);
+    var da = parseDateEtat(a.date_creation);
+    var db2 = parseDateEtat(b.date_creation);
     if (!da && !db2) return 0;
     if (!da) return 1;
     if (!db2) return -1;
@@ -239,7 +239,7 @@ async function renderAttribution() {
             </div>` : ''}
         </td>
         <td style="white-space:nowrap;font-size:12px;font-weight:600;color:#1B3461">
-          ${d.date_etat ? `<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">&#128197; ${d.date_etat}</span>` : '<span style="color:#bbb">--</span>'}
+          ${d.date_creation ? `<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">&#128197; ${d.date_creation}</span>` : '<span style="color:#bbb">--</span>'}
         </td>
         <td><span class="badge badge-attribue">${d.portefeuille||'-'}</span></td>
         <td>${d.ref_contrat||'-'}</td>
