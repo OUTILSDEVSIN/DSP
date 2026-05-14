@@ -16,12 +16,18 @@ function detectPortefeuille(refContrat) {
   return 'MIA';
 }
 
-function detectType(refContrat, refSinistre) {
-  const r  = (refContrat  || '').toUpperCase();
-  const rs = (refSinistre || '').toUpperCase();
-  if (r.includes('MRH')  || rs.includes('MRH'))  return 'Habitation';
-  if (r.includes('IMMO') || rs.includes('IMMO'))  return 'Habitation';
-  return 'Auto';
+// BUG-03 (14/05/2026) :
+// L'ancienne version retournait 'Habitation' alors que les habilitations
+// gestionnaires stockent 'MRH'. Conséquence : 12 dossiers MRH non attribués
+// en PROD début mai 2026. On lit désormais la colonne canonique 'Branche'
+// du fichier source (valeurs : AUTO / MRH / VSP) pour stocker le code
+// métier attendu en base.
+function mapTypeFromBranche(branche) {
+  const b = (branche || '').toUpperCase().trim();
+  if (b === 'MRH')  return 'MRH';
+  if (b === 'AUTO') return 'Auto';
+  if (b === 'VSP')  return 'Auto'; // VSP = Véhicule Sans Permis → traité comme Auto
+  return 'Auto'; // fallback prudent si Branche absente
 }
 
 async function handleFile(event) {
@@ -65,11 +71,21 @@ async function handleFile(event) {
 
     const mapped = rows.map(r => ({
       ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
-      date_etat: get(r, 'Date Etat', 'Date état', 'Date etat', 'DATE ETAT', 'date_etat', 'DateEtat', 'dateetat'),
+      // AMÉLIO-01 (14/05/2026) : on n'utilise plus 'Date Etat' (instable, modifiée
+      // entre deux exports). On lit 'Date création' qui est la date d'ouverture
+      // réelle du sinistre et reste stable.
+      date_creation: get(r, 'Date création', 'Date creation', 'date_creation', 'DateCreation', 'DATE CREATION'),
       ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
-      nature: get(r, 'Nature MIN', 'Nature', 'nature', 'NATURE'),
-      nature_label: get(r, 'Desc. Nature', 'Nature', 'Nature label', 'nature_label', 'Libellé nature'),
-      type: detectType(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'), get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre')),
+      // BUG-04 (14/05/2026) : on ne fallback plus sur la colonne 'Nature' si
+      // 'Nature MIN' est vide. Sinon on stocke le libellé long (ex: "Cambriolage
+      // ou tentative de cambriolage") dans le champ code court → casse les
+      // habilitations qui attendent VOL/BDG/MAT/INC/DDE/AUTRE.
+      nature: get(r, 'Nature MIN', 'nature_min', 'NATURE MIN'),
+      // Le libellé long va dans nature_label (col "Nature" du SI)
+      nature_label: get(r, 'Nature', 'Desc. Nature', 'nature_label', 'Libellé nature'),
+      // BUG-03 (14/05/2026) : lecture directe de la Branche, code canonique
+      // AUTO/MRH/VSP fourni par le SI. Plus de parsing fragile de la référence.
+      type: mapTypeFromBranche(get(r, 'Branche', 'BRANCHE', 'branche')),
       portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
     })).filter(d => d.ref_sinistre);
 
@@ -95,9 +111,11 @@ async function handleFile(event) {
         // Dossier traité → relancé
         relances.push(existing);
       } else {
-        // Doublon non traité → mettre à jour date_etat si elle a changé
-        if (row.date_etat) {
-          await db.from('dossiers').update({ date_etat: row.date_etat }).eq('id', existing.id);
+        // Doublon non traité → mettre à jour date_creation si elle a changé
+        // (cas rare puisque la date de création est censée être stable, mais on
+        // garde la mise à jour défensive au cas où le SI source la corrige).
+        if (row.date_creation) {
+          await db.from('dossiers').update({ date_creation: row.date_creation }).eq('id', existing.id);
         }
         ignores++;
       }
