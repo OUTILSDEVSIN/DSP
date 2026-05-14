@@ -1684,18 +1684,56 @@ async function showDispatchKanban() {
     overlay.addEventListener('dragstart', function(e) {
         var card = e.target.closest('[data-card-type]');
         if (!card) return;
-        state.dragSource = {
-            dossierId: card.dataset.dossierId,
-            type: card.dataset.cardType, // "libre" | "pre"
-            fromGestId: card.dataset.sourceGestId || null
-        };
-        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.dossierId); } catch (err) {}
-        card.style.opacity = '0.4';
+        var draggedId = card.dataset.dossierId;
+
+        // AMÉLIO-03 (14/05/2026) : drag en bloc si la card draguée est dans
+        // state.selectedIds ET qu'il y a >1 sélection. Sinon drag mono (Lot 2D).
+        var isMultiDrag = state.selectedIds.size > 1 && state.selectedIds.has(String(draggedId));
+
+        if (isMultiDrag) {
+            // Construire le tableau d'items à partir des cards sélectionnées
+            var items = [];
+            state.selectedIds.forEach(function(id) {
+                var el = overlay.querySelector('[data-card-type][data-dossier-id="' + id + '"]');
+                if (el) {
+                    items.push({
+                        dossierId: id,
+                        type: el.dataset.cardType,
+                        fromGestId: el.dataset.sourceGestId || null
+                    });
+                    el.style.opacity = '0.4';
+                }
+            });
+            state.dragSource = { multi: true, items: items };
+            try {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', items.map(function(it){ return it.dossierId; }).join(','));
+            } catch (err) {}
+        } else {
+            // Mono (comportement Lot 2D — inchangé)
+            state.dragSource = {
+                multi: false,
+                dossierId: draggedId,
+                type: card.dataset.cardType, // "libre" | "pre"
+                fromGestId: card.dataset.sourceGestId || null
+            };
+            try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedId); } catch (err) {}
+            card.style.opacity = '0.4';
+        }
     });
 
     overlay.addEventListener('dragend', function(e) {
-        var card = e.target.closest('[data-card-type]');
-        if (card) card.style.opacity = '';
+        // AMÉLIO-03 : restaurer l'opacité de toutes les cards (mono OU multi)
+        var src = state.dragSource;
+        if (src && src.multi) {
+            src.items.forEach(function(it) {
+                var el = overlay.querySelector('[data-card-type][data-dossier-id="' + it.dossierId + '"]');
+                if (el) el.style.opacity = '';
+            });
+        } else {
+            var card = e.target.closest('[data-card-type]');
+            if (card) card.style.opacity = '';
+        }
         clearDragHover();
         state.dragSource = null;
     });
@@ -1704,10 +1742,16 @@ async function showDispatchKanban() {
         if (!state.dragSource) return;
         var zone = findDropZone(e.target);
         if (!zone) { clearDragHover(); return; }
-        // Cas no-op : déposer un libre sur libre, ou un pré-attrib sur sa propre colonne
         var src = state.dragSource;
-        if (src.type === 'libre' && zone.type === 'libre') { clearDragHover(); return; }
-        if (src.type === 'pre' && zone.type === 'gest' && String(zone.gestId) === String(src.fromGestId)) { clearDragHover(); return; }
+
+        // AMÉLIO-03 : en mode multi, on accepte toujours le drop (les items
+        // invalides — libre→libre, pre→sa propre colonne — seront filtrés au
+        // drop). Permet à l'utilisateur de drop un mix libre+pre sans friction.
+        if (!src.multi) {
+            // Cas no-op (mono) : libre sur libre, ou pré-attrib sur sa propre colonne
+            if (src.type === 'libre' && zone.type === 'libre') { clearDragHover(); return; }
+            if (src.type === 'pre' && zone.type === 'gest' && String(zone.gestId) === String(src.fromGestId)) { clearDragHover(); return; }
+        }
 
         e.preventDefault();
         try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
@@ -1728,30 +1772,64 @@ async function showDispatchKanban() {
         e.preventDefault();
         var src = state.dragSource;
 
-        // libre → gest = attribution manuelle
-        if (src.type === 'libre' && zone.type === 'gest') {
-            // Vérif habilitation
-            var g = state.activeGest.find(function(x) { return String(x.id) === String(zone.gestId); });
-            var d = state.allLibres.find(function(x) { return String(x.id) === String(src.dossierId); });
-            if (g && d && !kanbanIsEligible(d, g, state.habMap)) {
-                showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
-            } else {
-                kanbanAttribManuelle(state, zone.gestId, src.dossierId);
+        // ── Helper interne : applique le mouvement d'1 item vers la zone ───
+        //    Retourne 'ok' | 'ko' (non habilité) | 'deja' (no-op)
+        function applyMove(it) {
+            // Drop sur "Non attribués"
+            if (zone.type === 'libre') {
+                if (it.type === 'pre') {
+                    kanbanRetourLibre(state, it.fromGestId, it.dossierId);
+                    return 'ok';
+                }
+                return 'deja'; // libre → libre = no-op
             }
-        }
-        // pre → libre = retour libre
-        else if (src.type === 'pre' && zone.type === 'libre') {
-            kanbanRetourLibre(state, src.fromGestId, src.dossierId);
-        }
-        // pre → gest = déplacement gest à gest
-        else if (src.type === 'pre' && zone.type === 'gest') {
-            var g2 = state.activeGest.find(function(x) { return String(x.id) === String(zone.gestId); });
-            var d2 = (state.propData[String(src.fromGestId)] || []).find(function(x) { return String(x.id) === String(src.dossierId); });
-            if (g2 && d2 && !kanbanIsEligible(d2, g2, state.habMap)) {
-                showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
-            } else {
-                kanbanDeplaceGestAGest(state, src.fromGestId, zone.gestId, src.dossierId);
+            // Drop sur une colonne gestionnaire
+            if (zone.type === 'gest') {
+                if (it.type === 'pre' && String(it.fromGestId) === String(zone.gestId)) {
+                    return 'deja'; // déjà dans cette colonne
+                }
+                var g = state.activeGest.find(function(x){ return String(x.id) === String(zone.gestId); });
+                var d = it.type === 'libre'
+                    ? state.allLibres.find(function(x){ return String(x.id) === String(it.dossierId); })
+                    : (state.propData[String(it.fromGestId)] || []).find(function(x){ return String(x.id) === String(it.dossierId); });
+                if (g && d && !kanbanIsEligible(d, g, state.habMap)) return 'ko';
+                if (it.type === 'libre') {
+                    kanbanAttribManuelle(state, zone.gestId, it.dossierId);
+                } else {
+                    kanbanDeplaceGestAGest(state, it.fromGestId, zone.gestId, it.dossierId);
+                }
+                return 'ok';
             }
+            return 'deja';
+        }
+
+        if (src.multi) {
+            // AMÉLIO-03 (14/05/2026) : drop en bloc — itère sur tous les items
+            // de la sélection, filtre les non-habilités, notif récap.
+            var ok = 0, ko = 0, deja = 0;
+            src.items.forEach(function(it) {
+                var r = applyMove(it);
+                if (r === 'ok') ok++;
+                else if (r === 'ko') ko++;
+                else deja++;
+            });
+            // Reset sélection après drop en bloc (cohérent avec kanbanAttribuerEnLot)
+            state.selectedIds.clear();
+            overlay.querySelectorAll('[data-multi-cb]').forEach(function(c) { c.checked = false; });
+            // Notif récap
+            var parts = [];
+            if (ok > 0)   parts.push(ok   + ' déplacé(s)');
+            if (ko > 0)   parts.push(ko   + ' non habilité(s)');
+            if (deja > 0) parts.push(deja + ' ignoré(s)');
+            showNotif(parts.join(' · ') || 'Aucun mouvement', ok > 0 ? 'success' : 'warning');
+        } else {
+            // Mode mono (Lot 2D) — comportement inchangé via applyMove
+            var r = applyMove({
+                dossierId: src.dossierId,
+                type: src.type,
+                fromGestId: src.fromGestId
+            });
+            if (r === 'ko') showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
         }
         clearDragHover();
         state.dragSource = null;
@@ -2116,7 +2194,7 @@ function kanbanExtractDossiersLibres(allDossiers) {
         var tierA = hA > DISPATCH_SEUIL_CRITIQUE ? 2 : hA > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         var tierB = hB > DISPATCH_SEUIL_CRITIQUE ? 2 : hB > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         if (tierB !== tierA) return tierB - tierA;
-        // 3. Date_creation ascendante
+        // 3. date_creation ascendante
         return hB - hA;
     });
     return libres;
