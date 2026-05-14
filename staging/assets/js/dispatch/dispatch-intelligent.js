@@ -75,13 +75,13 @@ function confirmGestionnaires() {
     if (checked.length === 0) { showNotif('Sélectionnez au moins un gestionnaire', 'error'); return; }
     safeSession.setItem('dispatch_gestionnaires', JSON.stringify(checked));
     closeModal('gest-modal');
-    // ÉVOL-003 Lot 2 (8 mai 2026) : bypass de showRepartitionModal + showPreDispatchModal.
-    // La nouvelle vue Kanban absorbe le choix de mode (auto/manuel) et la gestion
-    // des dossiers anciens directement dans le board (badges urgence, ajustement manuel).
-    // ── ROLLBACK ── commenter la ligne `showDispatchKanban()` ci-dessous et
-    //                décommenter `showRepartitionModal()` pour revenir au pipeline v1.
-    // showRepartitionModal();
-    showDispatchKanban();
+    // ÉVOL-003 Lot 2D fusionné (13 mai 2026) : réintégration de showPreDispatchModal
+    // en amont du Kanban. On lui passe en callback de continuation showDispatchKanban
+    // au lieu du défaut showPropositionModal. Si aucun ancien détecté, la modale se
+    // bypass d'elle-même et appelle directement le callback.
+    // ── ROLLBACK ── remplacer la ligne ci-dessous par `showDispatchKanban();`
+    //                pour repasser direct au Kanban sans étape de priorisation.
+    showPreDispatchModal(showDispatchKanban);
 }
 
 function showRepartitionModal() {
@@ -139,8 +139,15 @@ window.dispatchAnciensIds = [];
 
 /**
  * Modal préliminaire — Scénario C avec capacités ajustables.
+ *
+ * @param {Function} [nextStep] — Callback appelé après validation/skip.
+ *        Par défaut : showPropositionModal (legacy). Le Lot 2D fusionné
+ *        passe showDispatchKanban pour rediriger vers le nouveau board.
  */
-async function showPreDispatchModal() {
+async function showPreDispatchModal(nextStep) {
+    // Continuation par défaut : ancienne UX (rétro-compatibilité)
+    var continuer = (typeof nextStep === 'function') ? nextStep : showPropositionModal;
+
     // 1. Chargement des données
     await loadDossiers();
     await loadAllUsers();
@@ -161,7 +168,7 @@ async function showPreDispatchModal() {
     if (dossiersAnciens.length === 0) {
         window.dispatchGestsPrioritaires = [];
         window.dispatchAnciensIds = [];
-        showPropositionModal();
+        continuer();
         return;
     }
 
@@ -446,7 +453,7 @@ async function showPreDispatchModal() {
     document.getElementById('btn-pre-skip').onclick = function() {
         window.dispatchGestsPrioritaires = [];
         modal.remove();
-        showPropositionModal();
+        continuer();
     };
     document.getElementById('btn-pre-continue').onclick = function() {
         // Collecte des choix : [{ id, nbAnciens }, ...]
@@ -462,7 +469,7 @@ async function showPreDispatchModal() {
         });
         window.dispatchGestsPrioritaires = choix;
         modal.remove();
-        showPropositionModal();
+        continuer();
     };
 }
 
@@ -1493,6 +1500,7 @@ async function showDispatchKanban() {
     overlay.innerHTML = ''
         + renderKanbanPageHeader()
         + renderKanbanBody(activeGest, state)
+        + renderKanbanMultiToolbar(activeGest)
         + renderKanbanFooter();
 
     document.body.appendChild(overlay);
@@ -1538,6 +1546,34 @@ async function showDispatchKanban() {
         }
         var footerStats = document.getElementById('kanban-footer-stats');
         if (footerStats) footerStats.innerHTML = kanbanRenderFooterStats(state);
+
+        // 5.5 — Restaurer l'état visuel de la multi-sélection (Lot 2D fusionné)
+        //       Les selectedIds peuvent encore exister après une attribution partielle
+        //       (par exemple si certains dossiers du lot n'ont pas été éligibles).
+        //       On purge les ids qui ne sont plus dans state.allLibres ni dans propData.
+        var validIds = new Set();
+        state.allLibres.forEach(function(d) { validIds.add(String(d.id)); });
+        Object.keys(state.propData).forEach(function(k) {
+            state.propData[k].forEach(function(d) { validIds.add(String(d.id)); });
+        });
+        state.selectedIds.forEach(function(id) {
+            if (!validIds.has(String(id))) state.selectedIds.delete(id);
+        });
+        // Re-cocher visuellement les cards encore sélectionnées
+        if (state.selectedIds.size > 0) {
+            state.selectedIds.forEach(function(id) {
+                var cb = overlay.querySelector('[data-multi-cb][data-dossier-id="' + id + '"]');
+                if (cb) {
+                    cb.checked = true;
+                    var card = cb.closest('[data-card-type]');
+                    if (card) {
+                        card.style.outline = '2px solid var(--rose)';
+                        card.style.outlineOffset = '-2px';
+                    }
+                }
+            });
+        }
+        updateMultiToolbar(state);
     }
 
     // ── 6. Bind filtres ──────────────────────────────────────────────────
@@ -1546,13 +1582,38 @@ async function showDispatchKanban() {
     // ── 7. Bind interactions (délégation depuis l'overlay) ───────────────
     //     · clic "+" sur UnattribCard       → popup d'attribution
     //     · clic ✕ sur PreAttribCard        → retire et remet en libre
+    //     · clic "→" sur PreAttribCard      → popup déplacer vers autre gest
+    //     · checkbox sur card               → multi-sélection
     //     · clic outside popup              → close popup
+    state.selectedIds = new Set(); // Lot 2D : multi-sélection
     overlay.addEventListener('click', function(e) {
+        // Checkbox multi-sélection
+        var cb = e.target.closest('[data-multi-cb]');
+        if (cb) {
+            var did = cb.dataset.dossierId;
+            if (cb.checked) state.selectedIds.add(did);
+            else state.selectedIds.delete(did);
+            updateMultiToolbar(state);
+            // Surligner la card sélectionnée
+            var card = cb.closest('[data-card-type]');
+            if (card) {
+                card.style.outline = cb.checked ? '2px solid var(--rose)' : '';
+                card.style.outlineOffset = cb.checked ? '-2px' : '';
+            }
+            return;
+        }
         // Attribution manuelle depuis card libre
         var btnAttrib = e.target.closest('[data-action="attrib"]');
         if (btnAttrib) {
             e.stopPropagation();
             kanbanOpenPopupAttrib(btnAttrib, state, refreshKanban);
+            return;
+        }
+        // Déplacement gest → gest (popup d'attribution avec fromGestId)
+        var btnDepl = e.target.closest('[data-action="deplacer-gest"]');
+        if (btnDepl) {
+            e.stopPropagation();
+            kanbanOpenPopupAttrib(btnDepl, state, refreshKanban, btnDepl.dataset.gestId);
             return;
         }
         // Retour libre depuis card pré-attribuée
@@ -1571,7 +1632,13 @@ async function showDispatchKanban() {
             e.stopPropagation();
             var dId = btnPopupItem.dataset.dossierId;
             var gId = btnPopupItem.dataset.gestId;
-            kanbanAttribManuelle(state, gId, dId);
+            var fromGId = btnPopupItem.dataset.fromGestId || null;
+            if (fromGId) {
+                // Déplacement gest → gest
+                kanbanDeplaceGestAGest(state, fromGId, gId, dId);
+            } else {
+                kanbanAttribManuelle(state, gId, dId);
+            }
             kanbanClosePopupAttrib();
             refreshKanban();
             return;
@@ -1579,6 +1646,139 @@ async function showDispatchKanban() {
         // Click ailleurs → ferme la popup ouverte
         kanbanClosePopupAttrib();
     });
+
+    // ── 7b. Drag & drop (Lot 2D fusionné) ────────────────────────────────
+    //     · dragstart sur card  → mémorise source dans state.dragSource
+    //     · dragover sur zone   → preventDefault + surlignage
+    //     · drop                → exécute mouvement selon source/cible
+    state.dragSource = null;
+    state.dragHover  = null;
+
+    function clearDragHover() {
+        if (state.dragHover) {
+            state.dragHover.style.outline = '';
+            state.dragHover.style.background = state.dragHover.dataset.bgOriginal || '';
+            delete state.dragHover.dataset.bgOriginal;
+            state.dragHover = null;
+        }
+    }
+
+    function findDropZone(target) {
+        if (!target || !target.closest) return null;
+        // Zones droppables : liste libres OU liste gest
+        var zoneLibre = target.closest('#kanban-liste-libres');
+        if (zoneLibre) return { type: 'libre', el: zoneLibre, gestId: null };
+        var zoneGest = target.closest('[data-gestcol-list]');
+        if (zoneGest) return { type: 'gest', el: zoneGest, gestId: zoneGest.dataset.gestcolList };
+        return null;
+    }
+
+    overlay.addEventListener('dragstart', function(e) {
+        var card = e.target.closest('[data-card-type]');
+        if (!card) return;
+        state.dragSource = {
+            dossierId: card.dataset.dossierId,
+            type: card.dataset.cardType, // "libre" | "pre"
+            fromGestId: card.dataset.sourceGestId || null
+        };
+        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.dossierId); } catch (err) {}
+        card.style.opacity = '0.4';
+    });
+
+    overlay.addEventListener('dragend', function(e) {
+        var card = e.target.closest('[data-card-type]');
+        if (card) card.style.opacity = '';
+        clearDragHover();
+        state.dragSource = null;
+    });
+
+    overlay.addEventListener('dragover', function(e) {
+        if (!state.dragSource) return;
+        var zone = findDropZone(e.target);
+        if (!zone) { clearDragHover(); return; }
+        // Cas no-op : déposer un libre sur libre, ou un pré-attrib sur sa propre colonne
+        var src = state.dragSource;
+        if (src.type === 'libre' && zone.type === 'libre') { clearDragHover(); return; }
+        if (src.type === 'pre' && zone.type === 'gest' && String(zone.gestId) === String(src.fromGestId)) { clearDragHover(); return; }
+
+        e.preventDefault();
+        try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
+        if (state.dragHover !== zone.el) {
+            clearDragHover();
+            state.dragHover = zone.el;
+            state.dragHover.dataset.bgOriginal = state.dragHover.style.background || '';
+            state.dragHover.style.outline = '2px dashed var(--rose)';
+            state.dragHover.style.outlineOffset = '-2px';
+            state.dragHover.style.background = 'rgba(229, 25, 94, 0.04)';
+        }
+    });
+
+    overlay.addEventListener('drop', function(e) {
+        if (!state.dragSource) return;
+        var zone = findDropZone(e.target);
+        if (!zone) { clearDragHover(); return; }
+        e.preventDefault();
+        var src = state.dragSource;
+
+        // libre → gest = attribution manuelle
+        if (src.type === 'libre' && zone.type === 'gest') {
+            // Vérif habilitation
+            var g = state.activeGest.find(function(x) { return String(x.id) === String(zone.gestId); });
+            var d = state.allLibres.find(function(x) { return String(x.id) === String(src.dossierId); });
+            if (g && d && !kanbanIsEligible(d, g, state.habMap)) {
+                showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
+            } else {
+                kanbanAttribManuelle(state, zone.gestId, src.dossierId);
+            }
+        }
+        // pre → libre = retour libre
+        else if (src.type === 'pre' && zone.type === 'libre') {
+            kanbanRetourLibre(state, src.fromGestId, src.dossierId);
+        }
+        // pre → gest = déplacement gest à gest
+        else if (src.type === 'pre' && zone.type === 'gest') {
+            var g2 = state.activeGest.find(function(x) { return String(x.id) === String(zone.gestId); });
+            var d2 = (state.propData[String(src.fromGestId)] || []).find(function(x) { return String(x.id) === String(src.dossierId); });
+            if (g2 && d2 && !kanbanIsEligible(d2, g2, state.habMap)) {
+                showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
+            } else {
+                kanbanDeplaceGestAGest(state, src.fromGestId, zone.gestId, src.dossierId);
+            }
+        }
+        clearDragHover();
+        state.dragSource = null;
+        refreshKanban();
+    });
+
+    // ── 7c. Toolbar multi-sélection ──────────────────────────────────────
+    //     Apparaît dès qu'au moins 1 card est cochée. Permet d'attribuer en
+    //     lot tous les dossiers sélectionnés à un gestionnaire choisi.
+    function updateMultiToolbar(st) {
+        var bar = document.getElementById('kanban-multi-toolbar');
+        if (!bar) return;
+        var count = st.selectedIds.size;
+        if (count === 0) {
+            bar.style.display = 'none';
+            return;
+        }
+        bar.style.display = 'flex';
+        var label = bar.querySelector('[data-multi-count]');
+        if (label) label.textContent = count;
+    }
+    // Toolbar handlers : bouton "Attribuer en lot" et "Tout désélectionner"
+    overlay.addEventListener('change', function(e) {
+        // Select gest cible → rien à faire, on lit la valeur au clic du bouton
+    });
+    document.getElementById('btn-multi-attrib').onclick = function() {
+        kanbanAttribuerEnLot(state, refreshKanban);
+    };
+    document.getElementById('btn-multi-clear').onclick = function() {
+        state.selectedIds.clear();
+        // Décocher visuellement toutes les checkboxes
+        overlay.querySelectorAll('[data-multi-cb]').forEach(function(c) { c.checked = false; });
+        overlay.querySelectorAll('[data-card-type]').forEach(function(c) { c.style.outline = ''; });
+        updateMultiToolbar(state);
+    };
 
     // ── 8. Handlers footer ───────────────────────────────────────────────
     document.getElementById('btn-kanban-cancel').onclick = function() { overlay.remove(); };
@@ -1795,9 +1995,13 @@ function renderPreAttribCard(d, gestId) {
 
     return ''
         + '<div data-dossier-id="' + escapeHtml(d.id) + '"'
-        +   ' style="background:#fff;border:1px solid var(--border, #e4eaf2);border-left:3px solid var(--blue-500, #4A7EC7);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;transition:all 0.18s ease-out"'
+        +   ' data-card-type="pre" data-source-gest-id="' + escapeHtml(gestId) + '" draggable="true"'
+        +   ' style="background:#fff;border:1px solid var(--border, #e4eaf2);border-left:3px solid var(--blue-500, #4A7EC7);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;transition:all 0.18s ease-out;cursor:grab"'
         +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md, 0 4px 16px rgba(27,52,97,0.10))\';this.style.transform=\'translateY(-1px)\'"'
         +   ' onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">'
+        // Checkbox multi-sélection (Lot 2D fusionné)
+        +   '<input type="checkbox" data-multi-cb="1" data-dossier-id="' + escapeHtml(d.id) + '" data-source-gest-id="' + escapeHtml(gestId) + '"'
+        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer" onclick="event.stopPropagation()">'
         +   '<div style="flex:1;min-width:0">'
         +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
         +       (badge || '')
@@ -1805,6 +2009,11 @@ function renderPreAttribCard(d, gestId) {
         +     '</div>'
         +     (meta ? '<div style="font-size:10px;color:var(--gray-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</div>' : '')
         +   '</div>'
+        // Bouton "→" : déplacer vers un autre gestionnaire (popup d'attribution)
+        +   '<button data-action="deplacer-gest" data-dossier-id="' + escapeHtml(d.id) + '" data-gest-id="' + escapeHtml(gestId) + '" title="Déplacer vers un autre gestionnaire"'
+        +     ' style="width:24px;height:24px;border-radius:5px;border:1px solid var(--blue-300, #b8cfeb);background:var(--blue-50, #f4f7fc);color:var(--blue-500, #4A7EC7);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;padding:0;flex-shrink:0;transition:all 0.15s ease-out"'
+        +     ' onmouseenter="this.style.background=\'var(--blue-500, #4A7EC7)\';this.style.color=\'#fff\'"'
+        +     ' onmouseleave="this.style.background=\'var(--blue-50)\';this.style.color=\'var(--blue-500, #4A7EC7)\'">→</button>'
         +   '<button data-action="retour-libre" data-dossier-id="' + escapeHtml(d.id) + '" data-gest-id="' + escapeHtml(gestId) + '" title="Retirer (retour dans Non attribués)"'
         +     ' style="width:24px;height:24px;border-radius:5px;border:1px solid var(--gray-300, #cdd6e3);background:#fff;color:var(--gray-500, #6b7689);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;padding:0;flex-shrink:0;transition:all 0.15s ease-out"'
         +     ' onmouseenter="this.style.background=\'#fce8ef\';this.style.borderColor=\'var(--rose)\';this.style.color=\'var(--rose)\'"'
@@ -2017,9 +2226,13 @@ function renderUnattribCard(d) {
 
     return ''
         + '<div data-dossier-id="' + escapeHtml(d.id) + '" class="kanban-unattrib-card"'
-        +   ' style="background:#fff;border:1px solid var(--border, #e4eaf2);border-radius:8px;padding:9px 12px;box-shadow:var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06));display:flex;align-items:center;gap:8px;transition:all 0.18s var(--ease-out, ease-out)"'
+        +   ' data-card-type="libre" draggable="true"'
+        +   ' style="background:#fff;border:1px solid var(--border, #e4eaf2);border-radius:8px;padding:9px 12px;box-shadow:var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06));display:flex;align-items:center;gap:8px;transition:all 0.18s var(--ease-out, ease-out);cursor:grab"'
         +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md)\';this.style.transform=\'translateY(-1px)\'"'
         +   ' onmouseleave="this.style.boxShadow=\'var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06))\';this.style.transform=\'none\'">'
+        // Checkbox multi-sélection (Lot 2D fusionné)
+        +   '<input type="checkbox" data-multi-cb="1" data-dossier-id="' + escapeHtml(d.id) + '"'
+        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer" onclick="event.stopPropagation()">'
         +   '<div style="flex:1;min-width:0">'
         +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
         +       (badge || '')
@@ -2129,10 +2342,16 @@ function kanbanIsEligible(d, g, habMap) {
     return okPf && okTp && okNat;
 }
 
-/* ── Pré-attribution automatique (round-robin équitable) ──────────────
+/* ── Pré-attribution automatique (round-robin équitable + boost anciens) ──
  * Mute state : déplace des dossiers de state.allLibres vers state.propData[gestId]
  * Respecte habilitations (kanbanIsEligible) et plafond state.maxMap[gestId].
  * Ne touche pas aux pré-attribs déjà présentes (rééquilibrage non destructif).
+ *
+ * Lot 2D fusionné (13 mai 2026) :
+ *   Phase 1 (1 seule fois, flag state.prioritairesApplied) : si window.dispatchGestsPrioritaires
+ *           contient des choix, on alloue d'abord les dossiers anciens (dispatchAnciensIds)
+ *           chez les gests prioritaires selon leur quota saisi dans showPreDispatchModal.
+ *   Phase 2 : round-robin équitable classique sur le reste des libres.
  */
 function kanbanCalcPreAttrib(state) {
     var activeGest = state.activeGest;
@@ -2140,28 +2359,60 @@ function kanbanCalcPreAttrib(state) {
     var maxMap = state.maxMap;
     if (!activeGest || activeGest.length === 0) return;
 
-    // Index des libres restants par id (pour suppression rapide)
     var assignedIds = new Set();
-    var libres = state.allLibres.slice(); // copie locale, déjà triée
 
+    // ── Phase 1 — Boost prioritaire des anciens (1 seule fois) ──────────
+    if (!state.prioritairesApplied) {
+        var prios = (window.dispatchGestsPrioritaires || []);
+        var anciensIds = new Set((window.dispatchAnciensIds || []).map(String));
+        if (prios.length > 0 && anciensIds.size > 0) {
+            // Anciens présents dans la pool libre, triés par ancienneté décroissante
+            var ancienPool = state.allLibres.filter(function(d) {
+                return anciensIds.has(String(d.id));
+            }).sort(function(a, b) {
+                return (getAncienneteHeures(b) || 0) - (getAncienneteHeures(a) || 0);
+            });
+            prios.forEach(function(p) {
+                var gid = String(p.id);
+                var g = activeGest.find(function(x) { return String(x.id) === gid; });
+                if (!g) return; // gest non actif (ne devrait pas arriver)
+                var quota = parseInt(p.nbAnciens, 10) || 0;
+                if (!state.propData[gid]) state.propData[gid] = [];
+                var placed = 0;
+                for (var ai = 0; ai < ancienPool.length && placed < quota; ai++) {
+                    var d = ancienPool[ai];
+                    if (assignedIds.has(d.id)) continue;
+                    // Habilitation respectée (sinon on saute — alerte silencieuse)
+                    if (!kanbanIsEligible(d, g, habMap)) continue;
+                    state.propData[gid].push(d);
+                    assignedIds.add(d.id);
+                    placed++;
+                }
+            });
+        }
+        state.prioritairesApplied = true;
+    }
+
+    // ── Phase 2 — Round-robin équitable sur tout le reste ───────────────
+    var libres = state.allLibres.slice(); // copie locale, déjà triée
     var keepGoing = true;
     while (keepGoing) {
         keepGoing = false;
         for (var gi = 0; gi < activeGest.length; gi++) {
-            var g = activeGest[gi];
-            var gid = String(g.id);
-            var nbCurrent = state.propData[gid].length;
-            var maxG = maxMap[gid] != null ? maxMap[gid] : 15;
+            var gg = activeGest[gi];
+            var ggid = String(gg.id);
+            var nbCurrent = state.propData[ggid].length;
+            var maxG = maxMap[ggid] != null ? maxMap[ggid] : 15;
             if (nbCurrent >= maxG) continue;
             // Trouver le 1er libre éligible non encore pris
             var found = null;
             for (var di = 0; di < libres.length; di++) {
-                var d = libres[di];
-                if (assignedIds.has(d.id)) continue;
-                if (kanbanIsEligible(d, g, habMap)) { found = d; break; }
+                var dd = libres[di];
+                if (assignedIds.has(dd.id)) continue;
+                if (kanbanIsEligible(dd, gg, habMap)) { found = dd; break; }
             }
             if (found) {
-                state.propData[gid].push(found);
+                state.propData[ggid].push(found);
                 assignedIds.add(found.id);
                 keepGoing = true;
             }
@@ -2196,20 +2447,39 @@ function kanbanRetourLibre(state, gestId, dossierId) {
 }
 
 /* ── Popup d'attribution manuelle ──────────────────────────────────────
- * S'ouvre au clic du "+" sur une UnattribCard. Liste les gestionnaires
- * actifs ; ceux NON habilités sont affichés avec un badge "🚫 Non habilité"
- * et un clic dessus émet une notif d'avertissement.
+ * S'ouvre au clic du "+" sur une UnattribCard ou du "→" sur une PreAttribCard.
+ * Liste les gestionnaires actifs ; ceux NON habilités sont affichés avec un
+ * badge "🚫 Non habilité" et un clic dessus émet une notif d'avertissement.
+ *
+ * @param {HTMLElement} btnAttrib — bouton "+" ou "→" cliqué
+ * @param {object}      state    — state du Kanban
+ * @param {Function}    refresh  — fonction de rafraîchissement (non utilisée
+ *                                 directement ici — appelée par la délégation
+ *                                 globale après clic d'un item)
+ * @param {string|null} [fromGestId] — Lot 2D fusionné : si fourni, la popup
+ *                                 est en mode "déplacer" depuis ce gestionnaire
+ *                                 (au lieu d'attribuer depuis libre).
  */
-function kanbanOpenPopupAttrib(btnAttrib, state, refresh) {
+function kanbanOpenPopupAttrib(btnAttrib, state, refresh, fromGestId) {
     // Ferme une éventuelle popup ouverte ailleurs
     kanbanClosePopupAttrib();
 
     var dossierId = btnAttrib.dataset.dossierId;
-    var dossier = state.allLibres.find(function(d) { return String(d.id) === String(dossierId); });
+    var dossier;
+    if (fromGestId) {
+        // Mode déplacement : la card source est dans propData[fromGestId]
+        var srcArr = state.propData[String(fromGestId)] || [];
+        dossier = srcArr.find(function(d) { return String(d.id) === String(dossierId); });
+    } else {
+        // Mode attribution depuis libre
+        dossier = state.allLibres.find(function(d) { return String(d.id) === String(dossierId); });
+    }
     if (!dossier) return;
 
     var items = state.activeGest.map(function(g) {
         var gid = String(g.id);
+        // En mode "déplacer", on n'affiche pas le gest source (pas d'intérêt)
+        if (fromGestId && gid === String(fromGestId)) return '';
         var eligible = kanbanIsEligible(dossier, g, state.habMap);
         var nbCurrent = state.propData[gid].length;
         var maxG = state.maxMap[gid] != null ? state.maxMap[gid] : 15;
@@ -2221,8 +2491,9 @@ function kanbanOpenPopupAttrib(btnAttrib, state, refresh) {
             : '<span style="font-size:9px;color:var(--rose);font-weight:700">🚫 Non habilité</span>';
         var disabled = eligible ? '' : ' data-not-eligible="1"';
         var opacity = eligible ? '1' : '0.55';
+        var fromAttr = fromGestId ? ' data-from-gest-id="' + escapeHtml(fromGestId) + '"' : '';
         return ''
-            + '<button data-action="popup-attrib-item" data-dossier-id="' + escapeHtml(dossierId) + '" data-gest-id="' + escapeHtml(g.id) + '"' + disabled
+            + '<button data-action="popup-attrib-item" data-dossier-id="' + escapeHtml(dossierId) + '" data-gest-id="' + escapeHtml(g.id) + '"' + disabled + fromAttr
             +   ' style="width:100%;text-align:left;padding:6px 8px;background:transparent;border:none;border-radius:6px;cursor:' + (eligible ? 'pointer' : 'not-allowed') + ';font-size:12px;display:flex;align-items:center;gap:8px;color:var(--navy);opacity:' + opacity + ';transition:background 0.12s ease-out"'
             +   ' onmouseenter="if(this.dataset.notEligible){return}this.style.background=\'var(--blue-50, #f4f7fc)\'"'
             +   ' onmouseleave="this.style.background=\'transparent\'">'
@@ -2248,9 +2519,10 @@ function kanbanOpenPopupAttrib(btnAttrib, state, refresh) {
         'padding:6px',
         'z-index:10000'
     ].join(';');
+    var titre = fromGestId ? 'Déplacer ce dossier vers :' : 'Attribuer ce dossier à :';
     popup.innerHTML = ''
         + '<div style="font-size:10px;color:var(--gray-600);padding:4px 8px;border-bottom:1px solid var(--border, #e4eaf2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">'
-        +   'Attribuer ce dossier à :'
+        +   titre
         + '</div>'
         + '<div style="display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto">'
         +   items
@@ -2387,4 +2659,119 @@ async function kanbanDoDispatch(state, overlay) {
     } catch (e) { /* non bloquant */ }
 }
 
+/* ============================================================================
+ * Lot 2D fusionné (13 mai 2026) — Drag & drop + multi-sélection + déplacement
+ * ----------------------------------------------------------------------------
+ * Helpers : toolbar de multi-sélection, déplacement gest→gest, attribution
+ * en lot. La logique drag & drop est inlinée dans showDispatchKanban (handlers
+ * dragstart / dragover / drop) car elle dépend de l'état mutable de cette
+ * closure (state.dragSource, state.dragHover).
+ * ============================================================================ */
+
+/* ── Rendu de la toolbar flottante de multi-sélection ──────────────────
+ * Cachée par défaut (display:none). Affichée par updateMultiToolbar() dès
+ * qu'au moins 1 card est cochée. Position : fixed bottom centrée au-dessus
+ * du footer (z-index inférieur à la popup d'attrib).
+ */
+function renderKanbanMultiToolbar(activeGest) {
+    var options = '<option value="">— Choisir un gestionnaire —</option>'
+        + activeGest.map(function(g) {
+            var nom = (g.prenom || '') + ' ' + (g.nom || '');
+            return '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(nom) + '</option>';
+        }).join('');
+    return ''
+        + '<div id="kanban-multi-toolbar"'
+        +   ' style="display:none;position:fixed;bottom:78px;left:50%;transform:translateX(-50%);z-index:9998;'
+        +   'background:var(--navy, #1B3461);color:#fff;border-radius:10px;padding:10px 14px;'
+        +   'box-shadow:0 8px 24px rgba(27,52,97,0.25);align-items:center;gap:12px;'
+        +   'font-size:13px;min-width:480px">'
+        +   '<span style="font-weight:700"><span data-multi-count>0</span> dossier(s) sélectionné(s)</span>'
+        +   '<select id="kanban-multi-select"'
+        +     ' style="padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:12px;flex:1;min-width:140px">'
+        +     options
+        +   '</select>'
+        +   '<button id="btn-multi-attrib" class="btn btn-primary"'
+        +     ' style="background:var(--rose);border-color:var(--rose);color:#fff;font-weight:700;padding:6px 14px;font-size:12px">Attribuer</button>'
+        +   '<button id="btn-multi-clear" class="btn btn-secondary"'
+        +     ' style="background:transparent;border:1px solid rgba(255,255,255,0.3);color:#fff;padding:6px 10px;font-size:12px">Annuler</button>'
+        + '</div>';
+}
+
+/* ── Déplacement direct gest A → gest B ────────────────────────────────
+ * Sans repasser par "Non attribués". Conserve l'ordre dans la colonne cible
+ * (push à la fin). Ne fait rien si fromGestId === toGestId.
+ */
+function kanbanDeplaceGestAGest(state, fromGestId, toGestId, dossierId) {
+    if (String(fromGestId) === String(toGestId)) return;
+    var arrFrom = state.propData[String(fromGestId)];
+    if (!arrFrom) return;
+    var idx = arrFrom.findIndex(function(d) { return String(d.id) === String(dossierId); });
+    if (idx === -1) return;
+    var d = arrFrom[idx];
+    arrFrom.splice(idx, 1);
+    if (!state.propData[String(toGestId)]) state.propData[String(toGestId)] = [];
+    state.propData[String(toGestId)].push(d);
+}
+
+/* ── Attribution en lot depuis la toolbar de multi-sélection ───────────
+ * Lit le gest cible dans #kanban-multi-select. Pour chaque id dans
+ * state.selectedIds : vérifie habilitation, déplace selon que le dossier
+ * est dans allLibres ou dans une colonne gest. Affiche un rapport final.
+ */
+function kanbanAttribuerEnLot(state, refresh) {
+    var sel = document.getElementById('kanban-multi-select');
+    if (!sel || !sel.value) {
+        showNotif('Choisis un gestionnaire cible dans la liste', 'warning');
+        return;
+    }
+    var toGestId = sel.value;
+    var toGest = state.activeGest.find(function(g) { return String(g.id) === String(toGestId); });
+    if (!toGest) return;
+
+    var ok = 0, ko = 0, deja = 0;
+    var ids = Array.from(state.selectedIds);
+    ids.forEach(function(did) {
+        // Localiser le dossier (libre ou pré-attrib)
+        var d = state.allLibres.find(function(x) { return String(x.id) === String(did); });
+        var fromGestId = null;
+        if (!d) {
+            // Cherche dans propData
+            var keys = Object.keys(state.propData);
+            for (var i = 0; i < keys.length; i++) {
+                var arr = state.propData[keys[i]];
+                var found = arr.find(function(x) { return String(x.id) === String(did); });
+                if (found) {
+                    d = found;
+                    fromGestId = keys[i];
+                    break;
+                }
+            }
+        }
+        if (!d) return;
+        // Déjà chez le gest cible ?
+        if (String(fromGestId) === String(toGestId)) { deja++; return; }
+        // Habilitation
+        if (!kanbanIsEligible(d, toGest, state.habMap)) { ko++; return; }
+        // Déplacement
+        if (fromGestId) {
+            kanbanDeplaceGestAGest(state, fromGestId, toGestId, did);
+        } else {
+            kanbanAttribManuelle(state, toGestId, did);
+        }
+        ok++;
+    });
+
+    // Reset sélection
+    state.selectedIds.clear();
+    refresh();
+
+    // Rapport
+    var nom = (toGest.prenom || '') + ' ' + (toGest.nom || '');
+    var msg = ok + ' dossier(s) attribué(s) à ' + nom;
+    if (ko > 0) msg += ' · ' + ko + ' ignoré(s) (non habilité)';
+    if (deja > 0) msg += ' · ' + deja + ' déjà chez ce gest';
+    showNotif(msg, ko > 0 ? 'warning' : 'success');
+}
+
+/* ── FIN ÉVOL-003 Lot 2D fusionné — Drag & drop + multi-sélection ──────── */
 /* ── FIN ÉVOL-003 Lot 2C+ étendu — DISPATCH KANBAN ─────────────────────── */
