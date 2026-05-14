@@ -8,9 +8,10 @@
 
 - **13 dossiers non attribués** détectés en PROD au moment de l'analyse
 - **12 dossiers MRH** (`type = "Habitation"`) → problème de données en base
-- **1 dossier Auto** (`nature = INC`) → problème de code
-- **5 points** identifiés au total (bugs + améliorations souhaitées)
+- **1 dossier Auto** (`nature = INC`) → problème d'habilitations + code
+- **5 bugs + 2 améliorations** identifiés
 - Le nouveau code déployé le matin du 14/05 **n'est pas la cause** — l'ordre de chargement des scripts est correct
+- **⚠️ Aucune correction n'a encore été appliquée — tout reste à faire**
 
 ---
 
@@ -20,11 +21,11 @@
 
 | | |
 |---|---|
-| **Fichier concerné** | `assets/js/dispatch/dispatch-intelligent.js` (ancien code) |
+| **Fichier concerné** | `assets/js/dispatch/dispatch-intelligent.js` |
 | **Impact** | 1 dossier `Auto / INC` non attribué |
-| **Cause** | La valeur stockée en base est `"Auto"` (avec majuscule initiale), mais les habilitations stockent `"AUTO"`. La fonction `normalizeType` est censée corriger ça mais n'était pas présente dans l'ancien fichier monolithique. |
-| **Statut** | ✅ Corrigé dans le nouveau code via `normalizeType` dans `habilitations.js` |
-| **Correction** | `normalizeType` convertit `"auto"` → `"AUTO"` via `TYPE_LABEL_MAP` |
+| **Cause** | La valeur stockée en base est `"Auto"` (avec majuscule initiale), mais les habilitations stockent `"AUTO"`. La fonction `normalizeType` est présente dans le nouveau code mais le dossier reste bloqué en base. |
+| **Statut** | ❌ Non corrigé en PROD |
+| **Correction à faire** | Vérifier que `normalizeType` est bien appelée au moment du dispatch et relancer le dispatch sur ce dossier |
 
 ---
 
@@ -35,8 +36,8 @@
 | **Fichier concerné** | Table `habilitation_gestionnaires` (Supabase PROD) |
 | **Impact** | Dossier `SINMIAA100007974` non attribué |
 | **Cause** | Aucun gestionnaire n'a `INC` dans sa liste de natures habilitées |
-| **Statut** | ⚠️ À corriger — ajouter `INC` dans les habilitations des gestionnaires concernés |
-| **Correction** | Via l'interface Habilitations de Dispatchis ou directement en base sur staging puis PROD |
+| **Statut** | ❌ Non corrigé en PROD |
+| **Correction à faire** | Ajouter `INC` dans les habilitations des gestionnaires Auto concernés via l'interface ou en base (staging d'abord) |
 
 ---
 
@@ -46,8 +47,8 @@
 |---|---|
 | **Fichier concerné** | Table `dossiers` (Supabase PROD) + `assets/js/dispatch/import.js` |
 | **Impact** | **12 dossiers MRH bloqués** (du 03/05 au 06/05/2026) |
-| **Cause** | Lors du premier import de dossiers MRH début mai, le champ `type` a été enregistré avec la valeur `"Habitation"` (libellé métier de la grille Excel) au lieu de `"MRH"` (code technique attendu par les habilitations). `normalizeType` corrige cela à la volée au moment du dispatch, mais les données en base restent avec `"Habitation"`. |
-| **Statut** | ⚠️ À corriger en base + à sécuriser dans `import.js` |
+| **Cause** | Lors du premier import de dossiers MRH début mai, le champ `type` a été enregistré avec la valeur `"Habitation"` (libellé métier) au lieu de `"MRH"` (code technique attendu par les habilitations). |
+| **Statut** | ❌ Non corrigé en PROD |
 | **Correction en base (staging d'abord)** : |
 
 ```sql
@@ -69,9 +70,9 @@ WHERE type = 'Habitation'
 |---|---|
 | **Fichier concerné** | `assets/js/dispatch/import.js` |
 | **Impact** | 1 dossier (`SINMIAM100002358`) avec `nature = "Cambriolage ou tentative de cambriolage"` au lieu de `"VOL"` ou `"BDG"` |
-| **Cause** | Le champ `Nature MIN` (code court) n'est pas systématiquement utilisé à l'import. Certaines lignes du fichier Excel contiennent le libellé long dans la colonne nature. |
-| **Statut** | ⚠️ À corriger dans `import.js` |
-| **Correction** | Forcer l'utilisation de la colonne `Nature MIN` à l'import, avec fallback sur un mapping libellé → code court |
+| **Cause** | Le champ `Nature MIN` (code court) n'est pas systématiquement utilisé à l'import. |
+| **Statut** | ❌ Non corrigé en PROD |
+| **Correction à faire** | Forcer l'utilisation de la colonne `Nature MIN` à l'import dans `import.js`, avec fallback sur un mapping libellé → code court |
 
 ---
 
@@ -80,9 +81,9 @@ WHERE type = 'Habitation'
 | | |
 |---|---|
 | **Fichier concerné** | `dispatch-intelligent-1.js` (ancien fichier, remplacé le 14/05) |
-| **Impact** | Potentiellement tous les checks `type` silencieusement cassés dans l'ancien code |
-| **Cause** | Dans l'ancien fichier monolithique, `normalizeType` était appelée ligne 166 mais jamais définie dans ce fichier. Elle vivait dans `habilitations.js` qui était chargé séparément. |
-| **Statut** | ✅ Résolu avec le nouveau code refactorisé |
+| **Impact** | Tous les checks `type` silencieusement cassés dans l'ancien code |
+| **Cause** | Dans l'ancien fichier monolithique, `normalizeType` était appelée ligne 166 mais jamais définie dans ce fichier. |
+| **Statut** | ⚠️ Partiellement traité par le refactoring du 14/05 — à confirmer après correction des bugs précédents |
 
 ---
 
@@ -92,27 +93,25 @@ WHERE type = 'Habitation'
 
 | | |
 |---|---|
-| **Fichier concerné** | `assets/js/dispatch/dispatch-intelligent.js` et `attribution.js` |
+| **Fichiers concernés** | `assets/js/dispatch/dispatch-intelligent.js` ET `assets/js/dispatch/attribution.js` |
 | **Problème** | Le tri secondaire utilise `date_etat` pour ordonner les dossiers (plus ancienne en premier). Or `date_etat` peut changer entre deux exports, ce qui rend le tri **instable** : un dossier peut changer de rang entre deux sessions. |
-| **Comportement attendu** | Trier sur `date_ouverture` (date de création du sinistre) qui est stable dans le temps et reflète l'ancienneté réelle du dossier. |
+| **Comportement attendu** | Trier sur `date_ouverture` (date de création du sinistre) qui est stable et reflète l'ancienneté réelle. |
 | **Priorité** | 🔴 Haute — remontée par les managers |
-| **Statut** | ❌ À corriger sur staging |
+| **Statut** | ❌ Non corrigé — à développer sur staging |
 
-**Code actuel dans `dispatch-intelligent.js`** :
+**Code actuel** (dans les deux fichiers) :
 ```javascript
-// - Tri secondaire : plus ancienne date_etat en premier -
+// Tri secondaire : plus ancienne date_etat en premier
 var da = parseDE(a.date_etat);
 var db = parseDE(b.date_etat);
 ```
 
 **Code cible** :
 ```javascript
-// - Tri secondaire : plus ancienne date_ouverture en premier (stable) -
+// Tri secondaire : plus ancienne date_ouverture en premier (stable)
 var da = parseDE(a.date_ouverture);
 var db = parseDE(b.date_ouverture);
 ```
-
-> Même correction à appliquer dans `attribution.js` qui a son propre tri indépendant.
 
 ---
 
@@ -121,8 +120,8 @@ var db = parseDE(b.date_ouverture);
 | | |
 |---|---|
 | **Fichier concerné** | `assets/js/dispatch/dispatch-intelligent.js` — fonction `isEligible` |
-| **Problème** | La comparaison portefeuille utilise `.includes()` ce qui peut provoquer des faux positifs si un code portefeuille est contenu dans un autre (ex: `"MIA"` dans `"MIANEO"`). |
-| **Statut** | ⚠️ À corriger par précaution |
+| **Problème** | La comparaison portefeuille utilise `.includes()` ce qui peut provoquer des faux positifs. |
+| **Statut** | ❌ Non corrigé — à développer sur staging |
 
 **Code actuel** :
 ```javascript
@@ -158,16 +157,17 @@ var okPf = pf.some(function(p){ return dPf === p; });
 
 ## ✅ Plan d'action recommandé (staging → PROD)
 
-| Priorité | Action | Fichier/Table | Environnement |
+| Priorité | Action | Fichier/Table | Statut |
 |---|---|---|---|
-| 1 | Correction SQL `type = 'MRH'` sur dossiers non attribués | Table `dossiers` | Staging puis PROD |
-| 2 | Ajouter `INC` dans les habilitations gestionnaires Auto | Table `habilitation_gestionnaires` | Staging puis PROD |
-| 3 | Tri sur `date_ouverture` dans `dispatch-intelligent.js` | `dispatch-intelligent.js` | Staging puis PROD |
-| 4 | Tri sur `date_ouverture` dans `attribution.js` | `attribution.js` | Staging puis PROD |
-| 5 | Mapping nature libellé long → code court dans `import.js` | `import.js` | Staging puis PROD |
-| 6 | Remplacer `.includes()` par `===` dans `isEligible` | `dispatch-intelligent.js` | Staging puis PROD |
+| 1 | Correction SQL `type = 'MRH'` sur dossiers non attribués | Table `dossiers` | ❌ À faire |
+| 2 | Ajouter `INC` dans les habilitations gestionnaires Auto | Table `habilitation_gestionnaires` | ❌ À faire |
+| 3 | Tri sur `date_ouverture` dans `dispatch-intelligent.js` | `dispatch-intelligent.js` | ❌ À faire |
+| 4 | Tri sur `date_ouverture` dans `attribution.js` | `attribution.js` | ❌ À faire |
+| 5 | Mapping nature libellé long → code court dans `import.js` | `import.js` | ❌ À faire |
+| 6 | Remplacer `.includes()` par `===` dans `isEligible` | `dispatch-intelligent.js` | ❌ À faire |
+
+> ⚠️ Toute modification doit être validée sur **staging** avant d'aller en **PROD**.
 
 ---
 
 > 📝 Document généré automatiquement suite à la session d'analyse du 14/05/2026.
-> Toute modification de PROD doit être validée sur staging au préalable.
