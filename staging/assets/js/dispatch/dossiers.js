@@ -6,8 +6,8 @@ async function actionMesDossiers(id, action) {
   // Bloquer si dossier en troc actif
   if (typeof isDossierEnTroc === 'function' && isDossierEnTroc(id)) {
     showNotif('⇄ Ce dossier est impliqué dans un troc en cours. Attendez la fin du troc.', 'error');
-    await loadDossiers();
-    renderMesDossiers();
+    // ✅ FIX BUGS-002-v3 (3/3) — un seul loadDossiers (celui dans renderMesDossiers)
+    await renderMesDossiers();
     return;
   }
 
@@ -21,8 +21,7 @@ async function actionMesDossiers(id, action) {
     if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
     await auditLog('REOUVERTURE_DOSSIER', 'Dossier réouvert -- id:' + id);
     showNotif('🔄 Dossier réouvert.', 'success');
-    await loadDossiers();
-    renderMesDossiers();
+    await renderMesDossiers();
     return;
   }
 
@@ -57,8 +56,7 @@ async function actionMesDossiers(id, action) {
   // Si Gestion VOL → basculer vers DVOL + ouvrir formulaire de création pré-rempli
   if (action === 'gestion_vol') {
     const refSin = d ? (d.ref_sinistre || '') : '';
-    await loadDossiers();
-    renderMesDossiers();
+    await renderMesDossiers();
     // Basculer vers l'écran DVOL
     if (typeof switchTool === 'function') switchTool('dvol');
     // Attendre que l'écran DVOL soit rendu, puis ouvrir le formulaire pré-rempli
@@ -70,8 +68,7 @@ async function actionMesDossiers(id, action) {
     return; // On a déjà fait loadDossiers + renderMesDossiers, pas besoin de le refaire
   }
 
-  await loadDossiers();
-  renderMesDossiers();
+  await renderMesDossiers();
 }
 // ===== FIN TRAITEMENT DOSSIER =====
 
@@ -210,7 +207,7 @@ async function renderMesDossiers() {
     </div>
     <table><thead><tr>
       <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
-      <th>Réf. Sinistre</th><th style="white-space:nowrap">Date État</th><th>Réf. Contrat</th><th>Nature</th>
+      <th>Réf. Sinistre</th><th style="white-space:nowrap">Date Création</th><th>Réf. Contrat</th><th>Nature</th>
       <th>Portefeuille</th><th>Statut</th><th>Traitement</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
@@ -222,26 +219,24 @@ async function renderMesDossiers() {
     var _recuperesMD = JSON.parse(safeSession.getItem('_recuperesMD') || '[]');
     var _recuperesSetMD = new Set(_recuperesMD.map(Number));
 
-    // Tri par date_etat ascendant (plus ancienne en tête), nulls en dernier
-    var parseDateEtat = function(s) {
+    // Tri par date_creation ascendant (plus ancienne en tête), nulls en dernier
+    var parseDateCreation = function(s) {
       if (!s) return null;
       // Format dd/mm/yyyy
       var p = s.split('/');
       if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
       return new Date(s);
     };
+    // ✅ FIX BUGS-002-v3 (1/3) — tri 100% déterministe.
+    // Critère 1 : date_creation ascendant | Critère 2 : ref_sinistre alphabétique
     mesDossiers.sort(function(a, b) {
-      // Les dossiers récupérés en autonomie restent en tête
-      var aR = _recuperesSetMD.has(a.id) ? 0 : 1;
-      var bR = _recuperesSetMD.has(b.id) ? 0 : 1;
-      if (aR !== bR) return aR - bR;
-      // Puis tri par date_etat ascendant
-      var da = parseDateEtat(a.date_etat);
-      var db2 = parseDateEtat(b.date_etat);
-      if (!da && !db2) return 0;
+      var da = parseDateCreation(a.date_creation);
+      var db2 = parseDateCreation(b.date_creation);
+      if (!da && !db2) return (a.ref_sinistre || '').localeCompare(b.ref_sinistre || '');
       if (!da) return 1;
       if (!db2) return -1;
-      return da - db2;
+      if (da.getTime() !== db2.getTime()) return da - db2;
+      return (a.ref_sinistre || '').localeCompare(b.ref_sinistre || '');
     });
 
     // Logique relances conservée pour les badges "🔄 Relancé" sur les lignes du tableau
@@ -273,7 +268,12 @@ async function renderMesDossiers() {
       const canSee = ['attribue','encours','ouvert','traite','relance','ouverture','refuse','gestion_vol'].includes(statut);
       if (!canSee) return;
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
-      const dejaTraiteParMoi = histoEntryMD && histoEntryMD.gestionnaire === monNomMD;
+      // ✅ FIX BUGS-002-v3 (2/3) — jaune uniquement le jour même
+      const aujourdhuiMD = new Date().toISOString().split('T')[0];
+      const dejaTraiteParMoi = histoEntryMD
+        && histoEntryMD.gestionnaire === monNomMD
+        && histoEntryMD.date_traitement
+        && histoEntryMD.date_traitement.slice(0,10) === aujourdhuiMD;
       const isRelance = relancesRefs.includes(d.ref_sinistre) || (statut === 'ouvert' && !d.traite);
       // Badge troc en cours
       const enTroc = typeof isDossierEnTroc === 'function' && isDossierEnTroc(d.id);
@@ -297,7 +297,7 @@ async function renderMesDossiers() {
           ${dejaTraiteParMoi ? `<div style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:#856404">📌 Déjà traité le ${new Date(histoEntryMD.date_traitement).toLocaleDateString('fr-FR')}</div>` : ''}
         </td>
         <td style="white-space:nowrap;font-size:12px;font-weight:600;color:#1B3461">
-          ${d.date_etat ? `<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">&#128197; ${d.date_etat}</span>` : '<span style="color:#bbb">--</span>'}
+          ${d.date_creation ? `<span style="background:#e8f0fb;border-radius:5px;padding:3px 8px">&#128197; ${d.date_creation}</span>` : '<span style="color:#bbb">--</span>'}
         </td>
         <td>${d.ref_contrat}</td>
         <td>${d.nature_label || d.nature}</td>
