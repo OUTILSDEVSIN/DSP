@@ -749,6 +749,13 @@ async function showPropositionModal() {
             });
             if (!refGest) return;
             var hab2 = habMap[String(refGest.id)];
+            // AMÉLIO-05 v2 (15/05/2026) : gest sans habilitation = exclu (pas
+            // de pré-assignation par historique non plus).
+            if (!hab2) return;
+            var _pf2Empty  = !hab2.portefeuille || hab2.portefeuille.length === 0;
+            var _tp2Empty  = !hab2.type         || hab2.type.length         === 0;
+            var _nat2Empty = !hab2.nature       || hab2.nature.length       === 0;
+            if (_pf2Empty && _tp2Empty && _nat2Empty) return;
             var pf2  = hab2 ? (hab2.portefeuille && hab2.portefeuille.length > 0 ? hab2.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
             var tp2  = hab2 ? (hab2.type && hab2.type.length > 0 ? hab2.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
             var nat2 = hab2 ? (hab2.nature && hab2.nature.length > 0 ? hab2.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
@@ -786,6 +793,12 @@ async function showPropositionModal() {
     // Construire pour chaque gestionnaire la liste des dossiers qu'il peut recevoir (habilitations)
     function isEligible(d, g) {
         var hab = habMap[String(g.id)];
+        // AMÉLIO-05 v2 (15/05/2026) : gest sans habilitation = exclu du dispatch.
+        if (!hab) return false;
+        var _pfEmpty  = !hab.portefeuille || hab.portefeuille.length === 0;
+        var _tpEmpty  = !hab.type         || hab.type.length         === 0;
+        var _natEmpty = !hab.nature       || hab.nature.length       === 0;
+        if (_pfEmpty && _tpEmpty && _natEmpty) return false; // toutes listes vides = non configuré
         var pf  = hab ? (hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
         var tp  = hab ? (hab.type && hab.type.length > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
         var nat = hab ? (hab.nature && hab.nature.length > 0 ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
@@ -2491,7 +2504,15 @@ async function kanbanLoadMaxMap(activeGest) {
 /* ── Vérifie qu'un dossier est habilité pour un gestionnaire ──────────── */
 function kanbanIsEligible(d, g, habMap) {
     var hab = habMap[String(g.id)];
-    if (!hab) return true; // pas d'habilitation = pas de restriction
+    // AMÉLIO-05 v2 (15/05/2026) : gestionnaire SANS habilitation configurée
+    // est EXCLU du dispatch (avant : "pas de restriction" = recevait tout).
+    // Permet à la manager de désactiver un gest via la simple absence
+    // d'habilitations (cas Andy Canali en PROD 15/05).
+    if (!hab) return false;
+    var pfEmpty  = !hab.portefeuille || hab.portefeuille.length === 0;
+    var tpEmpty  = !hab.type         || hab.type.length         === 0;
+    var natEmpty = !hab.nature       || hab.nature.length       === 0;
+    if (pfEmpty && tpEmpty && natEmpty) return false; // toutes listes vides = non configuré
     var pf  = hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
     var tp  = hab.type         && hab.type.length         > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); })         : null;
     var nat = hab.nature       && hab.nature.length       > 0 ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); })       : null;
@@ -2855,10 +2876,13 @@ async function kanbanDoDispatch(state, overlay) {
  * du footer (z-index inférieur à la popup d'attrib).
  */
 function renderKanbanMultiToolbar(activeGest) {
-    var options = '<option value="">— Choisir un gestionnaire —</option>'
+    // AMÉLIO-03 fix (15/05/2026) : style="color:#000;background:#fff" sur chaque
+    // <option> pour qu'elles soient lisibles dans le dropdown (sans ça, elles
+    // héritent du color:#fff du select et deviennent blanches sur fond blanc).
+    var options = '<option value="" style="color:#000;background:#fff">— Choisir un gestionnaire —</option>'
         + activeGest.map(function(g) {
             var nom = (g.prenom || '') + ' ' + (g.nom || '');
-            return '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(nom) + '</option>';
+            return '<option value="' + escapeHtml(g.id) + '" style="color:#000;background:#fff">' + escapeHtml(nom) + '</option>';
         }).join('');
     return ''
         + '<div id="kanban-multi-toolbar"'
@@ -2916,7 +2940,6 @@ function kanbanAttribuerEnLot(state, refresh) {
         var d = state.allLibres.find(function(x) { return String(x.id) === String(did); });
         var fromGestId = null;
         if (!d) {
-            // Cherche dans propData
             var keys = Object.keys(state.propData);
             for (var i = 0; i < keys.length; i++) {
                 var arr = state.propData[keys[i]];
@@ -2929,11 +2952,8 @@ function kanbanAttribuerEnLot(state, refresh) {
             }
         }
         if (!d) return;
-        // Déjà chez le gest cible ?
         if (String(fromGestId) === String(toGestId)) { deja++; return; }
-        // Habilitation
         if (!kanbanIsEligible(d, toGest, state.habMap)) { ko++; return; }
-        // Déplacement
         if (fromGestId) {
             kanbanDeplaceGestAGest(state, fromGestId, toGestId, did);
         } else {
@@ -2942,17 +2962,14 @@ function kanbanAttribuerEnLot(state, refresh) {
         ok++;
     });
 
-    // Reset sélection
     state.selectedIds.clear();
     refresh();
 
-    // Rapport
     var nom = (toGest.prenom || '') + ' ' + (toGest.nom || '');
     var msg = ok + ' dossier(s) attribué(s) à ' + nom;
     if (ko > 0) msg += ' · ' + ko + ' ignoré(s) (non habilité)';
     if (deja > 0) msg += ' · ' + deja + ' déjà chez ce gest';
-    showNotif(msg, ko > 0 ? 'warning' : 'success');
+    showNotif(msg, ok > 0 ? 'success' : 'warning');
 }
 
-/* ── FIN ÉVOL-003 Lot 2D fusionné — Drag & drop + multi-sélection ──────── */
-/* ── FIN ÉVOL-003 Lot 2C+ étendu — DISPATCH KANBAN ─────────────────────── */
+/* FIN EVOL-003 Lot 2D fusionne - Drag & drop + multi-selection */
