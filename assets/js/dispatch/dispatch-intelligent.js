@@ -164,12 +164,13 @@ async function showPreDispatchModal(nextStep) {
         return h !== null && h > DISPATCH_SEUIL_ALERTE;
     });
 
-    // 4. Si AUCUN ancien : reset et passage direct à la proposition
+    // AMÉLIO-04 (15/05/2026) : la modale s'affiche désormais TOUJOURS, même
+    // sans dossiers anciens, pour permettre à la manager d'ajuster les quotas
+    // par gestionnaire avant le dispatch. Avant ce fix, la modale n'apparaissait
+    // qu'en présence d'anciens et le quota total restait imposé par Dplane.
     if (dossiersAnciens.length === 0) {
-        window.dispatchGestsPrioritaires = [];
         window.dispatchAnciensIds = [];
-        continuer();
-        return;
+        // On continue à afficher la modale pour l'ajustement des quotas.
     }
 
     // 5. Tri par ancienneté décroissante (les plus vieux d'abord)
@@ -225,18 +226,31 @@ async function showPreDispatchModal(nextStep) {
     function renderLigneGest(g) {
         var maxJour = getMaxJour(g.id);
         var initiales = (((g.prenom || '')[0] || '') + ((g.nom || '')[0] || '')).toUpperCase();
+        // AMÉLIO-04 (15/05/2026) : tous les gests cochés par défaut, et la ligne
+        // expose désormais 2 inputs côte à côte (Anciens prioritaires + Quota total).
+        // La checkbox décoche pour exclure un gest du dispatch (quota implicite = 0).
         return '<div class="pre-gest-row" data-gest-id="' + escapeHtml(g.id) + '" data-max-jour="' + maxJour + '"'
-            + ' style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--gray-300);border-radius:8px;background:white;cursor:pointer;transition:all 0.15s">'
-            + '<input type="checkbox" class="pre-gest-cb" data-gest-id="' + escapeHtml(g.id) + '" style="margin:0;flex-shrink:0;accent-color:var(--rose);width:16px;height:16px;cursor:pointer">'
+            + ' style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--rose);border-radius:8px;background:#fff5f8;cursor:pointer;transition:all 0.15s">'
+            + '<input type="checkbox" class="pre-gest-cb" data-gest-id="' + escapeHtml(g.id) + '" checked style="margin:0;flex-shrink:0;accent-color:var(--rose);width:16px;height:16px;cursor:pointer">'
             + '<span style="width:24px;height:24px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">' + escapeHtml(initiales) + '</span>'
             + '<span style="flex:1;font-size:13px;color:var(--navy)">' + escapeHtml(g.prenom + ' ' + g.nom) + '</span>'
-            // Zone "Max actuel" (visible quand non coché) ou "Anciens à recevoir" (visible quand coché)
-            + '<span class="pre-gest-info-uncheck" style="font-size:11px;color:var(--gray-600)">Max du jour : ' + maxJour + '</span>'
-            + '<span class="pre-gest-info-check" style="font-size:11px;color:var(--gray-700);display:none;align-items:center;gap:6px">'
-            +   'Anciens à recevoir : '
-            +   '<input type="number" class="pre-gest-nb" data-gest-id="' + escapeHtml(g.id) + '" value="0" min="0"'
-            +     ' style="width:60px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px;text-align:center">'
-            +   '<span class="pre-gest-warning" data-gest-id="' + escapeHtml(g.id) + '" style="font-size:10px;color:var(--rose);font-weight:600;display:none">⚠️ dépasse Max (' + maxJour + ')</span>'
+            // Zone "Exclu" (visible quand décoché)
+            + '<span class="pre-gest-info-uncheck" style="font-size:11px;color:var(--gray-500);display:none">Exclu du dispatch</span>'
+            // Zone inputs (visible quand coché)
+            + '<span class="pre-gest-info-check" style="font-size:11px;color:var(--gray-700);display:inline-flex;align-items:center;gap:8px">'
+            +   '<span style="display:inline-flex;align-items:center;gap:4px">'
+            +     '<span style="color:var(--gray-600)">Anciens :</span>'
+            +     '<input type="number" class="pre-gest-nb" data-gest-id="' + escapeHtml(g.id) + '" value="0" min="0"'
+            +       ' style="width:50px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px;text-align:center">'
+            +   '</span>'
+            +   '<span style="color:var(--gray-400)">|</span>'
+            +   '<span style="display:inline-flex;align-items:center;gap:4px">'
+            +     '<span style="color:var(--gray-600)">Quota total :</span>'
+            +     '<input type="number" class="pre-gest-quota" data-gest-id="' + escapeHtml(g.id) + '" value="' + maxJour + '" min="0"'
+            +       ' style="width:50px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px;text-align:center;font-weight:600">'
+            +   '</span>'
+            +   '<span style="font-size:10px;color:var(--gray-500)">(Dplane : ' + maxJour + ')</span>'
+            +   '<span class="pre-gest-warning" data-gest-id="' + escapeHtml(g.id) + '" style="font-size:10px;color:var(--rose);font-weight:600;display:none">⚠️ Anciens > Quota</span>'
             + '</span>'
             + '</div>';
     }
@@ -260,36 +274,47 @@ async function showPreDispatchModal(nextStep) {
         return rows;
     }
 
-    modal.innerHTML = '<div class="modal" style="max-width:680px;width:92vw;max-height:88vh;display:flex;flex-direction:column;padding:0">'
-        // En-tête
-        + '<div style="padding:14px 18px;background:#fff8e1;border-bottom:1px solid #f0ad4e">'
-        + '<h2 style="margin:0;font-size:17px;color:#856404">⚠️ ' + totalAnciens + ' dossier(s) ancien(s) détecté(s)</h2>'
-        + '<p style="margin:4px 0 0;font-size:13px;color:var(--gray-700)">'
-        + (nbCritiques > 0 ? '<strong style="color:#991b1b">' + nbCritiques + ' critique(s) (>48h)</strong>' : '')
-        + (nbCritiques > 0 && nbAlertes > 0 ? ' · ' : '')
-        + (nbAlertes > 0 ? '<strong style="color:#92400e">' + nbAlertes + ' alerte(s) (>24h)</strong>' : '')
-        + '</p>'
+    // AMÉLIO-04 (15/05/2026) : en-tête adapté selon présence d'anciens
+    var hasAnciens = totalAnciens > 0;
+    var headerHtml = hasAnciens
+        ? '<div style="padding:14px 18px;background:#fff8e1;border-bottom:1px solid #f0ad4e">'
+        +   '<h2 style="margin:0;font-size:17px;color:#856404">⚙️ Configurer le dispatch — ' + totalAnciens + ' ancien(s) détecté(s)</h2>'
+        +   '<p style="margin:4px 0 0;font-size:13px;color:var(--gray-700)">'
+        +   (nbCritiques > 0 ? '<strong style="color:#991b1b">' + nbCritiques + ' critique(s) (>48h)</strong>' : '')
+        +   (nbCritiques > 0 && nbAlertes > 0 ? ' · ' : '')
+        +   (nbAlertes > 0 ? '<strong style="color:#92400e">' + nbAlertes + ' alerte(s) (>24h)</strong>' : '')
+        +   '</p>'
         + '</div>'
+        : '<div style="padding:14px 18px;background:#f0f7ff;border-bottom:1px solid var(--blue-200, #cfe2ff)">'
+        +   '<h2 style="margin:0;font-size:17px;color:var(--navy)">⚙️ Configurer le dispatch</h2>'
+        +   '<p style="margin:4px 0 0;font-size:13px;color:var(--gray-700)">Aucun dossier ancien (>24h) à attribuer en priorité. Ajuste les quotas ci-dessous.</p>'
+        + '</div>';
+
+    var detailsHtml = hasAnciens
+        ? '<details style="border-bottom:1px solid var(--gray-200)">'
+        +   '<summary style="padding:10px 18px;font-size:12px;color:var(--gray-700);cursor:pointer;user-select:none">📋 Voir le détail des ' + totalAnciens + ' dossiers anciens</summary>'
+        +   '<div style="padding:0 18px 12px;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;background:#f8f9fa">'
+        +     renderListeDossiers()
+        +   '</div>'
+        + '</details>'
+        : '';
+
+    modal.innerHTML = '<div class="modal" style="max-width:780px;width:94vw;max-height:88vh;display:flex;flex-direction:column;padding:0">'
+        + headerHtml
         // Corps
         + '<div style="flex:1;overflow-y:auto">'
         + '<div style="padding:14px 18px;border-bottom:1px solid var(--gray-200)">'
-        + '<div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--navy)">Quels gestionnaires doivent les recevoir en priorité&nbsp;?</div>'
-        + '<div style="font-size:11px;color:var(--gray-600);margin-bottom:12px">Coche un ou plusieurs gestionnaires. Tu peux ajuster combien chacun recevra (plafonné à son Max du jour).</div>'
+        + '<div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--navy)">Quotas par gestionnaire</div>'
+        + '<div style="font-size:11px;color:var(--gray-600);margin-bottom:12px">Tous les gestionnaires sont actifs par défaut. Décoche pour exclure du dispatch. Ajuste <strong>Anciens</strong> (combien d\'anciens prioritaires) et <strong>Quota total</strong> (limite totale, incluant anciens + nouveaux).</div>'
         + '<div style="display:flex;flex-direction:column;gap:8px">'
         + actifs.map(renderLigneGest).join('')
         + '</div>'
         // Aperçu live de la répartition prévue
         + '<div id="pre-recap" style="margin-top:12px;padding:10px 12px;background:#f5f5fb;border:1px solid #e0e3ff;border-radius:6px;font-size:12px;color:var(--gray-700)">'
-        + '👉 <em>Aucun gestionnaire coché. Les ' + totalAnciens + ' anciens passeront en répartition automatique.</em>'
+        + '✅ Initialisation…'
         + '</div>'
         + '</div>'
-        // Section repliable : liste des dossiers
-        + '<details style="border-bottom:1px solid var(--gray-200)">'
-        + '<summary style="padding:10px 18px;font-size:12px;color:var(--gray-700);cursor:pointer;user-select:none">📋 Voir le détail des ' + totalAnciens + ' dossiers concernés</summary>'
-        + '<div style="padding:0 18px 12px;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;background:#f8f9fa">'
-        + renderListeDossiers()
-        + '</div>'
-        + '</details>'
+        + detailsHtml
         + '</div>'
         // Footer
         + '<div style="padding:12px 18px;border-top:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;background:white">'
@@ -330,7 +355,9 @@ async function showPreDispatchModal(nextStep) {
      * et calcule/applique la valeur par défaut de l'input.
      */
     function refreshLignes() {
-        // Construction de la liste des gestionnaires cochés (avec leur max)
+        // AMÉLIO-04 (15/05/2026) : tous les gests cochés par défaut. La
+        // répartition équitable des anciens est calculée uniquement parmi les
+        // cochés ; pour les décochés, anciens=0 et quota=0 (gest exclu du dispatch).
         var gestsCoches = [];
         modal.querySelectorAll('.pre-gest-cb').forEach(function(cb) {
             if (cb.checked) {
@@ -340,15 +367,19 @@ async function showPreDispatchModal(nextStep) {
             }
         });
 
-        // Calcul de la répartition équitable plafonnée
-        var rep = calculerRepartition(gestsCoches);
+        // AMÉLIO-04 v2 (15/05/2026) : retrait de la pré-répartition équitable
+        // automatique des anciens. La manager choisit elle-même combien
+        // d'anciens chaque gest reçoit (valeur initiale = 0).
+        // La fonction calculerRepartition reste disponible si on veut un bouton
+        // "Répartir équitablement" plus tard.
 
-        // Application visuelle
+        // Application visuelle ligne par ligne
         modal.querySelectorAll('.pre-gest-row').forEach(function(row) {
             var cb = row.querySelector('.pre-gest-cb');
             var infoUncheck = row.querySelector('.pre-gest-info-uncheck');
             var infoCheck = row.querySelector('.pre-gest-info-check');
-            var input = row.querySelector('.pre-gest-nb');
+            var inputNb = row.querySelector('.pre-gest-nb');
+            var inputQuota = row.querySelector('.pre-gest-quota');
             var warning = row.querySelector('.pre-gest-warning');
             var maxJour = parseInt(row.dataset.maxJour, 10) || 0;
             if (cb.checked) {
@@ -356,21 +387,28 @@ async function showPreDispatchModal(nextStep) {
                 row.style.background = '#fff5f8';
                 infoUncheck.style.display = 'none';
                 infoCheck.style.display = 'inline-flex';
-                // Ne pas écraser une saisie manuelle si déjà éditée
-                if (!input.dataset.userEdited) {
-                    input.value = rep[cb.dataset.gestId] || 0;
+                // Anciens reste à 0 par défaut — la manager décide
+                // (pas de pré-remplissage automatique)
+                // Pré-remplir Quota total avec Dplane si pas édition manuelle
+                if (!inputQuota.dataset.userEdited) {
+                    inputQuota.value = maxJour;
                 }
-                // Alerte visuelle si la valeur dépasse le Max du jour
+                // Anciens ne peuvent pas dépasser Quota total — auto-ajustement
+                if (parseInt(inputNb.value, 10) > parseInt(inputQuota.value, 10)) {
+                    inputQuota.value = inputNb.value;
+                }
                 if (warning) {
-                    warning.style.display = (parseInt(input.value, 10) > maxJour) ? 'inline' : 'none';
+                    warning.style.display = (parseInt(inputNb.value, 10) > parseInt(inputQuota.value, 10)) ? 'inline' : 'none';
                 }
             } else {
                 row.style.borderColor = 'var(--gray-300)';
-                row.style.background = 'white';
+                row.style.background = 'var(--gray-50, #fafafa)';
                 infoUncheck.style.display = 'inline';
                 infoCheck.style.display = 'none';
-                input.value = 0;
-                delete input.dataset.userEdited;
+                inputNb.value = 0;
+                inputQuota.value = 0;
+                delete inputNb.dataset.userEdited;
+                delete inputQuota.dataset.userEdited;
                 if (warning) warning.style.display = 'none';
             }
         });
@@ -380,41 +418,41 @@ async function showPreDispatchModal(nextStep) {
 
     /**
      * Met à jour l'aperçu de la répartition prévue (zone bleue en bas).
+     * AMÉLIO-04 (15/05/2026) : affiche désormais le total global de dossiers
+     * à dispatcher (anciens + nouveaux = quota total), pas juste les anciens.
      */
     function refreshRecap() {
         var recap = modal.querySelector('#pre-recap');
         if (!recap) return;
-        var coches = [];
-        var totalAttribues = 0;
+        var sumAnciens = 0, sumQuota = 0, nbCoches = 0;
         modal.querySelectorAll('.pre-gest-cb').forEach(function(cb) {
             if (!cb.checked) return;
+            nbCoches++;
             var row = cb.closest('.pre-gest-row');
-            var input = row.querySelector('.pre-gest-nb');
-            var nb = parseInt(input.value, 10) || 0;
-            var nom = row.querySelector('span:nth-of-type(2)').textContent;
-            coches.push({ nom: nom, nb: nb });
-            totalAttribues += nb;
+            sumAnciens += parseInt(row.querySelector('.pre-gest-nb').value, 10) || 0;
+            sumQuota   += parseInt(row.querySelector('.pre-gest-quota').value, 10) || 0;
         });
-        if (coches.length === 0) {
-            recap.innerHTML = '👉 <em>Aucun gestionnaire coché. Les ' + totalAnciens + ' anciens passeront en répartition automatique.</em>';
+        if (nbCoches === 0) {
+            recap.innerHTML = '⚠️ <em>Aucun gestionnaire actif. Décoche au moins un gest pour rétablir le dispatch.</em>';
             return;
         }
-        var detail = coches.map(function(c) { return '<strong>' + escapeHtml(c.nom) + '</strong> : ' + c.nb; }).join(' · ');
-        var reste = totalAnciens - totalAttribues;
-        var resteTxt = '';
-        if (reste > 0) {
-            resteTxt = ' Les <strong>' + reste + ' ancien(s) restant(s)</strong> + autres dossiers passeront en répartition automatique.';
-        } else if (reste === 0) {
-            resteTxt = ' Tous les anciens sont pris en charge.';
+        var sumNouveaux = Math.max(0, sumQuota - sumAnciens);
+        var line1 = '<strong>' + nbCoches + ' gestionnaire(s)</strong> · <strong>' + sumQuota + '</strong> dossier(s) total prévu(s)';
+        var line2 = '';
+        if (totalAnciens > 0) {
+            line2 = '<br><span style="color:var(--gray-600);font-size:11px">'
+                  + '└ dont <strong>' + sumAnciens + '</strong> ancien(s) prioritaire(s) + <strong>' + sumNouveaux + '</strong> nouveau(x)';
+            var reste = totalAnciens - sumAnciens;
+            if (reste > 0) line2 += ' · ' + reste + ' ancien(s) non pris en charge ⚠️';
+            line2 += '</span>';
         }
-        recap.innerHTML = '✅ <strong>' + totalAttribues + ' dossier(s) ancien(s)</strong> seront pré-attribués (' + detail + ').' + resteTxt;
+        recap.innerHTML = '✅ ' + line1 + line2;
     }
 
     // ── Bind handlers ────────────────────────────────────────────────
-    // Click sur une row entière = toggle de la checkbox (sauf si on clique sur l'input)
+    // Click sur une row entière = toggle de la checkbox (sauf si on clique sur un input)
     modal.querySelectorAll('.pre-gest-row').forEach(function(row) {
         row.onclick = function(e) {
-            // Ignore les clics sur l'input numérique ou la checkbox elle-même
             if (e.target.tagName === 'INPUT') return;
             var cb = this.querySelector('.pre-gest-cb');
             cb.checked = !cb.checked;
@@ -430,20 +468,37 @@ async function showPreDispatchModal(nextStep) {
         };
     });
 
-    // Modification manuelle d'un input "nb anciens"
+    // Modification manuelle de l'input "Anciens"
     modal.querySelectorAll('.pre-gest-nb').forEach(function(input) {
         input.oninput = function() {
             this.dataset.userEdited = 'true';
             var v = parseInt(this.value, 10) || 0;
-            // Plus de plafond (Anomalie 1, fix 8 mai 2026) — seul le bornage à 0 reste
             if (v < 0) { this.value = 0; v = 0; }
-            // Affichage de l'alerte si la valeur dépasse le Max du jour
             var row = this.closest('.pre-gest-row');
-            var maxJour = parseInt(row.dataset.maxJour, 10) || 0;
-            var warning = row.querySelector('.pre-gest-warning');
-            if (warning) {
-                warning.style.display = (v > maxJour) ? 'inline' : 'none';
+            var inputQuota = row.querySelector('.pre-gest-quota');
+            // Anciens ne peuvent pas dépasser Quota — on grossit le quota auto
+            if (v > (parseInt(inputQuota.value, 10) || 0)) {
+                inputQuota.value = v;
+                inputQuota.dataset.userEdited = 'true';
             }
+            var warning = row.querySelector('.pre-gest-warning');
+            if (warning) warning.style.display = 'none';
+            refreshRecap();
+        };
+        input.onclick = function(e) { e.stopPropagation(); };
+    });
+
+    // AMÉLIO-04 : modification manuelle de l'input "Quota total"
+    modal.querySelectorAll('.pre-gest-quota').forEach(function(input) {
+        input.oninput = function() {
+            this.dataset.userEdited = 'true';
+            var v = parseInt(this.value, 10) || 0;
+            if (v < 0) { this.value = 0; v = 0; }
+            var row = this.closest('.pre-gest-row');
+            var inputNb = row.querySelector('.pre-gest-nb');
+            var nbAnciens = parseInt(inputNb.value, 10) || 0;
+            var warning = row.querySelector('.pre-gest-warning');
+            if (warning) warning.style.display = (nbAnciens > v) ? 'inline' : 'none';
             refreshRecap();
         };
         input.onclick = function(e) { e.stopPropagation(); };
@@ -456,21 +511,25 @@ async function showPreDispatchModal(nextStep) {
         continuer();
     };
     document.getElementById('btn-pre-continue').onclick = function() {
-        // Collecte des choix : [{ id, nbAnciens }, ...]
+        // AMÉLIO-04 (15/05/2026) : on sauvegarde {id, nbAnciens, quotaTotal}
+        // pour TOUS les gests cochés (pas seulement ceux qui ont des anciens).
+        // Le quota total est utilisé en Phase 2 de kanbanCalcPreAttrib comme
+        // plafond (remplace maxMap Dplane si fourni).
         var choix = [];
         modal.querySelectorAll('.pre-gest-cb').forEach(function(cb) {
             if (!cb.checked) return;
             var row = cb.closest('.pre-gest-row');
-            var input = row.querySelector('.pre-gest-nb');
-            var nb = parseInt(input.value, 10) || 0;
-            if (nb > 0) {
-                choix.push({ id: cb.dataset.gestId, nbAnciens: nb });
-            }
+            var nbAnciens  = parseInt(row.querySelector('.pre-gest-nb').value, 10) || 0;
+            var quotaTotal = parseInt(row.querySelector('.pre-gest-quota').value, 10) || 0;
+            choix.push({ id: cb.dataset.gestId, nbAnciens: nbAnciens, quotaTotal: quotaTotal });
         });
         window.dispatchGestsPrioritaires = choix;
         modal.remove();
         continuer();
     };
+
+    // Initialisation : tous cochés par défaut → applique répartition + quota
+    refreshLignes();
 }
 
 async function showPropositionModal() {
@@ -690,6 +749,13 @@ async function showPropositionModal() {
             });
             if (!refGest) return;
             var hab2 = habMap[String(refGest.id)];
+            // AMÉLIO-05 v2 (15/05/2026) : gest sans habilitation = exclu (pas
+            // de pré-assignation par historique non plus).
+            if (!hab2) return;
+            var _pf2Empty  = !hab2.portefeuille || hab2.portefeuille.length === 0;
+            var _tp2Empty  = !hab2.type         || hab2.type.length         === 0;
+            var _nat2Empty = !hab2.nature       || hab2.nature.length       === 0;
+            if (_pf2Empty && _tp2Empty && _nat2Empty) return;
             var pf2  = hab2 ? (hab2.portefeuille && hab2.portefeuille.length > 0 ? hab2.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
             var tp2  = hab2 ? (hab2.type && hab2.type.length > 0 ? hab2.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
             var nat2 = hab2 ? (hab2.nature && hab2.nature.length > 0 ? hab2.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
@@ -697,8 +763,13 @@ async function showPropositionModal() {
             // les faux positifs (ex: 'MIAU' qui matcherait 'MIA' avec includes).
             var okPf2  = !pf2  || pf2.length  === 0 || pf2.some(function(p){ return (d.portefeuille||'').toUpperCase().trim() === p; });
             var okTp2  = !tp2  || tp2.length  === 0 || tp2.some(function(p){ return (d.type||'').toUpperCase().includes(p); });
+            // Logique pyramidale (14/05/2026) : PF + Type stricts, Nature non
+            // bloquante. okNat2 reste calculée pour permettre un scoring/tri
+            // par spécialité plus tard, mais elle n'exclut plus du filtre.
+            // Cas débloqués : dossier dont la nature manque ou n'est dans
+            // aucune habilitation (ex: INC, code "" pour libellé non mappé).
             var okNat2 = !nat2 || nat2.length === 0 || nat2.some(function(p){ return (d.nature||'').toUpperCase().includes(p); });
-            if (!okPf2 || !okTp2 || !okNat2) return;
+            if (!okPf2 || !okTp2) return;
             propData[String(refGest.id)].dossiers.push(d);
             idsPreAssignes.push(d.id);
         });
@@ -722,6 +793,12 @@ async function showPropositionModal() {
     // Construire pour chaque gestionnaire la liste des dossiers qu'il peut recevoir (habilitations)
     function isEligible(d, g) {
         var hab = habMap[String(g.id)];
+        // AMÉLIO-05 v2 (15/05/2026) : gest sans habilitation = exclu du dispatch.
+        if (!hab) return false;
+        var _pfEmpty  = !hab.portefeuille || hab.portefeuille.length === 0;
+        var _tpEmpty  = !hab.type         || hab.type.length         === 0;
+        var _natEmpty = !hab.nature       || hab.nature.length       === 0;
+        if (_pfEmpty && _tpEmpty && _natEmpty) return false; // toutes listes vides = non configuré
         var pf  = hab ? (hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
         var tp  = hab ? (hab.type && hab.type.length > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
         var nat = hab ? (hab.nature && hab.nature.length > 0 ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); }) : []) : null;
@@ -730,13 +807,20 @@ async function showPropositionModal() {
         var dNat = (d.nature||'').toUpperCase().trim();
         // AMÉLIO-02 (14/05/2026) : portefeuille en === pour éviter les
         // faux positifs (ex: 'MIAU' qui matcherait 'MIA' avec .includes()).
-        // type et nature gardent .includes() : ils sont normalisés en amont
-        // (normalizeType + uppercase) et certaines valeurs métier multi-mots
-        // peuvent nécessiter l'inclusion.
+        // type et nature gardent .includes() : type normalisé en amont
+        // (normalizeType + uppercase).
+        //
+        // AMÉLIO-05 — Logique pyramidale (14/05/2026) :
+        //   PF (étage 1) + Type (étage 2) sont stricts.
+        //   Nature (étage 3) est calculée mais NON BLOQUANTE.
+        //   Permet d'attribuer les dossiers dont la nature est inhabituelle
+        //   (ex: INC) ou vide (libellé long non mappé en code court).
+        //   La spécialisation par nature reste visible côté UI/habilitations
+        //   et pourra servir de score de priorité dans une évolution future.
         var okPf  = !pf  || pf.length  === 0 || pf.some(function(p){ return dPf === p; });
         var okTp  = !tp  || tp.length  === 0 || tp.some(function(p){ return dTp.includes(p); });
         var okNat = !nat || nat.length === 0 || nat.some(function(p){ return dNat.includes(p); });
-        return okPf && okTp && okNat;
+        return okPf && okTp;
     }
 
     // ── ÉVOL-B : Max individualisé selon Dplane ──────────────────────
@@ -1684,18 +1768,56 @@ async function showDispatchKanban() {
     overlay.addEventListener('dragstart', function(e) {
         var card = e.target.closest('[data-card-type]');
         if (!card) return;
-        state.dragSource = {
-            dossierId: card.dataset.dossierId,
-            type: card.dataset.cardType, // "libre" | "pre"
-            fromGestId: card.dataset.sourceGestId || null
-        };
-        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.dossierId); } catch (err) {}
-        card.style.opacity = '0.4';
+        var draggedId = card.dataset.dossierId;
+
+        // AMÉLIO-03 (14/05/2026) : drag en bloc si la card draguée est dans
+        // state.selectedIds ET qu'il y a >1 sélection. Sinon drag mono (Lot 2D).
+        var isMultiDrag = state.selectedIds.size > 1 && state.selectedIds.has(String(draggedId));
+
+        if (isMultiDrag) {
+            // Construire le tableau d'items à partir des cards sélectionnées
+            var items = [];
+            state.selectedIds.forEach(function(id) {
+                var el = overlay.querySelector('[data-card-type][data-dossier-id="' + id + '"]');
+                if (el) {
+                    items.push({
+                        dossierId: id,
+                        type: el.dataset.cardType,
+                        fromGestId: el.dataset.sourceGestId || null
+                    });
+                    el.style.opacity = '0.4';
+                }
+            });
+            state.dragSource = { multi: true, items: items };
+            try {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', items.map(function(it){ return it.dossierId; }).join(','));
+            } catch (err) {}
+        } else {
+            // Mono (comportement Lot 2D — inchangé)
+            state.dragSource = {
+                multi: false,
+                dossierId: draggedId,
+                type: card.dataset.cardType, // "libre" | "pre"
+                fromGestId: card.dataset.sourceGestId || null
+            };
+            try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedId); } catch (err) {}
+            card.style.opacity = '0.4';
+        }
     });
 
     overlay.addEventListener('dragend', function(e) {
-        var card = e.target.closest('[data-card-type]');
-        if (card) card.style.opacity = '';
+        // AMÉLIO-03 : restaurer l'opacité de toutes les cards (mono OU multi)
+        var src = state.dragSource;
+        if (src && src.multi) {
+            src.items.forEach(function(it) {
+                var el = overlay.querySelector('[data-card-type][data-dossier-id="' + it.dossierId + '"]');
+                if (el) el.style.opacity = '';
+            });
+        } else {
+            var card = e.target.closest('[data-card-type]');
+            if (card) card.style.opacity = '';
+        }
         clearDragHover();
         state.dragSource = null;
     });
@@ -1704,10 +1826,16 @@ async function showDispatchKanban() {
         if (!state.dragSource) return;
         var zone = findDropZone(e.target);
         if (!zone) { clearDragHover(); return; }
-        // Cas no-op : déposer un libre sur libre, ou un pré-attrib sur sa propre colonne
         var src = state.dragSource;
-        if (src.type === 'libre' && zone.type === 'libre') { clearDragHover(); return; }
-        if (src.type === 'pre' && zone.type === 'gest' && String(zone.gestId) === String(src.fromGestId)) { clearDragHover(); return; }
+
+        // AMÉLIO-03 : en mode multi, on accepte toujours le drop (les items
+        // invalides — libre→libre, pre→sa propre colonne — seront filtrés au
+        // drop). Permet à l'utilisateur de drop un mix libre+pre sans friction.
+        if (!src.multi) {
+            // Cas no-op (mono) : libre sur libre, ou pré-attrib sur sa propre colonne
+            if (src.type === 'libre' && zone.type === 'libre') { clearDragHover(); return; }
+            if (src.type === 'pre' && zone.type === 'gest' && String(zone.gestId) === String(src.fromGestId)) { clearDragHover(); return; }
+        }
 
         e.preventDefault();
         try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
@@ -1728,30 +1856,64 @@ async function showDispatchKanban() {
         e.preventDefault();
         var src = state.dragSource;
 
-        // libre → gest = attribution manuelle
-        if (src.type === 'libre' && zone.type === 'gest') {
-            // Vérif habilitation
-            var g = state.activeGest.find(function(x) { return String(x.id) === String(zone.gestId); });
-            var d = state.allLibres.find(function(x) { return String(x.id) === String(src.dossierId); });
-            if (g && d && !kanbanIsEligible(d, g, state.habMap)) {
-                showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
-            } else {
-                kanbanAttribManuelle(state, zone.gestId, src.dossierId);
+        // ── Helper interne : applique le mouvement d'1 item vers la zone ───
+        //    Retourne 'ok' | 'ko' (non habilité) | 'deja' (no-op)
+        function applyMove(it) {
+            // Drop sur "Non attribués"
+            if (zone.type === 'libre') {
+                if (it.type === 'pre') {
+                    kanbanRetourLibre(state, it.fromGestId, it.dossierId);
+                    return 'ok';
+                }
+                return 'deja'; // libre → libre = no-op
             }
-        }
-        // pre → libre = retour libre
-        else if (src.type === 'pre' && zone.type === 'libre') {
-            kanbanRetourLibre(state, src.fromGestId, src.dossierId);
-        }
-        // pre → gest = déplacement gest à gest
-        else if (src.type === 'pre' && zone.type === 'gest') {
-            var g2 = state.activeGest.find(function(x) { return String(x.id) === String(zone.gestId); });
-            var d2 = (state.propData[String(src.fromGestId)] || []).find(function(x) { return String(x.id) === String(src.dossierId); });
-            if (g2 && d2 && !kanbanIsEligible(d2, g2, state.habMap)) {
-                showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
-            } else {
-                kanbanDeplaceGestAGest(state, src.fromGestId, zone.gestId, src.dossierId);
+            // Drop sur une colonne gestionnaire
+            if (zone.type === 'gest') {
+                if (it.type === 'pre' && String(it.fromGestId) === String(zone.gestId)) {
+                    return 'deja'; // déjà dans cette colonne
+                }
+                var g = state.activeGest.find(function(x){ return String(x.id) === String(zone.gestId); });
+                var d = it.type === 'libre'
+                    ? state.allLibres.find(function(x){ return String(x.id) === String(it.dossierId); })
+                    : (state.propData[String(it.fromGestId)] || []).find(function(x){ return String(x.id) === String(it.dossierId); });
+                if (g && d && !kanbanIsEligible(d, g, state.habMap)) return 'ko';
+                if (it.type === 'libre') {
+                    kanbanAttribManuelle(state, zone.gestId, it.dossierId);
+                } else {
+                    kanbanDeplaceGestAGest(state, it.fromGestId, zone.gestId, it.dossierId);
+                }
+                return 'ok';
             }
+            return 'deja';
+        }
+
+        if (src.multi) {
+            // AMÉLIO-03 (14/05/2026) : drop en bloc — itère sur tous les items
+            // de la sélection, filtre les non-habilités, notif récap.
+            var ok = 0, ko = 0, deja = 0;
+            src.items.forEach(function(it) {
+                var r = applyMove(it);
+                if (r === 'ok') ok++;
+                else if (r === 'ko') ko++;
+                else deja++;
+            });
+            // Reset sélection après drop en bloc (cohérent avec kanbanAttribuerEnLot)
+            state.selectedIds.clear();
+            overlay.querySelectorAll('[data-multi-cb]').forEach(function(c) { c.checked = false; });
+            // Notif récap
+            var parts = [];
+            if (ok > 0)   parts.push(ok   + ' déplacé(s)');
+            if (ko > 0)   parts.push(ko   + ' non habilité(s)');
+            if (deja > 0) parts.push(deja + ' ignoré(s)');
+            showNotif(parts.join(' · ') || 'Aucun mouvement', ok > 0 ? 'success' : 'warning');
+        } else {
+            // Mode mono (Lot 2D) — comportement inchangé via applyMove
+            var r = applyMove({
+                dossierId: src.dossierId,
+                type: src.type,
+                fromGestId: src.fromGestId
+            });
+            if (r === 'ko') showNotif('Gestionnaire non habilité pour ce dossier', 'warning');
         }
         clearDragHover();
         state.dragSource = null;
@@ -2008,8 +2170,11 @@ function renderPreAttribCard(d, gestId) {
         +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md, 0 4px 16px rgba(27,52,97,0.10))\';this.style.transform=\'translateY(-1px)\'"'
         +   ' onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">'
         // Checkbox multi-sélection (Lot 2D fusionné)
+        // AMÉLIO-03 fix (15/05/2026) : retiré event.stopPropagation() qui
+        // empêchait state.selectedIds d'être peuplé via le click delegation
+        // sur l'overlay → mode multi-drag jamais activé.
         +   '<input type="checkbox" data-multi-cb="1" data-dossier-id="' + escapeHtml(d.id) + '" data-source-gest-id="' + escapeHtml(gestId) + '"'
-        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer" onclick="event.stopPropagation()">'
+        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer">'
         +   '<div style="flex:1;min-width:0">'
         +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
         +       (badge || '')
@@ -2116,7 +2281,7 @@ function kanbanExtractDossiersLibres(allDossiers) {
         var tierA = hA > DISPATCH_SEUIL_CRITIQUE ? 2 : hA > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         var tierB = hB > DISPATCH_SEUIL_CRITIQUE ? 2 : hB > DISPATCH_SEUIL_ALERTE ? 1 : 0;
         if (tierB !== tierA) return tierB - tierA;
-        // 3. Date_creation ascendante
+        // 3. date_creation ascendante
         return hB - hA;
     });
     return libres;
@@ -2239,8 +2404,10 @@ function renderUnattribCard(d) {
         +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md)\';this.style.transform=\'translateY(-1px)\'"'
         +   ' onmouseleave="this.style.boxShadow=\'var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06))\';this.style.transform=\'none\'">'
         // Checkbox multi-sélection (Lot 2D fusionné)
+        // AMÉLIO-03 fix (15/05/2026) : retiré event.stopPropagation() qui
+        // empêchait state.selectedIds d'être peuplé via le click delegation.
         +   '<input type="checkbox" data-multi-cb="1" data-dossier-id="' + escapeHtml(d.id) + '"'
-        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer" onclick="event.stopPropagation()">'
+        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer">'
         +   '<div style="flex:1;min-width:0">'
         +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
         +       (badge || '')
@@ -2337,7 +2504,15 @@ async function kanbanLoadMaxMap(activeGest) {
 /* ── Vérifie qu'un dossier est habilité pour un gestionnaire ──────────── */
 function kanbanIsEligible(d, g, habMap) {
     var hab = habMap[String(g.id)];
-    if (!hab) return true; // pas d'habilitation = pas de restriction
+    // AMÉLIO-05 v2 (15/05/2026) : gestionnaire SANS habilitation configurée
+    // est EXCLU du dispatch (avant : "pas de restriction" = recevait tout).
+    // Permet à la manager de désactiver un gest via la simple absence
+    // d'habilitations (cas Andy Canali en PROD 15/05).
+    if (!hab) return false;
+    var pfEmpty  = !hab.portefeuille || hab.portefeuille.length === 0;
+    var tpEmpty  = !hab.type         || hab.type.length         === 0;
+    var natEmpty = !hab.nature       || hab.nature.length       === 0;
+    if (pfEmpty && tpEmpty && natEmpty) return false; // toutes listes vides = non configuré
     var pf  = hab.portefeuille && hab.portefeuille.length > 0 ? hab.portefeuille.map(function(x){ return (x+'').toUpperCase().trim(); }) : null;
     var tp  = hab.type         && hab.type.length         > 0 ? hab.type.map(function(x){ return (x+'').toUpperCase().trim(); })         : null;
     var nat = hab.nature       && hab.nature.length       > 0 ? hab.nature.map(function(x){ return (x+'').toUpperCase().trim(); })       : null;
@@ -2345,10 +2520,12 @@ function kanbanIsEligible(d, g, habMap) {
     var dTp  = (d.type         || '').toUpperCase().trim();
     var dNat = (d.nature       || '').toUpperCase().trim();
     // AMÉLIO-02 (14/05/2026) : portefeuille en === (kanbanIsEligible, idem isEligible)
+    // AMÉLIO-05 (14/05/2026) : logique pyramidale, Nature non bloquante.
+    //   PF + Type stricts ; Nature calculée pour scoring futur mais ne filtre plus.
     var okPf  = !pf  || pf.length  === 0 || pf.some(function(p){ return dPf === p; });
     var okTp  = !tp  || tp.length  === 0 || tp.some(function(p){ return dTp.includes(p); });
     var okNat = !nat || nat.length === 0 || nat.some(function(p){ return dNat.includes(p); });
-    return okPf && okTp && okNat;
+    return okPf && okTp;
 }
 
 /* ── Pré-attribution automatique (round-robin équitable + boost anciens) ──
@@ -2403,6 +2580,17 @@ function kanbanCalcPreAttrib(state) {
     }
 
     // ── Phase 2 — Round-robin équitable sur tout le reste ───────────────
+    // AMÉLIO-04 (15/05/2026) : si la manager a saisi un quotaTotal dans la
+    // modale préliminaire (showPreDispatchModal), on l'utilise comme PLAFOND
+    // TOTAL (pas seulement les anciens). Sinon fallback sur maxMap Dplane.
+    // Résout le bug observé en PROD le 15/05 où Laura avait reçu 25 dossiers
+    // alors que la manager n'en voulait que 15 (sa Préo journée Dplane=25
+    // avait remplacé le quota saisi en Phase 2).
+    var quotaTotalById = {};
+    (window.dispatchGestsPrioritaires || []).forEach(function(p) {
+        if (typeof p.quotaTotal === 'number') quotaTotalById[String(p.id)] = p.quotaTotal;
+    });
+
     var libres = state.allLibres.slice(); // copie locale, déjà triée
     var keepGoing = true;
     while (keepGoing) {
@@ -2411,7 +2599,12 @@ function kanbanCalcPreAttrib(state) {
             var gg = activeGest[gi];
             var ggid = String(gg.id);
             var nbCurrent = state.propData[ggid].length;
-            var maxG = maxMap[ggid] != null ? maxMap[ggid] : 15;
+            var maxG;
+            if (quotaTotalById[ggid] !== undefined) {
+                maxG = quotaTotalById[ggid]; // quota manager (prioritaire)
+            } else {
+                maxG = maxMap[ggid] != null ? maxMap[ggid] : 15; // fallback Dplane
+            }
             if (nbCurrent >= maxG) continue;
             // Trouver le 1er libre éligible non encore pris
             var found = null;
@@ -2683,10 +2876,13 @@ async function kanbanDoDispatch(state, overlay) {
  * du footer (z-index inférieur à la popup d'attrib).
  */
 function renderKanbanMultiToolbar(activeGest) {
-    var options = '<option value="">— Choisir un gestionnaire —</option>'
+    // AMÉLIO-03 fix (15/05/2026) : style="color:#000;background:#fff" sur chaque
+    // <option> pour qu'elles soient lisibles dans le dropdown (sans ça, elles
+    // héritent du color:#fff du select et deviennent blanches sur fond blanc).
+    var options = '<option value="" style="color:#000;background:#fff">— Choisir un gestionnaire —</option>'
         + activeGest.map(function(g) {
             var nom = (g.prenom || '') + ' ' + (g.nom || '');
-            return '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(nom) + '</option>';
+            return '<option value="' + escapeHtml(g.id) + '" style="color:#000;background:#fff">' + escapeHtml(nom) + '</option>';
         }).join('');
     return ''
         + '<div id="kanban-multi-toolbar"'
@@ -2744,7 +2940,6 @@ function kanbanAttribuerEnLot(state, refresh) {
         var d = state.allLibres.find(function(x) { return String(x.id) === String(did); });
         var fromGestId = null;
         if (!d) {
-            // Cherche dans propData
             var keys = Object.keys(state.propData);
             for (var i = 0; i < keys.length; i++) {
                 var arr = state.propData[keys[i]];
@@ -2757,11 +2952,8 @@ function kanbanAttribuerEnLot(state, refresh) {
             }
         }
         if (!d) return;
-        // Déjà chez le gest cible ?
         if (String(fromGestId) === String(toGestId)) { deja++; return; }
-        // Habilitation
         if (!kanbanIsEligible(d, toGest, state.habMap)) { ko++; return; }
-        // Déplacement
         if (fromGestId) {
             kanbanDeplaceGestAGest(state, fromGestId, toGestId, did);
         } else {
@@ -2770,17 +2962,14 @@ function kanbanAttribuerEnLot(state, refresh) {
         ok++;
     });
 
-    // Reset sélection
     state.selectedIds.clear();
     refresh();
 
-    // Rapport
     var nom = (toGest.prenom || '') + ' ' + (toGest.nom || '');
     var msg = ok + ' dossier(s) attribué(s) à ' + nom;
     if (ko > 0) msg += ' · ' + ko + ' ignoré(s) (non habilité)';
     if (deja > 0) msg += ' · ' + deja + ' déjà chez ce gest';
-    showNotif(msg, ko > 0 ? 'warning' : 'success');
+    showNotif(msg, ok > 0 ? 'success' : 'warning');
 }
 
-/* ── FIN ÉVOL-003 Lot 2D fusionné — Drag & drop + multi-sélection ──────── */
-/* ── FIN ÉVOL-003 Lot 2C+ étendu — DISPATCH KANBAN ─────────────────────── */
+/* FIN EVOL-003 Lot 2D fusionne - Drag & drop + multi-selection */
