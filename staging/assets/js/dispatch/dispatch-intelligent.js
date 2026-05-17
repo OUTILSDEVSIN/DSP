@@ -367,8 +367,11 @@ async function showPreDispatchModal(nextStep) {
             }
         });
 
-        // Répartition équitable des anciens entre les gests cochés
-        var rep = calculerRepartition(gestsCoches);
+        // AMÉLIO-04 v2 (15/05/2026) : retrait de la pré-répartition équitable
+        // automatique des anciens. La manager choisit elle-même combien
+        // d'anciens chaque gest reçoit (valeur initiale = 0).
+        // La fonction calculerRepartition reste disponible si on veut un bouton
+        // "Répartir équitablement" plus tard.
 
         // Application visuelle ligne par ligne
         modal.querySelectorAll('.pre-gest-row').forEach(function(row) {
@@ -384,10 +387,8 @@ async function showPreDispatchModal(nextStep) {
                 row.style.background = '#fff5f8';
                 infoUncheck.style.display = 'none';
                 infoCheck.style.display = 'inline-flex';
-                // Pré-remplir Anciens seulement s'il y a des anciens et pas édition manuelle
-                if (totalAnciens > 0 && !inputNb.dataset.userEdited) {
-                    inputNb.value = rep[cb.dataset.gestId] || 0;
-                }
+                // Anciens reste à 0 par défaut — la manager décide
+                // (pas de pré-remplissage automatique)
                 // Pré-remplir Quota total avec Dplane si pas édition manuelle
                 if (!inputQuota.dataset.userEdited) {
                     inputQuota.value = maxJour;
@@ -2156,8 +2157,11 @@ function renderPreAttribCard(d, gestId) {
         +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md, 0 4px 16px rgba(27,52,97,0.10))\';this.style.transform=\'translateY(-1px)\'"'
         +   ' onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">'
         // Checkbox multi-sélection (Lot 2D fusionné)
+        // AMÉLIO-03 fix (15/05/2026) : retiré event.stopPropagation() qui
+        // empêchait state.selectedIds d'être peuplé via le click delegation
+        // sur l'overlay → mode multi-drag jamais activé.
         +   '<input type="checkbox" data-multi-cb="1" data-dossier-id="' + escapeHtml(d.id) + '" data-source-gest-id="' + escapeHtml(gestId) + '"'
-        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer" onclick="event.stopPropagation()">'
+        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer">'
         +   '<div style="flex:1;min-width:0">'
         +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
         +       (badge || '')
@@ -2387,8 +2391,10 @@ function renderUnattribCard(d) {
         +   ' onmouseenter="this.style.boxShadow=\'var(--shadow-md)\';this.style.transform=\'translateY(-1px)\'"'
         +   ' onmouseleave="this.style.boxShadow=\'var(--shadow-xs, 0 1px 2px rgba(27,52,97,0.06))\';this.style.transform=\'none\'">'
         // Checkbox multi-sélection (Lot 2D fusionné)
+        // AMÉLIO-03 fix (15/05/2026) : retiré event.stopPropagation() qui
+        // empêchait state.selectedIds d'être peuplé via le click delegation.
         +   '<input type="checkbox" data-multi-cb="1" data-dossier-id="' + escapeHtml(d.id) + '"'
-        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer" onclick="event.stopPropagation()">'
+        +     ' style="margin:0;flex-shrink:0;accent-color:var(--rose);width:14px;height:14px;cursor:pointer">'
         +   '<div style="flex:1;min-width:0">'
         +     '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (meta ? '3px' : '0') + '">'
         +       (badge || '')
