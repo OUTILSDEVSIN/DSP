@@ -1,4 +1,4 @@
-  .dplane-grid table { 
+.dplane-grid table { 
     width:100%; border-collapse:collapse; font-size:12px;
     table-layout:fixed;
   }
@@ -39,8 +39,9 @@
   .dplane-grid tbody tr:last-child td { border-bottom:none; }
   .dplane-grid tbody tr:hover td { background:#fafbff; }
   .dplane-cell { display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-start;min-height:24px;align-items:center;padding:2px 1px; }
-  .dplane-tag { display:inline-flex;align-items:center;gap:1px;padding:2px 6px;border-radius:20px;font-size:10px;font-weight:700;color:white;cursor:default;white-space:nowrap;max-width:88px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,.18); }
-  .dplane-tag .tag-remove { cursor:pointer;opacity:0.5;font-size:10px;line-height:1;margin-left:1px;flex-shrink:0; }
+  .dplane-tag { display:inline-flex;align-items:center;gap:1px;padding:2px 6px;border-radius:20px;font-size:10px;font-weight:700;color:white;cursor:default;white-space:nowrap;max-width:105px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.18); }
+  .dplane-tag-text { flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .dplane-tag .tag-remove { cursor:pointer;opacity:0.5;font-size:10px;line-height:1;margin-left:2px;flex-shrink:0; }
   .dplane-tag .tag-remove:hover { opacity:1; }
   .dplane-cell-add { width:18px;height:18px;border-radius:50%;border:1.5px dashed var(--gray-300);background:none;cursor:pointer;color:var(--gray-300);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0; }
   .dplane-cell-add:hover { border-color:var(--rose);color:var(--rose); }
