@@ -400,6 +400,9 @@ function dvolRendreTableau() {
   // Alertes
   const alertes = dvolDossiers.filter(d => {
     if (['clos','refuse','vehicule_retrouve'].includes(d.statut)) return false;
+    // Si un report est fixé dans le futur → pas d'alerte
+    const today0 = new Date(); today0.setHours(0,0,0,0);
+    if (d.date_report && new Date(d.date_report + 'T12:00:00') > today0) return false;
     const etapes  = dvolEtapesEnrichies(d);
     const enCours = etapes.find(e => e.statut !== 'realise' && e.statut !== 'annule');
     if (!enCours || !enCours.datePrevue) return false;
@@ -736,6 +739,55 @@ async function dvolConfirmerRelance(dossierId) {
 }
 
 // ────────────────────────────────────────────────────────────
+// REPORTER — snooze temporaire hors Actions requises
+// ────────────────────────────────────────────────────────────
+
+function dvolDemanderReport(dossierId) {
+  const d = dvolDossiers.find(x => String(x.id) === String(dossierId));
+  if (!d) return;
+  // Date par défaut : +7 jours ouvrés
+  const dateDefaut = dvolAddJoursOuvres(new Date().toISOString().split('T')[0], 7);
+  dvolOpenModal({
+    title: '📅 Reporter — Nouvelle date de rappel',
+    content: `<div style="padding:8px 0">
+      <p style="color:#374151;line-height:1.6;margin-bottom:16px">
+        Le dossier <strong>${d.ref_sinistre || d.numero_dossier || ''}</strong>
+        sera retiré des <em>Actions requises</em> jusqu'à la date choisie.<br>
+        À cette date, il y remontera automatiquement.
+      </p>
+      <div style="margin-bottom:14px">
+        <label style="font-size:0.85em;color:#6b7280;display:block;margin-bottom:6px">📅 Nouvelle date de rappel</label>
+        <input type="date" id="dvol-report-date" value="${dateDefaut}"
+          min="${new Date().toISOString().split('T')[0]}"
+          style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:0.95em;box-sizing:border-box">
+        <div style="font-size:0.8em;color:#6b7280;margin-top:6px">
+          À cette date, le dossier réapparaîtra dans <strong>Actions requises</strong>.
+        </div>
+      </div>
+    </div>`,
+    size: 'small',
+    actions: [
+      { label: 'Annuler', style: 'secondary', onClick: dvolCloseModal },
+      { label: '📅 Confirmer le report', style: 'primary', onClick: () => dvolConfirmerReport(dossierId) }
+    ]
+  });
+}
+
+async function dvolConfirmerReport(dossierId) {
+  const dateReport = document.getElementById('dvol-report-date')?.value;
+  if (!dateReport) { showNotif('Choisis une date de rappel.', 'error'); return; }
+  dvolCloseModal();
+  const { error } = await db.from('dvol_dossiers')
+    .update({ date_report: dateReport, updated_at: new Date().toISOString() })
+    .eq('id', dossierId);
+  if (error) { showNotif('Erreur : ' + error.message, 'error'); return; }
+  await dvolLogEvenement(dossierId, `Dossier reporté — Rappel fixé au ${dvolFmtDate(dateReport)}`, 'Note');
+  showNotif('📅 Dossier reporté au ' + dvolFmtDate(dateReport), 'success');
+  await dvolCharger();
+  dvolOuvrirDossier(dossierId);
+}
+
+// ────────────────────────────────────────────────────────────
 // v4.0 — INJECTION CSS MODAL
 // ────────────────────────────────────────────────────────────
 
@@ -1007,6 +1059,7 @@ async function dvolOuvrirDossier(id) {
   }).join('');
 
   // ── Bannière étape en cours ──
+  const reportActif = d.date_report && (() => { const t = new Date(); t.setHours(0,0,0,0); return new Date(d.date_report + 'T12:00:00') > t; })();
   const banniereHtml = etapeEnCours && !dossierClos && d.statut !== 'labtaf' ? `
     <div class="dvol4-banner">
       <div class="dvol4-banner-left">
@@ -1016,14 +1069,23 @@ async function dvolOuvrirDossier(id) {
         <div>
           <div class="dvol4-banner-eyebrow">Étape en cours</div>
           <div class="dvol4-banner-title">${etapeEnCours.label}</div>
+          ${reportActif ? `<div style="font-size:11px;color:#b45309;margin-top:3px">⏸ Reporté au ${dvolFmtDate(d.date_report)}</div>` : ''}
         </div>
       </div>
-      <button class="dvol4-btn dvol4-btn--primary"
-        data-dossier-id="${d.id}" data-slug="${etapeEnCours.slug}" data-label="${etapeEnCours.label}"
-        onclick="dvolDemanderConfirmEtape(this)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12l5 5 9-10"></path></svg>
-        Confirmer « ${etapeEnCours.label} »
-      </button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="dvol4-btn dvol4-btn--ghost" onclick="dvolDemanderReport('${d.id}')"
+          title="Reporter — sortir temporairement des Actions requises"
+          style="background:#fef3c7;color:#b45309;border-color:#fde68a">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg>
+          Reporter
+        </button>
+        <button class="dvol4-btn dvol4-btn--primary"
+          data-dossier-id="${d.id}" data-slug="${etapeEnCours.slug}" data-label="${etapeEnCours.label}"
+          onclick="dvolDemanderConfirmEtape(this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12l5 5 9-10"></path></svg>
+          Confirmer « ${etapeEnCours.label} »
+        </button>
+      </div>
     </div>` : '';
 
   // ── Bannière LABTAF ──
