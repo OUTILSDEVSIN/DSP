@@ -188,7 +188,7 @@ async function renderDplaneGrille() {
         const renderTag = (p) => {
           const act = dplaneActivites.find(a => a.id === p.activite_id);
           return `<span class="dplane-tag" style="background:${act?.couleur_hex||'#666'};${p.is_brouillon?'opacity:.6;border:1.5px dashed rgba(0,0,0,.25);':''}">
-            ${p.is_brouillon?'✏️ ':''}${act?.nom||'?'}
+            <span class="dplane-tag-text">${p.is_brouillon?'✏️ ':''}${act?.nom||'?'}</span>
             ${canEdit?`<span class="tag-remove" onclick="dplaneSupprimerPlanningUI('${p.id}')">×</span>`:''}
           </span>`;
         };
