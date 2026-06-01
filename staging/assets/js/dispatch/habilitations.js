@@ -206,6 +206,8 @@ function showSouscriptionModal(uid, prenom, nom, habMap) {
         if (!result.error) {
             showNotif('Habilitations souscription enregistrées !', 'success');
             await auditLog('HAB_SOUSCRIPTION_UPDATE', 'Souscription modifiée pour ' + prenom + ' ' + nom);
+            var habModal = document.getElementById('hab-modal');
+            if (habModal) { closeModal('hab-modal'); showHabilitationsModal(); }
         } else {
             showNotif('Erreur sauvegarde souscription', 'error');
         }
