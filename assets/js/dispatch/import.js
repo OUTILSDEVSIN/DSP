@@ -69,25 +69,59 @@ async function handleFile(event) {
 
     document.getElementById('import-result').innerHTML = '<div class="loading">Import en cours...</div>';
 
-    const mapped = rows.map(r => ({
-      ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
-      // AMÉLIO-01 (14/05/2026) : on n'utilise plus 'Date Etat' (instable, modifiée
-      // entre deux exports). On lit 'Date création' qui est la date d'ouverture
-      // réelle du sinistre et reste stable.
-      date_creation: get(r, 'Date création', 'Date creation', 'date_creation', 'DateCreation', 'DATE CREATION'),
-      ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
-      // BUG-04 (14/05/2026) : on ne fallback plus sur la colonne 'Nature' si
-      // 'Nature MIN' est vide. Sinon on stocke le libellé long (ex: "Cambriolage
-      // ou tentative de cambriolage") dans le champ code court → casse les
-      // habilitations qui attendent VOL/BDG/MAT/INC/DDE/AUTRE.
-      nature: get(r, 'Nature MIN', 'nature_min', 'NATURE MIN'),
-      // Le libellé long va dans nature_label (col "Nature" du SI)
-      nature_label: get(r, 'Nature', 'Desc. Nature', 'nature_label', 'Libellé nature'),
-      // BUG-03 (14/05/2026) : lecture directe de la Branche, code canonique
-      // AUTO/MRH/VSP fourni par le SI. Plus de parsing fragile de la référence.
-      type: mapTypeFromBranche(get(r, 'Branche', 'BRANCHE', 'branche')),
-      portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
-    })).filter(d => d.ref_sinistre);
+    // ÉVOL-SOUSCRIPTION (01/06/2026) : calcule l'écart en jours entre la date
+    // de survenance et la date d'effet du contrat pour détecter les sinistres
+    // suspects déclarés peu après la souscription.
+    // Retourne 'critique' / 'majeur' / 'vigilance' / 'mineur' / null.
+    const calcSouscriptionNiveau = (dateEffetStr, dateSurvStr) => {
+      if (!dateEffetStr || !dateSurvStr) return null;
+      const parseDate = (s) => {
+        // Accepte DD/MM/YYYY ou objet Date déjà formaté
+        if (s instanceof Date) return s;
+        const p = String(s).split('/');
+        if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+        return new Date(s);
+      };
+      const dEffet = parseDate(dateEffetStr);
+      const dSurv  = parseDate(dateSurvStr);
+      if (isNaN(dEffet.getTime()) || isNaN(dSurv.getTime())) return null;
+      // On ne signale que si le sinistre survient APRÈS la date d'effet
+      const ecartJours = Math.floor((dSurv - dEffet) / 86400000);
+      if (ecartJours < 0)  return null;  // sinistre avant l'effet → hors périmètre
+      if (ecartJours <= 15) return 'critique';
+      if (ecartJours <= 30) return 'majeur';
+      if (ecartJours <= 60) return 'vigilance';
+      if (ecartJours <= 90) return 'mineur';
+      return null; // > 90 jours → gestion normale
+    };
+
+    const mapped = rows.map(r => {
+      const date_effet_contrat = get(r, 'Date d\'effet du contrat', 'Date effet du contrat', 'date effet contrat', 'DATE EFFET CONTRAT');
+      const date_surv          = get(r, 'Date Surv.', 'Date surv', 'Date survenance', 'DATE SURV', 'date_surv');
+      return {
+        ref_sinistre: get(r, 'Ref sinistre', 'Réf. sinistre', 'Ref. sinistre', 'REF SINISTRE', 'ref_sinistre'),
+        // AMÉLIO-01 (14/05/2026) : on n'utilise plus 'Date Etat' (instable, modifiée
+        // entre deux exports). On lit 'Date création' qui est la date d'ouverture
+        // réelle du sinistre et reste stable.
+        date_creation: get(r, 'Date création', 'Date creation', 'date_creation', 'DateCreation', 'DATE CREATION'),
+        ref_contrat: get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat'),
+        // BUG-04 (14/05/2026) : on ne fallback plus sur la colonne 'Nature' si
+        // 'Nature MIN' est vide. Sinon on stocke le libellé long (ex: "Cambriolage
+        // ou tentative de cambriolage") dans le champ code court → casse les
+        // habilitations qui attendent VOL/BDG/MAT/INC/DDE/AUTRE.
+        nature: get(r, 'Nature MIN', 'nature_min', 'NATURE MIN'),
+        // Le libellé long va dans nature_label (col "Nature" du SI)
+        nature_label: get(r, 'Nature', 'Desc. Nature', 'nature_label', 'Libellé nature'),
+        // BUG-03 (14/05/2026) : lecture directe de la Branche, code canonique
+        // AUTO/MRH/VSP fourni par le SI. Plus de parsing fragile de la référence.
+        type: mapTypeFromBranche(get(r, 'Branche', 'BRANCHE', 'branche')),
+        portefeuille: detectPortefeuille(get(r, 'Ref contrat', 'Réf. contrat', 'Ref. contrat', 'REF CONTRAT', 'ref_contrat')),
+        // ÉVOL-SOUSCRIPTION (01/06/2026)
+        date_effet_contrat,
+        date_surv,
+        souscription_niveau: calcSouscriptionNiveau(date_effet_contrat, date_surv),
+      };
+    }).filter(d => d.ref_sinistre);
 
     if (!mapped.length) {
       showNotif('Aucune ligne valide trouvée. Vérifiez les noms de colonnes.', 'error');
@@ -157,4 +191,3 @@ async function handleFile(event) {
   };
   reader.readAsArrayBuffer(file);
 }
-
