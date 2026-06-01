@@ -70,6 +70,7 @@ async function renderAttribution() {
   if (window._fStatut === undefined) window._fStatut = '';
   if (window._fGestionnaire === undefined) window._fGestionnaire = '';
   if (window._fNonAttribue === undefined) window._fNonAttribue = (role === 'gestionnaire');
+  if (window._fSouscription === undefined) window._fSouscription = '';
 
   const portefeuilles = [...new Set(allDossiers.map(d => d.portefeuille).filter(Boolean))].sort();
   const types = [...new Set(allDossiers.map(d => d.type).filter(Boolean))].sort();
@@ -89,6 +90,7 @@ async function renderAttribution() {
   if (window._fStatut) filtered = filtered.filter(d => (d.statut||'nonattribue') === window._fStatut);
   if (window._fGestionnaire) filtered = filtered.filter(d => (d.gestionnaire||'') === window._fGestionnaire);
   if (window._fNonAttribue) filtered = filtered.filter(d => !d.gestionnaire);
+  if (window._fSouscription) filtered = filtered.filter(d => d.souscription_niveau === window._fSouscription);
 
   // Tri par date_creation ascendant (plus ancienne en tete), nulls en dernier
   var parseDateEtat = function(s) {
@@ -152,6 +154,15 @@ async function renderAttribution() {
         <input type="checkbox" ${window._fNonAttribue?'checked':''} onchange="window._fNonAttribue=this.checked;renderAttribution()">
         Non attribués seulement
       </label>
+      <div class="urow-sep"></div>
+      <select onchange="window._fSouscription=this.value;renderAttribution()"
+        style="padding:5px 10px;border-radius:7px;font-size:12px;border:1px solid #d1d5db;cursor:pointer;background:#fff;">
+        <option value="" ${!window._fSouscription?'selected':''}>🔍 Souscription : Tous</option>
+        <option value="critique"  ${window._fSouscription==='critique' ?'selected':''}>🔴 Critique (0-15j)</option>
+        <option value="majeur"    ${window._fSouscription==='majeur'   ?'selected':''}>🟠 Majeur (15-30j)</option>
+        <option value="vigilance" ${window._fSouscription==='vigilance'?'selected':''}>🟡 Vigilance (30-60j)</option>
+        <option value="mineur"    ${window._fSouscription==='mineur'   ?'selected':''}>🔵 Mineur (60-90j)</option>
+      </select>
     </div>
     <!-- LIGNE 3 : Toolbar dispatch (admin/manager uniquement) -->
     <div class="urow urow-3" style="${['admin','manager'].includes(role) ? '' : 'display:none'}">
@@ -203,6 +214,7 @@ async function renderAttribution() {
         <th>Réf. Contrat</th>
         <th>Type</th>
         <th>Nature</th>
+        <th>Souscription</th>
         <th>Gestionnaire</th>
         <th>🔒</th>
         <th>Statut</th>
@@ -212,8 +224,20 @@ async function renderAttribution() {
       <tbody>`;
 
   if (!filtered.length) {
-    html += `<tr><td colspan="10" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>`;
+    html += `<tr><td colspan="11" style="text-align:center;padding:40px;color:#aaa">Aucun dossier trouvé</td></tr>`;
   } else {
+    // Badge souscription
+    var badgeSouscription = function(niveau) {
+      if (!niveau) return '<span style="color:#bbb;font-size:11px">—</span>';
+      var cfg = {
+        critique:  { color:'#dc2626', bg:'#fee2e2', border:'#fca5a5', label:'🔴 Critique'  },
+        majeur:    { color:'#ea580c', bg:'#ffedd5', border:'#fdba74', label:'🟠 Majeur'    },
+        vigilance: { color:'#ca8a04', bg:'#fef9c3', border:'#fde047', label:'🟡 Vigilance' },
+        mineur:    { color:'#2563eb', bg:'#dbeafe', border:'#93c5fd', label:'🔵 Mineur'    },
+      }[niveau];
+      if (!cfg) return '';
+      return '<span style="display:inline-flex;align-items:center;gap:3px;background:' + cfg.bg + ';border:1px solid ' + cfg.border + ';border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:' + cfg.color + ';white-space:nowrap">' + cfg.label + '</span>';
+    };
     filtered.forEach(d => {
       const statut = d.statut || 'nonattribue';
       const monNom = `${currentUserData.prenom} ${currentUserData.nom}`;
@@ -245,6 +269,7 @@ async function renderAttribution() {
         <td>${d.ref_contrat||'-'}</td>
         <td><span class="badge ${d.type==='Habitation'?'badge-encours':'badge-traite2'}">${d.type||'-'}</span></td>
         <td>${d.nature_label||d.nature||'-'}</td>
+        <td style="text-align:center">${badgeSouscription(d.souscription_niveau)}</td>
         <td>
           <span style="font-size:13px;font-weight:600;color:${d.gestionnaire?'var(--navy)':'#bbb'}">
             ${d.gestionnaire || '--'}
