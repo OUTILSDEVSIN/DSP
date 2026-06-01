@@ -217,7 +217,7 @@ function getDelaiLabel(niv) {
 }
 // ===== FIN MODALE SOUSCRIPTION =====
 
-
+var TYPE_LABEL_MAP = {
     'habitation': 'MRH',
     'auto': 'AUTO',
     'mrh': 'MRH',
