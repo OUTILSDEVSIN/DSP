@@ -198,6 +198,14 @@ async function renderMesDossiers() {
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn-demander-supp" onclick="demanderDossierSupp()">&#10133; Demander un dossier suppl&eacute;mentaire</button>
         ${btnTroc}
+        <select id="filtre-souscription" onchange="renderMesDossiers()"
+          style="padding:5px 10px;border-radius:7px;font-size:12px;border:1px solid #d1d5db;cursor:pointer;background:#fff;">
+          <option value="">🔍 Souscription : Tous</option>
+          <option value="critique">🔴 Critique (0-15j)</option>
+          <option value="majeur">🟠 Majeur (15-30j)</option>
+          <option value="vigilance">🟡 Vigilance (30-60j)</option>
+          <option value="mineur">🔵 Mineur (60-90j)</option>
+        </select>
       </div>
     </div>
     <div id="troc-selection-bar" style="display:none;align-items:center;gap:12px;padding:10px 16px;background:#fff8e1;border:1px solid #f39c12;border-radius:8px;margin-bottom:12px;">
@@ -208,7 +216,7 @@ async function renderMesDossiers() {
     <table><thead><tr>
       <th class="troc-check-col" style="display:none;width:36px;text-align:center;">✓</th>
       <th>Réf. Sinistre</th><th style="white-space:nowrap">Date Création</th><th>Réf. Contrat</th><th>Nature</th>
-      <th>Portefeuille</th><th>Statut</th><th>Traitement</th>
+      <th>Portefeuille</th><th>Souscription</th><th>Statut</th><th>Traitement</th>
     </tr></thead><tbody>`;
   if (!mesDossiers.length) {
     html += '<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><p>Aucun dossier attribué pour le moment.</p></div></td></tr>';
@@ -263,10 +271,30 @@ async function renderMesDossiers() {
       }, 500);
     }
 
+    // Filtre souscription
+    var filtreSouscription = '';
+    var selFiltre = document.getElementById('filtre-souscription');
+    if (selFiltre) filtreSouscription = selFiltre.value;
+
+    // Badge souscription : couleur + libellé selon niveau
+    var badgeSouscription = function(niveau) {
+      if (!niveau) return '<span style="color:#bbb;font-size:11px">—</span>';
+      var cfg = {
+        critique:  { color:'#dc2626', bg:'#fee2e2', border:'#fca5a5', label:'🔴 Critique'  },
+        majeur:    { color:'#ea580c', bg:'#ffedd5', border:'#fdba74', label:'🟠 Majeur'    },
+        vigilance: { color:'#ca8a04', bg:'#fef9c3', border:'#fde047', label:'🟡 Vigilance' },
+        mineur:    { color:'#2563eb', bg:'#dbeafe', border:'#93c5fd', label:'🔵 Mineur'    },
+      }[niveau];
+      if (!cfg) return '';
+      return '<span style="display:inline-flex;align-items:center;gap:3px;background:' + cfg.bg + ';border:1px solid ' + cfg.border + ';border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;color:' + cfg.color + ';white-space:nowrap">' + cfg.label + '</span>';
+    };
+
     mesDossiers.forEach(d => {
       const statut = d.statut || 'nonattribue';
       const canSee = ['attribue','encours','ouvert','traite','relance','ouverture','refuse','gestion_vol'].includes(statut);
       if (!canSee) return;
+      // Filtre souscription actif
+      if (filtreSouscription && d.souscription_niveau !== filtreSouscription) return;
       const histoEntryMD = histoActifMD ? histoMapMD[d.ref_sinistre] : null;
       // ✅ FIX BUGS-002-v3 (2/3) — jaune uniquement le jour même
       const aujourdhuiMD = new Date().toISOString().split('T')[0];
@@ -302,6 +330,7 @@ async function renderMesDossiers() {
         <td>${d.ref_contrat}</td>
         <td>${d.nature_label || d.nature}</td>
         <td>${d.portefeuille}</td>
+        <td style="text-align:center">${badgeSouscription(d.souscription_niveau)}</td>
         <td>${statutBadge(d.statut, d.verrouille)}</td>
         <td style="text-align:center">
           ${enTroc
